@@ -53,7 +53,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: pnpm --filter api dev
+    command: pnpm --filter @app/api dev
 
   web:
     build:
