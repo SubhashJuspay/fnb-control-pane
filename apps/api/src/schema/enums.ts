@@ -19,3 +19,11 @@ export const MembershipStatusEnum = builder.enumType('MembershipStatus', {
 export const UserStatusEnum = builder.enumType('UserStatus', {
   values: ['ACTIVE', 'DISABLED'] as const,
 });
+
+export const ItemCourseEnum = builder.enumType('ItemCourse', {
+  values: ['APPETIZER', 'MAIN', 'DESSERT', 'SIDE', 'BEVERAGE', 'OTHER'] as const,
+});
+
+export const TaxCategoryKindEnum = builder.enumType('TaxCategoryKind', {
+  values: ['FOOD', 'NON_ALCOHOL_BEV', 'ALCOHOL', 'RETAIL', 'OTHER'] as const,
+});
