@@ -15,4 +15,6 @@ export * from './components/form.js';
 export * from './patterns/empty-state.js';
 export * from './patterns/data-table.js';
 export * from './patterns/sortable.js';
+export * from './patterns/schedule-summary.js';
+export * from './patterns/schedule-editor.js';
 export * from './components/money-input.js';
