@@ -65,6 +65,6 @@ export async function setupTestDb(): Promise<TestDb> {
  */
 export async function truncateAll(p: PrismaClient): Promise<void> {
   await p.$executeRawUnsafe(
-    'TRUNCATE TABLE audit_logs, invitations, memberships, sessions, accounts, verification_tokens, users, locations, tenants RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE audit_logs, invitations, memberships, sessions, accounts, verification_tokens, location_modifiers, location_items, menu_section_items, menu_sections, menus, menu_item_modifier_groups, modifiers, modifier_groups, menu_items, tax_rates, tax_categories, categories, users, locations, tenants RESTART IDENTITY CASCADE',
   );
 }
