@@ -1,4 +1,5 @@
 import type { RequestContext } from '../context.js';
+import { ForbiddenError } from '../errors.js';
 import { builder } from './builder.js';
 import { RoleEnum } from './enums.js';
 import { hashToken } from '../tokens.js';
@@ -82,5 +83,32 @@ builder.queryField('invitationByToken', (t) =>
     description: 'Look up an invitation by its single-use token. Anonymous-allowed.',
     args: { token: t.arg.string({ required: true }) },
     resolve: (_root, args, ctx) => resolveInvitationByToken(args.token, ctx),
+  }),
+);
+
+/** Pure resolver for tenantInvitations — extracted for direct unit testing. */
+export async function resolveTenantInvitations(
+  query: object,
+  ctx: RequestContext,
+): Promise<unknown[]> {
+  if (ctx.auth.kind !== 'authenticated') throw new ForbiddenError();
+  return ctx.prisma.invitation.findMany({
+    ...query,
+    where: {
+      tenantId: ctx.auth.tenant.id,
+      acceptedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+builder.queryField('tenantInvitations', (t) =>
+  t.prismaField({
+    type: ['Invitation'],
+    description: 'Pending (unaccepted, unexpired) invitations within the current tenant.',
+    authScopes: { admin: true },
+    resolve: (query, _root, _args, ctx) =>
+      resolveTenantInvitations(query, ctx) as never,
   }),
 );

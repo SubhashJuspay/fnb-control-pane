@@ -13,6 +13,8 @@ export default defineConfig({
       'lib/**/*.test.tsx',
       'app/**/*.test.ts',
       'app/**/*.test.tsx',
+      'components/**/*.test.ts',
+      'components/**/*.test.tsx',
     ],
     environment: 'jsdom',
     globals: false,

@@ -15,10 +15,12 @@ import './user.js';
 import './membership.js';
 import './viewer.js';
 import './invitation.js';
+import './audit.js';
 import './mutations/create-location.js';
 import './mutations/invite-staff.js';
 import './mutations/accept-invitation.js';
 import './mutations/revoke-membership.js';
+import './mutations/revoke-invitation.js';
 import './mutations/update-membership-role.js';
 
 export { builder };

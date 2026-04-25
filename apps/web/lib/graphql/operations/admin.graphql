@@ -1,0 +1,122 @@
+query AdminTenantMembers($first: Int, $after: String) {
+  tenantMembers(first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        id
+        role
+        status
+        createdAt
+        user {
+          id
+          email
+          name
+        }
+        location {
+          id
+          name
+          slug
+        }
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    totalCount
+  }
+}
+
+query AdminTenantInvitations {
+  tenantInvitations {
+    id
+    email
+    role
+    expiresAt
+    createdAt
+    location {
+      id
+      name
+      slug
+    }
+  }
+}
+
+query AdminTenantLocations {
+  tenantLocations {
+    id
+    name
+    slug
+    timezone
+    currency
+    locale
+    businessDayCutoff
+    status
+    createdAt
+  }
+}
+
+query AdminAuditLogs($first: Int, $after: String) {
+  auditLogs(first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        id
+        action
+        resourceType
+        resourceId
+        actorUserId
+        actorEmail
+        metadata
+        createdAt
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    totalCount
+  }
+}
+
+mutation AdminInviteStaff($input: InviteStaffInput!) {
+  inviteStaff(input: $input) {
+    id
+    email
+    role
+    expiresAt
+  }
+}
+
+mutation AdminRevokeMembership($input: RevokeMembershipInput!) {
+  revokeMembership(input: $input) {
+    id
+    status
+  }
+}
+
+mutation AdminUpdateMembershipRole($input: UpdateMembershipRoleInput!) {
+  updateMembershipRole(input: $input) {
+    id
+    role
+  }
+}
+
+mutation AdminRevokeInvitation($input: RevokeInvitationInput!) {
+  revokeInvitation(input: $input) {
+    id
+  }
+}
+
+mutation AdminCreateLocation($input: CreateLocationInput!) {
+  createLocation(input: $input) {
+    id
+    name
+    slug
+    timezone
+    currency
+    locale
+    businessDayCutoff
+    status
+  }
+}
