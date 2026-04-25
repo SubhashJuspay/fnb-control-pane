@@ -11,6 +11,9 @@ import './enums.js';
 // Register domain modules so their Query/Mutation fields are present.
 import './tenant.js';
 import './location.js';
+import './user.js';
+import './membership.js';
+import './viewer.js';
 
 export { builder };
 
