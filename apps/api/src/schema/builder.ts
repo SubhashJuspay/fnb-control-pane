@@ -84,18 +84,10 @@ builder.scalarType('UUID', {
   },
 });
 
-// Provide a placeholder field on Query/Mutation so the schema is valid before
-// domain modules land in Wave 3b. Both _placeholder fields are skip-authed and
-// return a constant string.
-builder.queryType({
-  fields: (t) => ({
-    _placeholder: t.string({
-      skipTypeScopes: true,
-      authScopes: {},
-      resolve: () => 'ok',
-    }),
-  }),
-});
+// Initialize Query/Mutation root types. Domain modules attach fields via
+// builder.queryField / builder.mutationField. Mutation keeps a temporary
+// _placeholder until Task 15 lands real mutations; it will be removed there.
+builder.queryType({});
 builder.mutationType({
   fields: (t) => ({
     _placeholder: t.string({
