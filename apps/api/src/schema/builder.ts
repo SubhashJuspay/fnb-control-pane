@@ -85,15 +85,6 @@ builder.scalarType('UUID', {
 });
 
 // Initialize Query/Mutation root types. Domain modules attach fields via
-// builder.queryField / builder.mutationField. Mutation keeps a temporary
-// _placeholder until Task 15 lands real mutations; it will be removed there.
+// builder.queryField / builder.mutationField.
 builder.queryType({});
-builder.mutationType({
-  fields: (t) => ({
-    _placeholder: t.string({
-      skipTypeScopes: true,
-      authScopes: {},
-      resolve: () => 'ok',
-    }),
-  }),
-});
+builder.mutationType({});
