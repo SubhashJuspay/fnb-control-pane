@@ -44,6 +44,9 @@ importers:
       '@pothos/plugin-zod':
         specifier: 4.2.2
         version: 4.2.2(@pothos/core@4.12.0(graphql@16.13.2))(graphql@16.13.2)(zod@3.25.76)
+      '@prisma/client':
+        specifier: ^6.1.0
+        version: 6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
       '@repo/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -59,6 +62,9 @@ importers:
       graphql:
         specifier: ^16.10.0
         version: 16.13.2
+      graphql-scalars:
+        specifier: ^1.24.0
+        version: 1.25.0(graphql@16.13.2)
       graphql-yoga:
         specifier: ^5.10.4
         version: 5.21.0(graphql@16.13.2)
@@ -136,6 +142,9 @@ importers:
         specifier: ^6.1.0
         version: 6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3)
     devDependencies:
+      '@pothos/plugin-prisma':
+        specifier: ^4.6.0
+        version: 4.14.3(@pothos/core@4.12.0(graphql@16.13.2))(@prisma/client@6.19.3(prisma@6.19.3(magicast@0.3.5)(typescript@5.9.3))(typescript@5.9.3))(graphql@16.13.2)(typescript@5.9.3)
       '@repo/config':
         specifier: workspace:*
         version: link:../config
@@ -2417,6 +2426,12 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  graphql-scalars@1.25.0:
+    resolution: {integrity: sha512-b0xyXZeRFkne4Eq7NAnL400gStGqG/Sx9VqX0A05nHyEbv57UJnWKsjNnrpVqv5e/8N1MUxkt0wwcRXbiyKcFg==}
+    engines: {node: '>=10'}
+    peerDependencies:
+      graphql: ^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
 
   graphql-yoga@5.21.0:
     resolution: {integrity: sha512-PS37UoDihx8209RRl1ogttzWevNYDnGvP7beHkwHzUpUdfZTHsVRTVe1ysGXre1EjwUAePbpez302YSrq70Ngw==}
@@ -5984,6 +5999,11 @@ snapshots:
   gopd@1.2.0: {}
 
   graceful-fs@4.2.11: {}
+
+  graphql-scalars@1.25.0(graphql@16.13.2):
+    dependencies:
+      graphql: 16.13.2
+      tslib: 2.8.1
 
   graphql-yoga@5.21.0(graphql@16.13.2):
     dependencies:

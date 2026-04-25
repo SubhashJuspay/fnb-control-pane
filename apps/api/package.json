@@ -10,7 +10,8 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prisma:pothos": "pnpm --filter @repo/db exec prisma generate"
   },
   "dependencies": {
     "@pothos/core": "^4.4.0",
@@ -21,11 +22,13 @@
     "@pothos/plugin-scope-auth": "^4.1.4",
     "@pothos/plugin-tracing": "^1.1.0",
     "@pothos/plugin-zod": "4.2.2",
+    "@prisma/client": "^6.1.0",
     "@repo/db": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/validation": "workspace:*",
     "fastify": "^5.2.1",
     "graphql": "^16.10.0",
+    "graphql-scalars": "^1.24.0",
     "graphql-yoga": "^5.10.4",
     "nodemailer": "^6.9.16",
     "pino": "^9.6.0",

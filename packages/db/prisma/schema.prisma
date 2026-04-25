@@ -3,6 +3,12 @@ generator client {
   previewFeatures = ["postgresqlExtensions"]
 }
 
+generator pothos {
+  provider     = "prisma-pothos-types"
+  clientOutput = "@prisma/client"
+  output       = "../../../apps/api/src/schema/prisma-types.ts"
+}
+
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
