@@ -1,0 +1,204 @@
+query LocationMenus {
+  locationMenus {
+    id
+    name
+    description
+    schedule
+    isActive
+    isLive
+    sortOrder
+    archivedAt
+    nextWindow {
+      start
+      end
+    }
+    sections {
+      id
+      name
+      sortOrder
+      archivedAt
+    }
+  }
+}
+
+query LocationMenu($id: UUID!) {
+  locationMenu(id: $id) {
+    id
+    name
+    description
+    schedule
+    isActive
+    isLive
+    sortOrder
+    archivedAt
+    nextWindow {
+      start
+      end
+    }
+    sections {
+      id
+      name
+      sortOrder
+      archivedAt
+      items {
+        id
+        sortOrder
+        priceOverrideCents
+        effectivePriceCents
+        archivedAt
+        menuItem {
+          id
+          name
+          basePriceCents
+          imageUrl
+          course
+        }
+      }
+    }
+  }
+}
+
+query LocationActiveMenus($at: DateTime) {
+  locationActiveMenus(at: $at) {
+    id
+    name
+    isLive
+    nextWindow {
+      start
+      end
+    }
+  }
+}
+
+query LocationOverrides {
+  locationOverrides {
+    id
+    locationId
+    menuItemId
+    priceCents
+    available
+    hidden
+  }
+}
+
+mutation CreateMenu($input: CreateMenuInput!) {
+  createMenu(input: $input) {
+    id
+    name
+    description
+    schedule
+    isActive
+    sortOrder
+  }
+}
+
+mutation UpdateMenu($input: UpdateMenuInput!) {
+  updateMenu(input: $input) {
+    id
+    name
+    description
+    schedule
+    isActive
+  }
+}
+
+mutation ArchiveMenu($input: ArchiveMenuInput!) {
+  archiveMenu(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation ReorderMenus($input: ReorderMenusInput!) {
+  reorderMenus(input: $input) {
+    ids
+  }
+}
+
+mutation CreateMenuSection($input: CreateMenuSectionInput!) {
+  createMenuSection(input: $input) {
+    id
+    name
+    sortOrder
+  }
+}
+
+mutation UpdateMenuSection($input: UpdateMenuSectionInput!) {
+  updateMenuSection(input: $input) {
+    id
+    name
+  }
+}
+
+mutation ArchiveMenuSection($input: ArchiveMenuSectionInput!) {
+  archiveMenuSection(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation ReorderMenuSections($input: ReorderMenuSectionsInput!) {
+  reorderMenuSections(input: $input) {
+    ids
+  }
+}
+
+mutation AddItemToMenuSection($input: AddItemToMenuSectionInput!) {
+  addItemToMenuSection(input: $input) {
+    id
+    sortOrder
+    priceOverrideCents
+    menuItem {
+      id
+      name
+    }
+  }
+}
+
+mutation UpdateMenuSectionItem($input: UpdateMenuSectionItemInput!) {
+  updateMenuSectionItem(input: $input) {
+    id
+    priceOverrideCents
+  }
+}
+
+mutation ReorderMenuSectionItems($input: ReorderMenuSectionItemsInput!) {
+  reorderMenuSectionItems(input: $input) {
+    ids
+  }
+}
+
+mutation RemoveItemFromMenuSection($input: RemoveItemFromMenuSectionInput!) {
+  removeItemFromMenuSection(input: $input) {
+    id
+  }
+}
+
+mutation UpsertLocationItem($input: UpsertLocationItemInput!) {
+  upsertLocationItem(input: $input) {
+    id
+    locationId
+    menuItemId
+    priceCents
+    available
+    hidden
+  }
+}
+
+mutation UpsertLocationModifier($input: UpsertLocationModifierInput!) {
+  upsertLocationModifier(input: $input) {
+    id
+    locationId
+    modifierId
+    priceDeltaOverrideCents
+    available
+    hidden
+  }
+}
+
+mutation SetItem86($input: SetItem86Input!) {
+  setItem86(input: $input) {
+    id
+    available
+  }
+}

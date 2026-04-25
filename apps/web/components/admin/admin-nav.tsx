@@ -26,6 +26,11 @@ const TABS: NavTab[] = [
     matches: (path, slug) => path.startsWith(`/${slug}/admin/locations`),
   },
   {
+    href: (slug) => `/${slug}/admin/catalog`,
+    label: 'Catalog',
+    matches: (path, slug) => path.startsWith(`/${slug}/admin/catalog`),
+  },
+  {
     href: (slug) => `/${slug}/admin/audit-log`,
     label: 'Audit log',
     matches: (path, slug) => path.startsWith(`/${slug}/admin/audit-log`),

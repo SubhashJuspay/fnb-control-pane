@@ -1,0 +1,309 @@
+query CatalogItems($first: Int, $after: String, $filter: CatalogItemFilter) {
+  catalogItems(first: $first, after: $after, filter: $filter) {
+    edges {
+      cursor
+      node {
+        id
+        name
+        shortDescription
+        description
+        basePriceCents
+        imageUrl
+        course
+        printerStation
+        archivedAt
+        dietaryTags
+        allergenTags
+        category {
+          id
+          name
+        }
+        taxCategory {
+          id
+          name
+          kind
+        }
+        modifierGroups {
+          id
+          name
+        }
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    totalCount
+  }
+}
+
+query CatalogItem($id: UUID!) {
+  catalogItem(id: $id) {
+    id
+    name
+    shortDescription
+    description
+    basePriceCents
+    imageUrl
+    course
+    printerStation
+    archivedAt
+    dietaryTags
+    allergenTags
+    category {
+      id
+      name
+    }
+    taxCategory {
+      id
+      name
+      kind
+    }
+    modifierGroups {
+      id
+      name
+      minSelections
+      maxSelections
+    }
+  }
+}
+
+query CatalogCategories {
+  catalogCategories {
+    id
+    name
+    slug
+    sortOrder
+    archivedAt
+  }
+}
+
+query CatalogTaxCategories {
+  catalogTaxCategories {
+    id
+    name
+    kind
+    archivedAt
+  }
+}
+
+query CatalogTaxCategoryRates($id: UUID!, $locationId: UUID!) {
+  catalogTaxCategories {
+    id
+    name
+    kind
+    ratesAtLocation(locationId: $locationId) {
+      id
+      ratePermille
+      effectiveFrom
+      effectiveUntil
+    }
+  }
+}
+
+query CatalogModifierGroups($first: Int, $after: String) {
+  catalogModifierGroups(first: $first, after: $after) {
+    edges {
+      cursor
+      node {
+        id
+        name
+        minSelections
+        maxSelections
+        archivedAt
+        modifiers {
+          id
+        }
+        attachedItems {
+          id
+        }
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    totalCount
+  }
+}
+
+query CatalogModifierGroup($id: UUID!) {
+  catalogModifierGroup(id: $id) {
+    id
+    name
+    minSelections
+    maxSelections
+    archivedAt
+    modifiers {
+      id
+      name
+      priceDeltaCents
+      isDefault
+      sortOrder
+      archivedAt
+    }
+    attachedItems {
+      id
+      name
+    }
+  }
+}
+
+mutation CreateCategory($input: CreateCategoryInput!) {
+  createCategory(input: $input) {
+    id
+    name
+    slug
+    sortOrder
+  }
+}
+
+mutation UpdateCategory($input: UpdateCategoryInput!) {
+  updateCategory(input: $input) {
+    id
+    name
+    slug
+  }
+}
+
+mutation ArchiveCategory($input: ArchiveCategoryInput!) {
+  archiveCategory(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation ReorderCategories($input: ReorderCategoriesInput!) {
+  reorderCategories(input: $input) {
+    ids
+  }
+}
+
+mutation CreateTaxCategory($input: CreateTaxCategoryInput!) {
+  createTaxCategory(input: $input) {
+    id
+    name
+    kind
+  }
+}
+
+mutation SetTaxRate($input: SetTaxRateInput!) {
+  setTaxRate(input: $input) {
+    id
+    taxCategoryId
+    locationId
+    ratePermille
+    effectiveFrom
+    effectiveUntil
+  }
+}
+
+mutation CreateMenuItem($input: CreateMenuItemInput!) {
+  createMenuItem(input: $input) {
+    id
+    name
+    basePriceCents
+    course
+  }
+}
+
+mutation UpdateMenuItem($input: UpdateMenuItemInput!) {
+  updateMenuItem(input: $input) {
+    id
+    name
+    shortDescription
+    description
+    basePriceCents
+    imageUrl
+    course
+    printerStation
+    dietaryTags
+    allergenTags
+  }
+}
+
+mutation ArchiveMenuItem($input: ArchiveMenuItemInput!) {
+  archiveMenuItem(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation UnarchiveMenuItem($input: UnarchiveMenuItemInput!) {
+  unarchiveMenuItem(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation CreateModifierGroup($input: CreateModifierGroupInput!) {
+  createModifierGroup(input: $input) {
+    id
+    name
+    minSelections
+    maxSelections
+  }
+}
+
+mutation UpdateModifierGroup($input: UpdateModifierGroupInput!) {
+  updateModifierGroup(input: $input) {
+    id
+    name
+    minSelections
+    maxSelections
+  }
+}
+
+mutation ArchiveModifierGroup($input: ArchiveModifierGroupInput!) {
+  archiveModifierGroup(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation AddModifier($input: AddModifierInput!) {
+  addModifier(input: $input) {
+    id
+    name
+    priceDeltaCents
+    isDefault
+    sortOrder
+  }
+}
+
+mutation UpdateModifier($input: UpdateModifierInput!) {
+  updateModifier(input: $input) {
+    id
+    name
+    priceDeltaCents
+    isDefault
+  }
+}
+
+mutation ArchiveModifier($input: ArchiveModifierInput!) {
+  archiveModifier(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation ReorderModifiers($input: ReorderModifiersInput!) {
+  reorderModifiers(input: $input) {
+    ids
+  }
+}
+
+mutation AttachModifierGroup($input: AttachModifierGroupInput!) {
+  attachModifierGroupToItem(input: $input) {
+    menuItemId
+    modifierGroupId
+    sortOrder
+  }
+}
+
+mutation DetachModifierGroup($input: DetachModifierGroupInput!) {
+  detachModifierGroupFromItem(input: $input) {
+    menuItemId
+    modifierGroupId
+  }
+}

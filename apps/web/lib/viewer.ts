@@ -18,6 +18,7 @@ const VIEWER_QUERY = /* GraphQL */ `
             id
             slug
             name
+            currency
           }
         }
         location {
@@ -34,6 +35,8 @@ export interface AppShellLocation {
   id: string;
   slug: string;
   name: string;
+  /** ISO 4217 code; defaults to 'USD' if upstream returned null. */
+  currency: string;
 }
 
 export interface AppShellTenant {
@@ -65,7 +68,7 @@ interface RawMembership {
     id: string;
     slug: string;
     name: string;
-    locations: Array<{ id: string; slug: string; name: string }>;
+    locations: Array<{ id: string; slug: string; name: string; currency: string | null }>;
   };
   location: { id: string; slug: string; name: string } | null;
 }
@@ -134,7 +137,12 @@ export async function loadAppShellData(): Promise<AppShellData | null> {
     const seen = new Set(tenant.locations.map((l) => l.id));
     for (const loc of membership.tenant.locations) {
       if (!seen.has(loc.id)) {
-        tenant.locations.push({ id: loc.id, slug: loc.slug, name: loc.name });
+        tenant.locations.push({
+          id: loc.id,
+          slug: loc.slug,
+          name: loc.name,
+          currency: loc.currency ?? 'USD',
+        });
         seen.add(loc.id);
       }
     }

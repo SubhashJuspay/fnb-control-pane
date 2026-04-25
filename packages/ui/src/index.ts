@@ -1,4 +1,5 @@
 export { cn } from './lib/cn.js';
+export { formatMoney } from './lib/format-money.js';
 export * from './components/button.js';
 export * from './components/input.js';
 export * from './components/label.js';

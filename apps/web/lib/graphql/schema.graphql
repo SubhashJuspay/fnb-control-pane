@@ -4,9 +4,59 @@ input AcceptInvitationInput {
   token: String!
 }
 
+input AddItemToMenuSectionInput {
+  menuItemId: UUID!
+  menuSectionId: UUID!
+  priceOverrideCents: Int
+}
+
+input AddModifierInput {
+  isDefault: Boolean
+  modifierGroupId: UUID!
+  name: String!
+  priceDeltaCents: Int
+}
+
 type AppError {
   code: String
   message: String
+}
+
+input ArchiveCategoryInput {
+  id: UUID!
+}
+
+input ArchiveMenuInput {
+  id: UUID!
+}
+
+input ArchiveMenuItemInput {
+  id: UUID!
+}
+
+input ArchiveMenuSectionInput {
+  id: UUID!
+}
+
+input ArchiveModifierGroupInput {
+  id: UUID!
+}
+
+input ArchiveModifierInput {
+  id: UUID!
+}
+
+input AttachModifierGroupInput {
+  menuItemId: UUID!
+  modifierGroupId: UUID!
+  sortOrder: Int
+}
+
+"""Result of attaching a modifier group to a menu item."""
+type AttachModifierGroupResult {
+  menuItemId: ID
+  modifierGroupId: ID
+  sortOrder: Int
 }
 
 type AuditLog {
@@ -20,6 +70,29 @@ type AuditLog {
   resourceType: String
 }
 
+input CatalogItemFilter {
+  archivedOnly: Boolean
+  categoryId: UUID
+  includeArchived: Boolean
+  search: String
+}
+
+type Category {
+  archivedAt: DateTime
+  createdAt: DateTime
+  id: ID
+  name: String
+  slug: String
+  sortOrder: Int
+  updatedAt: DateTime
+}
+
+input CreateCategoryInput {
+  name: String!
+  slug: String!
+  sortOrder: Int
+}
+
 input CreateLocationInput {
   businessDayCutoff: String
   currency: String!
@@ -29,10 +102,58 @@ input CreateLocationInput {
   timezone: String!
 }
 
+input CreateMenuInput {
+  description: String
+  isActive: Boolean
+  name: String!
+  schedule: JSON
+}
+
+input CreateMenuItemInput {
+  allergenTags: [String!]
+  basePriceCents: Int!
+  categoryId: UUID
+  course: ItemCourse
+  description: String
+  dietaryTags: [String!]
+  imageUrl: String
+  name: String!
+  printerStation: String
+  shortDescription: String
+  taxCategoryId: UUID!
+}
+
+input CreateMenuSectionInput {
+  menuId: UUID!
+  name: String!
+}
+
+input CreateModifierGroupInput {
+  maxSelections: Int
+  minSelections: Int
+  name: String!
+}
+
+input CreateTaxCategoryInput {
+  kind: TaxCategoryKind!
+  name: String!
+}
+
 """
 A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
 """
 scalar DateTime
+
+input DetachModifierGroupInput {
+  menuItemId: UUID!
+  modifierGroupId: UUID!
+}
+
+"""Result of detaching a modifier group from a menu item."""
+type DetachModifierGroupResult {
+  menuItemId: ID
+  modifierGroupId: ID
+}
 
 type Invitation {
   acceptedAt: DateTime
@@ -62,6 +183,15 @@ input InviteStaffInput {
   role: Role!
 }
 
+enum ItemCourse {
+  APPETIZER
+  BEVERAGE
+  DESSERT
+  MAIN
+  OTHER
+  SIDE
+}
+
 """
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
@@ -78,6 +208,24 @@ type Location {
   status: LocationStatus
   tenant: Tenant
   timezone: String
+}
+
+type LocationItem {
+  available: Boolean
+  hidden: Boolean
+  id: ID
+  locationId: ID
+  menuItemId: ID
+  priceCents: Int
+}
+
+type LocationModifier {
+  available: Boolean
+  hidden: Boolean
+  id: ID
+  locationId: ID
+  modifierId: ID
+  priceDeltaOverrideCents: Int
 }
 
 enum LocationStatus {
@@ -101,13 +249,120 @@ enum MembershipStatus {
   REVOKED
 }
 
+type Menu {
+  archivedAt: DateTime
+  description: String
+  id: ID
+  isActive: Boolean
+  isLive: Boolean
+  name: String
+  nextWindow: ScheduleWindow
+  schedule: JSON
+  sections: [MenuSection!]
+  sortOrder: Int
+}
+
+type MenuItem {
+  allergenTags: [String!]
+  archivedAt: DateTime
+  availableAtViewerLocation: Boolean
+  basePriceCents: Int
+  category: Category
+  course: ItemCourse
+  createdAt: DateTime
+  description: String
+  dietaryTags: [String!]
+  effectivePriceCents: Int
+  id: ID
+  imageUrl: String
+  locationOverride: LocationItem
+  modifierGroups: [ModifierGroup!]
+  name: String
+  printerStation: String
+  shortDescription: String
+  taxCategory: TaxCategory
+}
+
+type MenuSection {
+  archivedAt: DateTime
+  id: ID
+  items: [MenuSectionItem!]
+  name: String
+  sortOrder: Int
+}
+
+type MenuSectionItem {
+  archivedAt: DateTime
+  effectivePriceCents: Int
+  id: ID
+  menuItem: MenuItem
+  priceOverrideCents: Int
+  sortOrder: Int
+}
+
+type Modifier {
+  archivedAt: DateTime
+  availableAtViewerLocation: Boolean
+  effectivePriceDeltaCents: Int
+  id: ID
+  isDefault: Boolean
+  name: String
+  priceDeltaCents: Int
+  sortOrder: Int
+}
+
+type ModifierGroup {
+  archivedAt: DateTime
+  attachedItems: [MenuItem!]
+  createdAt: DateTime
+  id: ID
+  maxSelections: Int
+  minSelections: Int
+  modifiers: [Modifier!]
+  name: String
+}
+
 type Mutation {
   acceptInvitation(input: AcceptInvitationInput!): User
+  addItemToMenuSection(input: AddItemToMenuSectionInput!): MenuSectionItem
+  addModifier(input: AddModifierInput!): Modifier
+  archiveCategory(input: ArchiveCategoryInput!): Category
+  archiveMenu(input: ArchiveMenuInput!): Menu
+  archiveMenuItem(input: ArchiveMenuItemInput!): MenuItem
+  archiveMenuSection(input: ArchiveMenuSectionInput!): MenuSection
+  archiveModifier(input: ArchiveModifierInput!): Modifier
+  archiveModifierGroup(input: ArchiveModifierGroupInput!): ModifierGroup
+  attachModifierGroupToItem(input: AttachModifierGroupInput!): AttachModifierGroupResult
+  createCategory(input: CreateCategoryInput!): Category
   createLocation(input: CreateLocationInput!): Location
+  createMenu(input: CreateMenuInput!): Menu
+  createMenuItem(input: CreateMenuItemInput!): MenuItem
+  createMenuSection(input: CreateMenuSectionInput!): MenuSection
+  createModifierGroup(input: CreateModifierGroupInput!): ModifierGroup
+  createTaxCategory(input: CreateTaxCategoryInput!): TaxCategory
+  detachModifierGroupFromItem(input: DetachModifierGroupInput!): DetachModifierGroupResult
   inviteStaff(input: InviteStaffInput!): Invitation
+  removeItemFromMenuSection(input: RemoveItemFromMenuSectionInput!): RemoveItemFromMenuSectionResult
+  reorderCategories(input: ReorderCategoriesInput!): ReorderCategoriesResult
+  reorderMenuSectionItems(input: ReorderMenuSectionItemsInput!): ReorderMenuSectionItemsResult
+  reorderMenuSections(input: ReorderMenuSectionsInput!): ReorderMenuSectionsResult
+  reorderMenus(input: ReorderMenusInput!): ReorderMenusResult
+  reorderModifiers(input: ReorderModifiersInput!): ReorderModifiersResult
   revokeInvitation(input: RevokeInvitationInput!): RevokeInvitationResult
   revokeMembership(input: RevokeMembershipInput!): Membership
+  setItem86(input: SetItem86Input!): LocationItem
+  setTaxRate(input: SetTaxRateInput!): TaxRate
+  unarchiveMenuItem(input: UnarchiveMenuItemInput!): MenuItem
+  updateCategory(input: UpdateCategoryInput!): Category
   updateMembershipRole(input: UpdateMembershipRoleInput!): Membership
+  updateMenu(input: UpdateMenuInput!): Menu
+  updateMenuItem(input: UpdateMenuItemInput!): MenuItem
+  updateMenuSection(input: UpdateMenuSectionInput!): MenuSection
+  updateMenuSectionItem(input: UpdateMenuSectionItemInput!): MenuSectionItem
+  updateModifier(input: UpdateModifierInput!): Modifier
+  updateModifierGroup(input: UpdateModifierGroupInput!): ModifierGroup
+  upsertLocationItem(input: UpsertLocationItemInput!): LocationItem
+  upsertLocationModifier(input: UpsertLocationModifierInput!): LocationModifier
 }
 
 type PageInfo {
@@ -121,8 +376,44 @@ type Query {
   """Audit-log entries within the current tenant. Requires admin role."""
   auditLogs(after: String, before: String, first: Int, last: Int): QueryAuditLogsConnection
 
+  """
+  All non-archived categories within the current tenant. Requires manager role.
+  """
+  catalogCategories: [Category!]
+
+  """Single menu item by id (tenant-scoped). Requires manager role."""
+  catalogItem(id: UUID!): MenuItem
+
+  """Menu items within the current tenant. Requires manager role."""
+  catalogItems(after: String, before: String, filter: CatalogItemFilter, first: Int, last: Int): QueryCatalogItemsConnection
+  catalogModifierGroup(id: UUID!): ModifierGroup
+
+  """Modifier groups within the current tenant. Requires manager role."""
+  catalogModifierGroups(after: String, before: String, first: Int, last: Int): QueryCatalogModifierGroupsConnection
+
+  """
+  All non-archived tax categories for the current tenant. Requires manager role.
+  """
+  catalogTaxCategories: [TaxCategory!]
+
   """Look up an invitation by its single-use token. Anonymous-allowed."""
   invitationByToken(token: String!): InvitationLookup
+
+  """Menus that are active and live at the given moment. Defaults to now."""
+  locationActiveMenus(at: DateTime): [Menu!]
+
+  """
+  Single menu by id, scoped to the viewer's location. Requires manager role.
+  """
+  locationMenu(id: UUID!): Menu
+
+  """
+  All non-archived menus at the viewer's location. Requires manager role.
+  """
+  locationMenus: [Menu!]
+
+  """All LocationItem rows at the viewer's location. Requires manager role."""
+  locationOverrides: [LocationItem!]
 
   """Tenants the current viewer has at least one ACTIVE membership in."""
   myTenants: [Tenant!]
@@ -153,6 +444,28 @@ type QueryAuditLogsConnectionEdge {
   node: AuditLog
 }
 
+type QueryCatalogItemsConnection {
+  edges: [QueryCatalogItemsConnectionEdge]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type QueryCatalogItemsConnectionEdge {
+  cursor: String!
+  node: MenuItem
+}
+
+type QueryCatalogModifierGroupsConnection {
+  edges: [QueryCatalogModifierGroupsConnectionEdge]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type QueryCatalogModifierGroupsConnectionEdge {
+  cursor: String!
+  node: ModifierGroup
+}
+
 type QueryTenantMembersConnection {
   edges: [QueryTenantMembersConnectionEdge]
   pageInfo: PageInfo!
@@ -162,6 +475,63 @@ type QueryTenantMembersConnection {
 type QueryTenantMembersConnectionEdge {
   cursor: String!
   node: Membership
+}
+
+input RemoveItemFromMenuSectionInput {
+  id: UUID!
+}
+
+"""Result of removing an item from a menu section."""
+type RemoveItemFromMenuSectionResult {
+  id: ID
+}
+
+input ReorderCategoriesInput {
+  orderedIds: [UUID!]!
+}
+
+"""Result of reordering categories — list of ids in new order."""
+type ReorderCategoriesResult {
+  ids: [ID!]
+}
+
+input ReorderMenuSectionItemsInput {
+  menuSectionId: UUID!
+  orderedIds: [UUID!]!
+}
+
+"""Result of reordering menu section items."""
+type ReorderMenuSectionItemsResult {
+  ids: [ID!]
+}
+
+input ReorderMenuSectionsInput {
+  menuId: UUID!
+  orderedIds: [UUID!]!
+}
+
+"""Result of reordering menu sections."""
+type ReorderMenuSectionsResult {
+  ids: [ID!]
+}
+
+input ReorderMenusInput {
+  orderedIds: [UUID!]!
+}
+
+"""Result of reordering menus — list of ids in new order."""
+type ReorderMenusResult {
+  ids: [ID!]
+}
+
+input ReorderModifiersInput {
+  modifierGroupId: UUID!
+  orderedIds: [UUID!]!
+}
+
+"""Result of reordering modifiers — list of ids in new order."""
+type ReorderModifiersResult {
+  ids: [ID!]
 }
 
 input RevokeInvitationInput {
@@ -185,6 +555,50 @@ enum Role {
   VIEWER
 }
 
+"""A concrete time window with absolute UTC bounds."""
+type ScheduleWindow {
+  end: DateTime
+  start: DateTime
+}
+
+input SetItem86Input {
+  available: Boolean!
+  menuItemId: UUID!
+}
+
+input SetTaxRateInput {
+  effectiveFrom: DateTime
+  locationId: UUID!
+  ratePermille: Int!
+  taxCategoryId: UUID!
+}
+
+type TaxCategory {
+  archivedAt: DateTime
+  createdAt: DateTime
+  id: ID
+  kind: TaxCategoryKind
+  name: String
+  ratesAtLocation(locationId: UUID!): [TaxRate!]
+}
+
+enum TaxCategoryKind {
+  ALCOHOL
+  FOOD
+  NON_ALCOHOL_BEV
+  OTHER
+  RETAIL
+}
+
+type TaxRate {
+  effectiveFrom: DateTime
+  effectiveUntil: DateTime
+  id: ID
+  locationId: ID
+  ratePermille: Int
+  taxCategoryId: ID
+}
+
 type Tenant {
   createdAt: DateTime
   id: ID
@@ -202,9 +616,80 @@ enum TenantStatus {
 
 scalar UUID
 
+input UnarchiveMenuItemInput {
+  id: UUID!
+}
+
+input UpdateCategoryInput {
+  id: UUID!
+  name: String
+  slug: String
+}
+
 input UpdateMembershipRoleInput {
   membershipId: String!
   role: Role!
+}
+
+input UpdateMenuInput {
+  description: String
+  id: UUID!
+  isActive: Boolean
+  name: String
+  schedule: JSON
+}
+
+input UpdateMenuItemInput {
+  allergenTags: [String!]
+  basePriceCents: Int
+  categoryId: UUID
+  course: ItemCourse
+  description: String
+  dietaryTags: [String!]
+  id: UUID!
+  imageUrl: String
+  name: String
+  printerStation: String
+  shortDescription: String
+  taxCategoryId: UUID
+}
+
+input UpdateMenuSectionInput {
+  id: UUID!
+  name: String
+}
+
+input UpdateMenuSectionItemInput {
+  id: UUID!
+  priceOverrideCents: Int
+}
+
+input UpdateModifierGroupInput {
+  id: UUID!
+  maxSelections: Int
+  minSelections: Int
+  name: String
+}
+
+input UpdateModifierInput {
+  id: UUID!
+  isDefault: Boolean
+  name: String
+  priceDeltaCents: Int
+}
+
+input UpsertLocationItemInput {
+  available: Boolean
+  hidden: Boolean
+  menuItemId: UUID!
+  priceCents: Int
+}
+
+input UpsertLocationModifierInput {
+  available: Boolean
+  hidden: Boolean
+  modifierId: UUID!
+  priceDeltaOverrideCents: Int
 }
 
 type User {
