@@ -52,6 +52,21 @@ docker/         Dockerfiles + Postgres init scripts
 docs/           Architecture, contributing, runbook
 ```
 
+## Deployment
+
+Production runs the same `docker-compose.yml` plus
+`docker-compose.prod.yml` overlay. Postgres is externalized — point
+`DATABASE_URL` at a managed instance. Pin the GHCR image SHAs via the
+`IMAGE_API` and `IMAGE_WEB` env vars before promoting:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose exec api node node_modules/.bin/prisma migrate deploy
+```
+
+See [`docs/runbook.md`](docs/runbook.md) for the full bootstrap, TLS,
+backup, and incident-response procedures.
+
 ## Documentation
 
 - [Architecture](docs/architecture.md)

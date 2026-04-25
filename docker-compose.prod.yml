@@ -1,0 +1,70 @@
+# Production overlay for the F&B Control Pane.
+#
+# Apply with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Production Postgres should be EXTERNAL — the `db` and `mailhog` services in
+# docker-compose.yml are disabled here via the `never` profile, and operators
+# point DATABASE_URL at a managed instance with backups (Neon, RDS, Supabase,
+# etc.). Configure real SMTP via SMTP_* env vars.
+#
+# Image tags default to `ghcr.io/PLACEHOLDER_ORG/fnb-control-pane/{api,web}:latest`
+# but operators should override IMAGE_API and IMAGE_WEB to pin to a specific
+# commit SHA before promoting to prod. See docs/runbook.md.
+
+services:
+  db:
+    profiles: ['never'] # disabled in prod overlay; bring your own Postgres
+
+  mailhog:
+    profiles: ['never'] # no MailHog in prod; configure real SMTP
+
+  api:
+    build:
+      target: prod
+    image: ${IMAGE_API:-ghcr.io/PLACEHOLDER_ORG/fnb-control-pane/api:latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      # Required env vars supplied by host .env or docker secrets:
+      # DATABASE_URL, AUTH_SECRET, AUTH_URL,
+      # SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
+    volumes: []
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  web:
+    build:
+      target: prod
+    image: ${IMAGE_WEB:-ghcr.io/PLACEHOLDER_ORG/fnb-control-pane/web:latest}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      INTERNAL_API_URL: http://api:4000/graphql
+    volumes: []
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
