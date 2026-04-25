@@ -83,7 +83,7 @@ services:
       - /app/apps/web/.next
     depends_on:
       - api
-    command: pnpm --filter web dev
+    command: pnpm --filter @app/web dev
 
 volumes:
   db_data:
