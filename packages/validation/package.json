@@ -11,7 +11,11 @@
     "./tenant": "./src/tenant.ts",
     "./location": "./src/location.ts",
     "./membership": "./src/membership.ts",
-    "./invitation": "./src/invitation.ts"
+    "./invitation": "./src/invitation.ts",
+    "./catalog": "./src/catalog.ts",
+    "./menu": "./src/menu.ts",
+    "./schedule": "./src/schedule.ts",
+    "./dietary-tags": "./src/dietary-tags.ts"
   },
   "scripts": {
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src",

@@ -26,6 +26,7 @@ import './mutations/accept-invitation.js';
 import './mutations/revoke-membership.js';
 import './mutations/revoke-invitation.js';
 import './mutations/update-membership-role.js';
+import './mutations/catalog/index.js';
 
 export { builder };
 
