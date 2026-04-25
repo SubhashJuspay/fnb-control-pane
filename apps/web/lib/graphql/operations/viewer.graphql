@@ -1,0 +1,26 @@
+query Viewer {
+  viewer {
+    id
+    email
+    name
+    tenants {
+      id
+      name
+      slug
+    }
+    memberships {
+      id
+      role
+      tenant {
+        id
+        slug
+        name
+      }
+      location {
+        id
+        slug
+        name
+      }
+    }
+  }
+}
