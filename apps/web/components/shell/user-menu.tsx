@@ -19,43 +19,33 @@ export interface UserMenuProps {
 
 export function UserMenu({ viewer }: UserMenuProps) {
   const [pending, startTransition] = useTransition();
-  const initials = (viewer.name ?? viewer.email)
-    .split(/\s+|@/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || '?';
+  const initials =
+    (viewer.name ?? viewer.email)
+      .split(/\s+|@/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '?';
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-2"
-          aria-label="Account menu"
-        >
+        <Button variant="ghost" size="sm" className="gap-2" aria-label="Account menu">
           <span
             aria-hidden="true"
             className="flex size-7 items-center justify-center rounded-full bg-muted text-xs font-medium"
           >
             {initials}
           </span>
-          <span className="hidden text-sm md:inline">
-            {viewer.name ?? viewer.email}
-          </span>
+          <span className="hidden text-sm md:inline">{viewer.name ?? viewer.email}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex items-center gap-2">
           <UserCircle2 className="size-4 text-muted-foreground" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-medium">
-              {viewer.name ?? 'Signed in'}
-            </div>
-            <div className="truncate text-xs text-muted-foreground">
-              {viewer.email}
-            </div>
+            <div className="truncate text-sm font-medium">{viewer.name ?? 'Signed in'}</div>
+            <div className="truncate text-xs text-muted-foreground">{viewer.email}</div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

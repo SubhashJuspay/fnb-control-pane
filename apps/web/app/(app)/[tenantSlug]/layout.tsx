@@ -21,9 +21,5 @@ export default async function TenantLayout({
   if (!data) redirect('/sign-in');
   const tenant = data.tenants.find((t) => t.slug === tenantSlug);
   if (!tenant) redirect('/');
-  return (
-    <GraphqlProvider scope={{ tenantSlug, locationId: null }}>
-      {children}
-    </GraphqlProvider>
-  );
+  return <GraphqlProvider scope={{ tenantSlug, locationId: null }}>{children}</GraphqlProvider>;
 }

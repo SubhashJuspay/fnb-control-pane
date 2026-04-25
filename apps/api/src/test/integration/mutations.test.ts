@@ -128,11 +128,7 @@ describe('inviteStaff (integration)', () => {
       role: 'STAFF',
     });
     await expect(
-      resolveInviteStaff(
-        {},
-        { email: 'x@a.test', role: 'STAFF', locationId: A.locationId },
-        ctx,
-      ),
+      resolveInviteStaff({}, { email: 'x@a.test', role: 'STAFF', locationId: A.locationId }, ctx),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });
@@ -208,11 +204,10 @@ describe('revokeMembership (integration)', () => {
         role: 'STAFF',
       },
     });
-    const updated = (await resolveRevokeMembership(
-      {},
-      { membershipId: m.id },
-      ownerCtx(),
-    )) as { id: string; status: string };
+    const updated = (await resolveRevokeMembership({}, { membershipId: m.id }, ownerCtx())) as {
+      id: string;
+      status: string;
+    };
     expect(updated.status).toBe('REVOKED');
     const auditCount = await prisma.auditLog.count({
       where: { action: 'membership.revoked', resourceId: m.id },
@@ -276,11 +271,7 @@ describe('updateMembershipRole (integration)', () => {
       role: 'STAFF',
     });
     await expect(
-      resolveUpdateMembershipRole(
-        {},
-        { membershipId: A.ownerMembershipId, role: 'ADMIN' },
-        ctx,
-      ),
+      resolveUpdateMembershipRole({}, { membershipId: A.ownerMembershipId, role: 'ADMIN' }, ctx),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

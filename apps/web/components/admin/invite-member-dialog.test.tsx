@@ -7,10 +7,7 @@ vi.mock('urql', () => ({
     { fetching: false, error: undefined },
     vi.fn(async () => ({ data: { inviteStaff: { id: 'i1' } } })),
   ],
-  useQuery: () => [
-    { data: undefined, fetching: false, stale: false, error: undefined },
-    vi.fn(),
-  ],
+  useQuery: () => [{ data: undefined, fetching: false, stale: false, error: undefined }, vi.fn()],
 }));
 
 vi.mock('sonner', () => ({

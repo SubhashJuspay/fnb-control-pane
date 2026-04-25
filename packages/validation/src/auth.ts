@@ -5,11 +5,7 @@ export const passwordSchema = z
   .min(8, 'Password must be at least 8 characters')
   .max(128, 'Password is too long');
 
-export const emailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .email('Enter a valid email address');
+export const emailSchema = z.string().trim().toLowerCase().email('Enter a valid email address');
 
 export const signInSchema = z.object({
   email: emailSchema,

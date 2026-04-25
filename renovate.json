@@ -1,0 +1,36 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits"],
+  "schedule": ["before 5am on monday"],
+  "timezone": "America/Los_Angeles",
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 5am on monday"]
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "minor + patch",
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["major"],
+      "groupName": "major updates"
+    },
+    {
+      "matchPackageNames": ["next", "react", "react-dom", "@types/react", "@types/react-dom"],
+      "groupName": "next/react"
+    },
+    {
+      "matchPackageNames": ["@prisma/client", "prisma"],
+      "groupName": "prisma"
+    },
+    {
+      "matchPackageNames": ["graphql", "graphql-yoga", "@pothos/*", "urql", "@urql/*"],
+      "groupName": "graphql stack"
+    }
+  ]
+}

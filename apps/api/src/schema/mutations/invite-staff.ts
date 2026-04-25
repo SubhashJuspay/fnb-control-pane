@@ -61,12 +61,12 @@ export async function resolveInviteStaff(
     select: { name: true },
   });
   const locationName = input.locationId
-    ? (
+    ? ((
         await ctx.prisma.location.findUnique({
           where: { id: input.locationId },
           select: { name: true },
         })
-      )?.name ?? null
+      )?.name ?? null)
     : null;
 
   const invitation = await ctx.prisma.invitation.create({

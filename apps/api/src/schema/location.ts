@@ -39,7 +39,6 @@ builder.queryField('tenantLocations', (t) =>
     type: ['Location'],
     description: 'All non-archived locations within the current tenant. Requires admin role.',
     authScopes: { admin: true },
-    resolve: (query, _root, _args, ctx) =>
-      resolveTenantLocationsAdmin(query, ctx) as never,
+    resolve: (query, _root, _args, ctx) => resolveTenantLocationsAdmin(query, ctx) as never,
   }),
 );

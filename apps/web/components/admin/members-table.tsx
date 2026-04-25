@@ -27,9 +27,7 @@ import {
 } from '@/lib/graphql/generated/graphql';
 
 type MembershipNode = NonNullable<
-  NonNullable<
-    NonNullable<AdminTenantMembersQuery['tenantMembers']>['edges']
-  >[number]
+  NonNullable<NonNullable<AdminTenantMembersQuery['tenantMembers']>['edges']>[number]
 >['node'];
 
 export type Member = NonNullable<MembershipNode>;
@@ -40,13 +38,7 @@ export interface MembersTableProps {
   onChanged: () => void;
 }
 
-const ROLE_OPTIONS: Role[] = [
-  Role.Owner,
-  Role.Admin,
-  Role.Manager,
-  Role.Staff,
-  Role.Viewer,
-];
+const ROLE_OPTIONS: Role[] = [Role.Owner, Role.Admin, Role.Manager, Role.Staff, Role.Viewer];
 
 function formatDate(value: unknown): string {
   if (!value) return '—';
@@ -102,23 +94,13 @@ export function MembersTable({
         return (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Member actions"
-                disabled={isSelf}
-              >
+              <Button variant="ghost" size="icon" aria-label="Member actions" disabled={isSelf}>
                 <MoreHorizontal className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => setEditRole(m)}>
-                Change role
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onSelect={() => setConfirmRevoke(m)}
-              >
+              <DropdownMenuItem onSelect={() => setEditRole(m)}>Change role</DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" onSelect={() => setConfirmRevoke(m)}>
                 Remove from team
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -175,8 +157,8 @@ export function MembersTable({
           <DialogHeader>
             <DialogTitle>Remove team member?</DialogTitle>
             <DialogDescription>
-              This revokes their membership immediately. They will lose access
-              the next time their session checks scope.
+              This revokes their membership immediately. They will lose access the next time their
+              session checks scope.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

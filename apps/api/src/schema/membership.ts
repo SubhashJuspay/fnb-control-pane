@@ -30,10 +30,7 @@ export const MembershipRef = builder.prismaObject('Membership', {
 });
 
 /** Pure resolver for the tenantMembers connection — directly testable. */
-export async function resolveTenantMembers(
-  query: object,
-  ctx: RequestContext,
-): Promise<unknown[]> {
+export async function resolveTenantMembers(query: object, ctx: RequestContext): Promise<unknown[]> {
   if (ctx.auth.kind !== 'authenticated') throw new ForbiddenError();
   return ctx.prisma.membership.findMany({
     ...query,

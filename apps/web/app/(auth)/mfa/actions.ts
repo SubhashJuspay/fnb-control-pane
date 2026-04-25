@@ -12,9 +12,7 @@ export interface MfaActionResult {
  * full TOTP enrollment + verification ships in a later wave.
  */
 // TODO(foundation): implement TOTP verification once the api ships challenge endpoints.
-export async function verifyMfaAction(input: {
-  code: string;
-}): Promise<MfaActionResult> {
+export async function verifyMfaAction(input: { code: string }): Promise<MfaActionResult> {
   const parsed = mfaChallengeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid code' };

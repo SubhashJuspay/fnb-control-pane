@@ -10,9 +10,7 @@ describe('inviteStaffSchema cross-field rule', () => {
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      const issue = result.error.issues.find(
-        (i) => i.path[0] === 'locationId',
-      );
+      const issue = result.error.issues.find((i) => i.path[0] === 'locationId');
       expect(issue?.message).toMatch(/must be scoped to a location/i);
     }
   });

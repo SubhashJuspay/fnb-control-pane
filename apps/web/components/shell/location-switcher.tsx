@@ -76,10 +76,7 @@ export function LocationSwitcher({ tenants }: LocationSwitcherProps) {
               <span className="truncate">{tenant.name}</span>
             </DropdownMenuLabel>
             {tenant.isTenantWide ? (
-              <DropdownMenuItem
-                onSelect={() => goTo(tenant.slug, null)}
-                className="pl-8"
-              >
+              <DropdownMenuItem onSelect={() => goTo(tenant.slug, null)} className="pl-8">
                 <span className="flex min-w-0 flex-1 items-center gap-2">
                   <span className="truncate">Overview</span>
                 </span>
@@ -95,8 +92,7 @@ export function LocationSwitcher({ tenants }: LocationSwitcherProps) {
             ) : null}
             {tenant.locations.map((location) => {
               const isActive =
-                activeTenantSlug === tenant.slug &&
-                activeLocationSlug === location.slug;
+                activeTenantSlug === tenant.slug && activeLocationSlug === location.slug;
               return (
                 <DropdownMenuItem
                   key={location.id}

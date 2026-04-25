@@ -37,10 +37,7 @@ export const AuditLogRef = builder.prismaObject('AuditLog', {
 });
 
 /** Pure resolver for the auditLogs connection — directly testable. */
-export async function resolveAuditLogs(
-  query: object,
-  ctx: RequestContext,
-): Promise<unknown[]> {
+export async function resolveAuditLogs(query: object, ctx: RequestContext): Promise<unknown[]> {
   if (ctx.auth.kind !== 'authenticated') throw new ForbiddenError();
   return ctx.prisma.auditLog.findMany({
     ...query,

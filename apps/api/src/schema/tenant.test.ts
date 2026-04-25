@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockTenantFindMany,
-  mockMembershipFindMany,
-  mockLocationFindMany,
-} = vi.hoisted(() => ({
+const { mockTenantFindMany, mockMembershipFindMany, mockLocationFindMany } = vi.hoisted(() => ({
   mockTenantFindMany: vi.fn(),
   mockMembershipFindMany: vi.fn(),
   mockLocationFindMany: vi.fn(),
@@ -20,10 +16,7 @@ vi.mock('../prisma.js', () => ({
 
 import type { RequestContext } from '../context.js';
 import { buildSchema } from './index.js';
-import {
-  resolveMyTenants,
-  resolveTenantLocations,
-} from './tenant.js';
+import { resolveMyTenants, resolveTenantLocations } from './tenant.js';
 
 const fakeLog = {
   child: () => fakeLog,
@@ -85,9 +78,11 @@ describe('schema build', () => {
     const tenantType = schema.getType('Tenant');
     expect(tenantType).toBeTruthy();
     // The Tenant type must expose `locations`.
-    const tenantFields = (tenantType as unknown as {
-      getFields: () => Record<string, unknown>;
-    }).getFields();
+    const tenantFields = (
+      tenantType as unknown as {
+        getFields: () => Record<string, unknown>;
+      }
+    ).getFields();
     expect(tenantFields).toHaveProperty('locations');
   });
 
@@ -109,10 +104,7 @@ describe('resolveMyTenants', () => {
     mockTenantFindMany.mockResolvedValueOnce([
       { id: 't-1', name: 'Acme', slug: 'acme', status: 'ACTIVE', createdAt: new Date() },
     ]);
-    const result = await resolveMyTenants(
-      {},
-      authedCtx({ userId: 'u-1', tenantId: 't-1' }),
-    );
+    const result = await resolveMyTenants({}, authedCtx({ userId: 'u-1', tenantId: 't-1' }));
     expect(result).toHaveLength(1);
     expect(mockTenantFindMany).toHaveBeenCalledTimes(1);
     const call = mockTenantFindMany.mock.calls[0]?.[0];
@@ -152,15 +144,8 @@ describe('resolveTenantLocations', () => {
 
   it('returns ALL non-archived locations when membership is tenant-wide (locationId IS NULL)', async () => {
     mockMembershipFindMany.mockResolvedValueOnce([{ locationId: null }]);
-    mockLocationFindMany.mockResolvedValueOnce([
-      { id: 'l-1' },
-      { id: 'l-2' },
-    ]);
-    await resolveTenantLocations(
-      {},
-      { id: 't-1' },
-      authedCtx({ userId: 'u-1', tenantId: 't-1' }),
-    );
+    mockLocationFindMany.mockResolvedValueOnce([{ id: 'l-1' }, { id: 'l-2' }]);
+    await resolveTenantLocations({}, { id: 't-1' }, authedCtx({ userId: 'u-1', tenantId: 't-1' }));
     expect(mockLocationFindMany).toHaveBeenCalledTimes(1);
     const call = mockLocationFindMany.mock.calls[0]?.[0];
     expect(call.where).toEqual({
@@ -170,16 +155,9 @@ describe('resolveTenantLocations', () => {
   });
 
   it('returns SCOPED locations when membership is location-scoped', async () => {
-    mockMembershipFindMany.mockResolvedValueOnce([
-      { locationId: 'l-9' },
-      { locationId: 'l-7' },
-    ]);
+    mockMembershipFindMany.mockResolvedValueOnce([{ locationId: 'l-9' }, { locationId: 'l-7' }]);
     mockLocationFindMany.mockResolvedValueOnce([{ id: 'l-9' }, { id: 'l-7' }]);
-    await resolveTenantLocations(
-      {},
-      { id: 't-1' },
-      authedCtx({ userId: 'u-1', tenantId: 't-1' }),
-    );
+    await resolveTenantLocations({}, { id: 't-1' }, authedCtx({ userId: 'u-1', tenantId: 't-1' }));
     const call = mockLocationFindMany.mock.calls[0]?.[0];
     expect(call.where).toEqual({
       id: { in: ['l-9', 'l-7'] },

@@ -1,11 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import {
-  useForm,
-  Controller,
-  type Resolver,
-} from 'react-hook-form';
+import { useForm, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from 'urql';
 import {
@@ -22,10 +18,7 @@ import {
 } from '@repo/ui';
 import { inviteStaffSchema } from '@repo/validation/invitation';
 import { toast } from 'sonner';
-import {
-  AdminInviteStaffDocument,
-  Role,
-} from '@/lib/graphql/generated/graphql';
+import { AdminInviteStaffDocument, type Role } from '@/lib/graphql/generated/graphql';
 
 export interface InviteMemberLocation {
   id: string;
@@ -45,13 +38,7 @@ interface FormValues {
   locationId: string | null;
 }
 
-const ROLE_OPTIONS: FormValues['role'][] = [
-  'OWNER',
-  'ADMIN',
-  'MANAGER',
-  'STAFF',
-  'VIEWER',
-];
+const ROLE_OPTIONS: FormValues['role'][] = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'VIEWER'];
 
 const TENANT_WIDE_ROLES = new Set(['OWNER', 'ADMIN']);
 const LOCATION_SCOPED_ROLES = new Set(['MANAGER', 'STAFF']);
@@ -84,14 +71,7 @@ export function InviteMemberForm({
     reValidateMode: 'onSubmit',
     shouldUnregister: false,
   });
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    control,
-    formState,
-  } = form;
+  const { register, handleSubmit, watch, setValue, control, formState } = form;
   const { errors } = formState;
   const role = watch('role');
   const isTenantWide = TENANT_WIDE_ROLES.has(role);
@@ -119,9 +99,7 @@ export function InviteMemberForm({
           {...register('email')}
           aria-invalid={Boolean(errors.email)}
         />
-        {errors.email ? (
-          <p className="text-sm text-destructive">{errors.email.message}</p>
-        ) : null}
+        {errors.email ? <p className="text-sm text-destructive">{errors.email.message}</p> : null}
       </div>
       <div className="grid gap-2">
         <Label htmlFor="invite-role">Role</Label>
@@ -183,12 +161,7 @@ export function InviteMemberForm({
         ) : null}
       </div>
       <DialogFooter>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={pending}
-        >
+        <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
           Cancel
         </Button>
         <Button type="submit" disabled={pending}>
@@ -234,8 +207,7 @@ export function InviteMemberDialog({
         <DialogHeader>
           <DialogTitle>Invite member</DialogTitle>
           <DialogDescription>
-            Send an invitation email. The recipient will set their password
-            after accepting.
+            Send an invitation email. The recipient will set their password after accepting.
           </DialogDescription>
         </DialogHeader>
         <InviteMemberForm

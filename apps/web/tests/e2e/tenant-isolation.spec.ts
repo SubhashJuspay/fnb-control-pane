@@ -36,9 +36,7 @@ test.describe('Tenant isolation', () => {
 
     // Open the tenant/location switcher in the top bar. The switcher should
     // NOT show "Beta Bistro" — only Acme.
-    const switcher = page
-      .getByRole('button', { name: /switch tenant or location/i })
-      .first();
+    const switcher = page.getByRole('button', { name: /switch tenant or location/i }).first();
     await expect(switcher).toBeVisible();
     await switcher.click();
     await expect(page.getByText('Beta Bistro')).toHaveCount(0);

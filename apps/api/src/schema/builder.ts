@@ -28,14 +28,7 @@ export const builder = new SchemaBuilder<{
     staff: boolean;
   };
 }>({
-  plugins: [
-    ErrorsPlugin,
-    ScopeAuthPlugin,
-    PrismaPlugin,
-    RelayPlugin,
-    DataloaderPlugin,
-    ZodPlugin,
-  ],
+  plugins: [ErrorsPlugin, ScopeAuthPlugin, PrismaPlugin, RelayPlugin, DataloaderPlugin, ZodPlugin],
   prisma: {
     client: prisma,
     dmmf: getDatamodel(),
@@ -52,9 +45,7 @@ export const builder = new SchemaBuilder<{
         // `authenticated` (so they can read their own Membership rows on
         // the Viewer type) but never grant role-scoped permissions without
         // a resolved tenant.
-        const sideChannelUserId = (
-          ctx as unknown as { __userId?: string }
-        ).__userId;
+        const sideChannelUserId = (ctx as unknown as { __userId?: string }).__userId;
         return {
           authenticated: typeof sideChannelUserId === 'string' && sideChannelUserId.length > 0,
           owner: false,

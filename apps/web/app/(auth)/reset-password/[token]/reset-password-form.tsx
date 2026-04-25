@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  resetPasswordSchema,
-  type ResetPasswordInput,
-} from '@repo/validation/auth';
+import { resetPasswordSchema, type ResetPasswordInput } from '@repo/validation/auth';
 import { Button, Input, Label } from '@repo/ui';
 import { resetPasswordAction } from './actions';
 
@@ -44,9 +42,9 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
     return (
       <p className="text-sm text-muted-foreground" role="status">
         Your password has been reset.{' '}
-        <a href="/sign-in" className="underline">
+        <Link href="/sign-in" className="underline">
           Sign in
-        </a>{' '}
+        </Link>{' '}
         to continue.
       </p>
     );

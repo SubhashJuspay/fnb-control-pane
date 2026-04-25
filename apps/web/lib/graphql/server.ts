@@ -9,8 +9,7 @@
  *   route's static prerender, which is wrong for invitation tokens etc.
  */
 
-const INTERNAL_API_URL =
-  process.env.INTERNAL_API_URL ?? 'http://api:4000/graphql';
+const INTERNAL_API_URL = process.env.INTERNAL_API_URL ?? 'http://api:4000/graphql';
 
 export interface ServerFetchResult<T> {
   data?: T;

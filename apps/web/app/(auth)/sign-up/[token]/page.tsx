@@ -1,11 +1,6 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui';
 import { serverFetch } from '@/lib/graphql/server';
 import { SignUpForm } from './sign-up-form';
 
@@ -39,9 +34,7 @@ interface AcceptInvitationPageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function AcceptInvitationPage({
-  params,
-}: AcceptInvitationPageProps) {
+export default async function AcceptInvitationPage({ params }: AcceptInvitationPageProps) {
   const { token } = await params;
   const result = await serverFetch<InvitationData>({
     query: INVITATION_BY_TOKEN_QUERY,
@@ -57,9 +50,9 @@ export default async function AcceptInvitationPage({
           <CardTitle>Invitation already used</CardTitle>
           <CardDescription>
             This invitation has already been accepted.{' '}
-            <a href="/sign-in" className="underline">
+            <Link href="/sign-in" className="underline">
               Sign in
-            </a>{' '}
+            </Link>{' '}
             instead.
           </CardDescription>
         </CardHeader>
@@ -72,9 +65,7 @@ export default async function AcceptInvitationPage({
       <Card>
         <CardHeader>
           <CardTitle>Invitation expired</CardTitle>
-          <CardDescription>
-            Ask your administrator to send a new one.
-          </CardDescription>
+          <CardDescription>Ask your administrator to send a new one.</CardDescription>
         </CardHeader>
       </Card>
     );

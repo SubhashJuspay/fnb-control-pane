@@ -84,8 +84,10 @@ interface RawViewerResponse {
 const ROLE_RANKS = ['VIEWER', 'STAFF', 'MANAGER', 'ADMIN', 'OWNER'] as const;
 
 function compareRole(a: string, b: string): number {
-  return ROLE_RANKS.indexOf(a as (typeof ROLE_RANKS)[number]) -
-    ROLE_RANKS.indexOf(b as (typeof ROLE_RANKS)[number]);
+  return (
+    ROLE_RANKS.indexOf(a as (typeof ROLE_RANKS)[number]) -
+    ROLE_RANKS.indexOf(b as (typeof ROLE_RANKS)[number])
+  );
 }
 
 /**

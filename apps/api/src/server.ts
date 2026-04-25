@@ -1,8 +1,4 @@
-import Fastify, {
-  type FastifyInstance,
-  type FastifyReply,
-  type FastifyRequest,
-} from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { createYoga } from 'graphql-yoga';
 import { buildContext } from './context.js';
 import { env } from './env.js';
@@ -50,9 +46,7 @@ export async function buildServer(): Promise<FastifyInstance> {
           cookie: headers.cookie,
           'x-tenant-slug': Array.isArray(tenantSlug) ? tenantSlug[0] : tenantSlug,
           'x-location-id': Array.isArray(locationId) ? locationId[0] : locationId,
-          'x-request-id': Array.isArray(requestIdHeader)
-            ? requestIdHeader[0]
-            : requestIdHeader,
+          'x-request-id': Array.isArray(requestIdHeader) ? requestIdHeader[0] : requestIdHeader,
         },
       });
     },

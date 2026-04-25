@@ -1,9 +1,6 @@
 import type { RequestContext } from '../context.js';
 import { builder } from './builder.js';
-import {
-  LocationStatusEnum as _LocationStatusEnum,
-  TenantStatusEnum,
-} from './enums.js';
+import { LocationStatusEnum as _LocationStatusEnum, TenantStatusEnum } from './enums.js';
 
 // Reference to ensure enum is registered for Location.status reads.
 void _LocationStatusEnum;
@@ -21,10 +18,7 @@ export function userIdFor(ctx: RequestContext): string | null {
 }
 
 /** Pure resolver for Query.myTenants — extracted so it can be unit-tested. */
-export async function resolveMyTenants(
-  query: object,
-  ctx: RequestContext,
-): Promise<unknown[]> {
+export async function resolveMyTenants(query: object, ctx: RequestContext): Promise<unknown[]> {
   const userId = userIdFor(ctx);
   if (!userId) return [];
   return ctx.prisma.tenant.findMany({
@@ -58,9 +52,7 @@ export async function resolveTenantLocations(
       orderBy: { name: 'asc' },
     });
   }
-  const ids = memberships
-    .map((m) => m.locationId)
-    .filter((x): x is string => !!x);
+  const ids = memberships.map((m) => m.locationId).filter((x): x is string => !!x);
   return ctx.prisma.location.findMany({
     ...query,
     where: { id: { in: ids }, status: { not: 'ARCHIVED' } },
@@ -81,8 +73,7 @@ export const TenantRef = builder.prismaObject('Tenant', {
     locations: t.prismaField({
       type: ['Location'],
       authScopes: { authenticated: true },
-      resolve: (query, parent, _args, ctx) =>
-        resolveTenantLocations(query, parent, ctx) as never,
+      resolve: (query, parent, _args, ctx) => resolveTenantLocations(query, parent, ctx) as never,
     }),
   }),
 });

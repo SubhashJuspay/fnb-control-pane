@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { slugSchema } from './tenant.js';
 
-export const isoCurrencySchema = z.string().length(3).regex(/^[A-Z]{3}$/);
+export const isoCurrencySchema = z
+  .string()
+  .length(3)
+  .regex(/^[A-Z]{3}$/);
 export const ianaTimezoneSchema = z.string().min(1);
 export const businessDayCutoffSchema = z
   .string()

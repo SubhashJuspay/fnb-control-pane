@@ -13,10 +13,7 @@ export interface WriteAuditArgs {
  * Silently no-ops for anonymous contexts (anonymous mutations write their own
  * audit entries via the alternate `writeAnonymousAudit` helper).
  */
-export async function writeAudit(
-  ctx: RequestContext,
-  args: WriteAuditArgs,
-): Promise<void> {
+export async function writeAudit(ctx: RequestContext, args: WriteAuditArgs): Promise<void> {
   if (ctx.auth.kind !== 'authenticated') return;
   await ctx.prisma.auditLog.create({
     data: {
@@ -37,7 +34,11 @@ export async function writeAudit(
  */
 export async function writeAnonymousAudit(
   ctx: RequestContext,
-  args: WriteAuditArgs & { tenantId: string; locationId?: string | null; actorUserId?: string | null },
+  args: WriteAuditArgs & {
+    tenantId: string;
+    locationId?: string | null;
+    actorUserId?: string | null;
+  },
 ): Promise<void> {
   await ctx.prisma.auditLog.create({
     data: {

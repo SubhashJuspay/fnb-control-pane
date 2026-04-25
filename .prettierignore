@@ -5,3 +5,9 @@ dist/
 coverage/
 generated/
 pnpm-lock.yaml
+docs/superpowers/
+apps/web/lib/graphql/schema.graphql
+apps/web/lib/graphql/generated/
+apps/web/playwright-report/
+apps/web/test-results/
+packages/db/prisma/migrations/

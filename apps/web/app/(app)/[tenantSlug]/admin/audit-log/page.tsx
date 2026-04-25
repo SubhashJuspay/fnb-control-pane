@@ -2,20 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from 'urql';
-import {
-  Button,
-  DataTable,
-  type Column,
-} from '@repo/ui';
-import {
-  AdminAuditLogsDocument,
-  type AdminAuditLogsQuery,
-} from '@/lib/graphql/generated/graphql';
+import { Button, DataTable, type Column } from '@repo/ui';
+import { AdminAuditLogsDocument, type AdminAuditLogsQuery } from '@/lib/graphql/generated/graphql';
 
 type AuditRow = NonNullable<
-  NonNullable<
-    NonNullable<AdminAuditLogsQuery['auditLogs']>['edges']
-  >[number]
+  NonNullable<NonNullable<AdminAuditLogsQuery['auditLogs']>['edges']>[number]
 >['node'];
 
 const PAGE_SIZE = 50;
@@ -60,14 +51,13 @@ export default function AdminAuditLogPage(): React.JSX.Element {
     {
       key: 'when',
       header: 'When',
-      cell: (a) => (
-        <span className="font-mono text-xs">{formatTime(a.createdAt)}</span>
-      ),
+      cell: (a) => <span className="font-mono text-xs">{formatTime(a.createdAt)}</span>,
     },
     {
       key: 'actor',
       header: 'Actor',
-      cell: (a) => a.actorEmail ?? a.actorUserId ?? <span className="text-muted-foreground">system</span>,
+      cell: (a) =>
+        a.actorEmail ?? a.actorUserId ?? <span className="text-muted-foreground">system</span>,
     },
     {
       key: 'action',
@@ -90,9 +80,7 @@ export default function AdminAuditLogPage(): React.JSX.Element {
       cell: (a) =>
         a.metadata != null ? (
           <details>
-            <summary className="cursor-pointer text-xs text-muted-foreground">
-              View
-            </summary>
+            <summary className="cursor-pointer text-xs text-muted-foreground">View</summary>
             <pre className="mt-2 overflow-auto rounded bg-muted/50 p-2 text-xs">
               {JSON.stringify(a.metadata, null, 2)}
             </pre>
@@ -108,8 +96,7 @@ export default function AdminAuditLogPage(): React.JSX.Element {
       <div>
         <h2 className="text-lg font-semibold">Audit log</h2>
         <p className="text-sm text-muted-foreground">
-          Tenant-wide write activity, newest first. Used for compliance and
-          incident review.
+          Tenant-wide write activity, newest first. Used for compliance and incident review.
         </p>
       </div>
       {fetching && accumulated.length === 0 ? (
@@ -125,11 +112,7 @@ export default function AdminAuditLogPage(): React.JSX.Element {
       )}
       {hasNextPage && endCursor ? (
         <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={() => setAfter(endCursor)}
-            disabled={fetching}
-          >
+          <Button variant="outline" onClick={() => setAfter(endCursor)} disabled={fetching}>
             {fetching ? 'Loading…' : 'Load more'}
           </Button>
         </div>

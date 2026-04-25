@@ -3,15 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import {
-  LayoutDashboard,
-  LogOut,
-  Moon,
-  Settings,
-  Sun,
-  UserCog,
-  MapPinned,
-} from 'lucide-react';
+import { LayoutDashboard, LogOut, Moon, Settings, Sun, UserCog, MapPinned } from 'lucide-react';
 import {
   CommandDialog,
   CommandEmpty,
@@ -60,35 +52,25 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         <CommandEmpty>No matching commands.</CommandEmpty>
         <CommandGroup heading="Navigation">
           {tenantSlug && locationSlug ? (
-            <CommandItem
-              onSelect={() => navigate(`/${tenantSlug}/${locationSlug}`)}
-            >
+            <CommandItem onSelect={() => navigate(`/${tenantSlug}/${locationSlug}`)}>
               <LayoutDashboard className="size-4" />
               Go to dashboard
             </CommandItem>
           ) : null}
           {tenantSlug ? (
             <>
-              <CommandItem
-                onSelect={() => navigate(`/${tenantSlug}/admin/members`)}
-              >
+              <CommandItem onSelect={() => navigate(`/${tenantSlug}/admin/members`)}>
                 <UserCog className="size-4" />
                 Members admin
               </CommandItem>
-              <CommandItem
-                onSelect={() => navigate(`/${tenantSlug}/admin/locations`)}
-              >
+              <CommandItem onSelect={() => navigate(`/${tenantSlug}/admin/locations`)}>
                 <MapPinned className="size-4" />
                 Locations admin
               </CommandItem>
             </>
           ) : null}
           {tenantSlug && locationSlug ? (
-            <CommandItem
-              onSelect={() =>
-                navigate(`/${tenantSlug}/${locationSlug}/settings`)
-              }
-            >
+            <CommandItem onSelect={() => navigate(`/${tenantSlug}/${locationSlug}/settings`)}>
               <Settings className="size-4" />
               Location settings
             </CommandItem>
@@ -102,11 +84,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               close();
             }}
           >
-            {resolvedTheme === 'dark' ? (
-              <Sun className="size-4" />
-            ) : (
-              <Moon className="size-4" />
-            )}
+            {resolvedTheme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
             Toggle theme
           </CommandItem>
         </CommandGroup>
@@ -138,8 +116,7 @@ export function useCommandPaletteShortcut(): {
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      const isToggle =
-        event.key === 'k' && (event.metaKey || event.ctrlKey);
+      const isToggle = event.key === 'k' && (event.metaKey || event.ctrlKey);
       if (isToggle) {
         event.preventDefault();
         setOpen((prev) => !prev);

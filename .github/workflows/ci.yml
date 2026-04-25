@@ -1,0 +1,209 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '24'
+  PNPM_VERSION: '9.15.0'
+
+jobs:
+  install:
+    name: Install dependencies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.15.0' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+
+  lint:
+    name: Lint + format
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.15.0' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+
+  typecheck:
+    name: Typecheck
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.15.0' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      # Pothos/Prisma require generated client + DMMF to typecheck the api.
+      - name: Generate Prisma client
+        run: pnpm --filter @repo/db exec prisma generate
+        env:
+          DATABASE_URL: postgres://noop:noop@localhost:5432/noop
+      - run: pnpm typecheck
+
+  unit-tests:
+    name: Unit + integration tests
+    needs: install
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.15.0' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @repo/db exec prisma generate
+        env:
+          DATABASE_URL: postgres://noop:noop@localhost:5432/noop
+      - run: pnpm --filter @repo/validation test
+      - run: pnpm --filter @app/web test
+      # API integration tests use Testcontainers — needs Docker on the runner.
+      # Ubuntu GitHub-hosted runners ship with Docker preinstalled.
+      - run: pnpm --filter @app/api test
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: 'true'
+
+  build:
+    name: Build
+    needs: [lint, typecheck]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.15.0' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .turbo
+            apps/*/.next/cache
+            apps/*/.turbo
+            packages/*/.turbo
+          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            turbo-${{ runner.os }}-
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter @repo/db exec prisma generate
+        env:
+          DATABASE_URL: postgres://noop:noop@localhost:5432/noop
+      # Web build needs codegen, which needs the schema. Use the static schema
+      # file (apps/web/lib/graphql/schema.graphql) committed in Wave 4d.
+      - name: Generate GraphQL client types
+        run: CODEGEN_SCHEMA_URL=apps/web/lib/graphql/schema.graphql pnpm --filter @app/web codegen
+      - run: pnpm --filter @app/api build
+      - run: pnpm --filter @app/web build
+
+  e2e:
+    name: Playwright E2E
+    needs: [build]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: '9.15.0' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter @app/web exec playwright install --with-deps chromium
+      - name: Boot docker compose stack
+        run: |
+          echo "AUTH_SECRET=$(openssl rand -base64 32)" > .env
+          echo "EMAIL_FROM=noreply@example.com" >> .env
+          docker compose up -d --wait db api web mailhog
+      - name: Apply migrations & seed
+        run: |
+          pnpm db:migrate -- --skip-generate || pnpm db:migrate
+          pnpm db:seed
+        env:
+          DATABASE_URL: postgres://fnb:fnb_dev@localhost:5432/fnb_control_pane
+      - name: Run E2E
+        run: pnpm --filter @app/web test:e2e
+        env:
+          PLAYWRIGHT_NO_WEBSERVER: '1'
+          DATABASE_URL: postgres://fnb:fnb_dev@localhost:5432/fnb_control_pane
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report
+          retention-days: 14
+      - name: Tear down stack
+        if: always()
+        run: docker compose down -v
+
+  docker-publish:
+    name: Build & push docker images
+    needs: [unit-tests, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push api
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          target: prod
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build and push web
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/web.Dockerfile
+          target: prod
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/web:${{ github.sha }}
+            ghcr.io/${{ github.repository }}/web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

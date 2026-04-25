@@ -6,9 +6,7 @@ test.describe('Sign-in', () => {
     await resetTestData();
   });
 
-  test('demo owner can sign in and lands inside the app shell', async ({
-    page,
-  }) => {
+  test('demo owner can sign in and lands inside the app shell', async ({ page }) => {
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill('owner@acme.test');
     await page.getByLabel('Password').fill('Password123!');

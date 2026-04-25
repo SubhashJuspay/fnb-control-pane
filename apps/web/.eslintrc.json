@@ -1,0 +1,18 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "ignorePatterns": [
+    ".next/",
+    "node_modules/",
+    "lib/graphql/generated/",
+    "*.config.*",
+    "tests/e2e/playwright-report/"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
+    "@typescript-eslint/consistent-type-imports": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }]
+  }
+}

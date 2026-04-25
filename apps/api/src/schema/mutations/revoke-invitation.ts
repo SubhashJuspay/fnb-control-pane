@@ -51,9 +51,7 @@ export async function resolveRevokeInvitation(
   return { id: invitation.id };
 }
 
-const RevokeInvitationResult = builder.objectRef<{ id: string }>(
-  'RevokeInvitationResult',
-);
+const RevokeInvitationResult = builder.objectRef<{ id: string }>('RevokeInvitationResult');
 RevokeInvitationResult.implement({
   description: 'Result of revoking an invitation: the id of the deleted row.',
   fields: (t) => ({
@@ -67,7 +65,6 @@ builder.mutationField('revokeInvitation', (t) =>
     authScopes: { admin: true },
     args: { input: t.arg({ type: RevokeInvitationInput, required: true }) },
     validate: { schema: z.object({ input: revokeInvitationSchema }) },
-    resolve: (_root, args, ctx) =>
-      resolveRevokeInvitation(args.input as RevokeInvitationArgs, ctx),
+    resolve: (_root, args, ctx) => resolveRevokeInvitation(args.input as RevokeInvitationArgs, ctx),
   }),
 );

@@ -14,10 +14,7 @@ import { resolveAcceptInvitation } from '../../schema/mutations/accept-invitatio
 import { resolveCreateLocation } from '../../schema/mutations/create-location.js';
 import { resolveInviteStaff } from '../../schema/mutations/invite-staff.js';
 import { resolveTenantMembers } from '../../schema/membership.js';
-import {
-  resolveMyTenants,
-  resolveTenantLocations,
-} from '../../schema/tenant.js';
+import { resolveMyTenants, resolveTenantLocations } from '../../schema/tenant.js';
 import { resolveViewer } from '../../schema/viewer.js';
 import { generateInvitationToken } from '../../tokens.js';
 import { makeContext, seedTenant, type SeededTenant } from '../helpers.js';
@@ -106,13 +103,15 @@ describe('tenant isolation regression', () => {
 
   it('Query.tenantMembers scopes to ctx.auth.tenant.id', async () => {
     // Seed an extra membership in tenantA so we know there are >0 results.
-    await prisma.user.create({
-      data: { email: 'extraA@a.test', name: 'Extra A' },
-    }).then((u) =>
-      prisma.membership.create({
-        data: { userId: u.id, tenantId: A.tenantId, role: 'STAFF', locationId: A.locationId },
-      }),
-    );
+    await prisma.user
+      .create({
+        data: { email: 'extraA@a.test', name: 'Extra A' },
+      })
+      .then((u) =>
+        prisma.membership.create({
+          data: { userId: u.id, tenantId: A.tenantId, role: 'STAFF', locationId: A.locationId },
+        }),
+      );
     const ctxA = makeContext({
       prisma,
       userId: A.ownerUserId,
@@ -193,11 +192,7 @@ describe('tenant isolation regression', () => {
       where: { id: invitation.id },
       data: { tokenHash },
     });
-    await resolveAcceptInvitation(
-      {},
-      { token, name: 'Bob', password: 'password1' },
-      anonCtx,
-    );
+    await resolveAcceptInvitation({}, { token, name: 'Bob', password: 'password1' }, anonCtx);
     const newMembership = await prisma.membership.findFirstOrThrow({
       where: { user: { email: 'invitee@b.test' } },
     });

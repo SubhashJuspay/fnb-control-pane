@@ -69,10 +69,7 @@ export function InvitationsTable({
     {
       key: 'location',
       header: 'Location',
-      cell: (i) =>
-        i.location?.name ?? (
-          <span className="text-muted-foreground">Tenant-wide</span>
-        ),
+      cell: (i) => i.location?.name ?? <span className="text-muted-foreground">Tenant-wide</span>,
     },
     {
       key: 'createdAt',
@@ -89,11 +86,7 @@ export function InvitationsTable({
       header: '',
       className: 'w-32 text-right',
       cell: (i) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setConfirmRevoke(i)}
-        >
+        <Button variant="outline" size="sm" onClick={() => setConfirmRevoke(i)}>
           Revoke
         </Button>
       ),

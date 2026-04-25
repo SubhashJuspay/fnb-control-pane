@@ -25,8 +25,6 @@ export default async function LocationLayout({
   const location = tenant.locations.find((l) => l.slug === locationSlug);
   if (!location) redirect(`/${tenantSlug}/overview`);
   return (
-    <GraphqlProvider scope={{ tenantSlug, locationId: location.id }}>
-      {children}
-    </GraphqlProvider>
+    <GraphqlProvider scope={{ tenantSlug, locationId: location.id }}>{children}</GraphqlProvider>
   );
 }

@@ -29,6 +29,7 @@ pnpm db:seed
 ```
 
 Then open:
+
 - Web app: http://localhost:3000
 - GraphQL playground: http://localhost:4000/graphql
 - MailHog (dev email inbox): http://localhost:8025

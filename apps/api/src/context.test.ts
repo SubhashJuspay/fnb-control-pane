@@ -4,17 +4,13 @@ import { encode } from '@auth/core/jwt';
 const SECRET = 'test-secret-at-least-32-chars-xxxx';
 const COOKIE_NAME = 'authjs.session-token';
 
-const {
-  mockUserFindUnique,
-  mockTenantFindUnique,
-  mockMembershipFindFirst,
-  mockLocationFindFirst,
-} = vi.hoisted(() => ({
-  mockUserFindUnique: vi.fn(),
-  mockTenantFindUnique: vi.fn(),
-  mockMembershipFindFirst: vi.fn(),
-  mockLocationFindFirst: vi.fn(),
-}));
+const { mockUserFindUnique, mockTenantFindUnique, mockMembershipFindFirst, mockLocationFindFirst } =
+  vi.hoisted(() => ({
+    mockUserFindUnique: vi.fn(),
+    mockTenantFindUnique: vi.fn(),
+    mockMembershipFindFirst: vi.fn(),
+    mockLocationFindFirst: vi.fn(),
+  }));
 
 vi.mock('./prisma.js', () => ({
   prisma: {
@@ -62,9 +58,7 @@ describe('buildContext', () => {
   });
 
   it('preserves the supplied X-Request-Id', async () => {
-    const ctx = await buildContext(
-      makeReq({ 'x-request-id': 'req-fixed-123' }),
-    );
+    const ctx = await buildContext(makeReq({ 'x-request-id': 'req-fixed-123' }));
     expect(ctx.requestId).toBe('req-fixed-123');
   });
 
@@ -80,9 +74,7 @@ describe('buildContext', () => {
     mockUserFindUnique.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE' });
     mockTenantFindUnique.mockResolvedValueOnce(null);
     const cookie = await makeCookie('user-1');
-    const ctx = await buildContext(
-      makeReq({ cookie, 'x-tenant-slug': 'unknown' }),
-    );
+    const ctx = await buildContext(makeReq({ cookie, 'x-tenant-slug': 'unknown' }));
     expect(ctx.auth.kind).toBe('anonymous');
   });
 
@@ -94,9 +86,7 @@ describe('buildContext', () => {
     });
     mockMembershipFindFirst.mockResolvedValueOnce(null);
     const cookie = await makeCookie('user-1');
-    const ctx = await buildContext(
-      makeReq({ cookie, 'x-tenant-slug': 'acme' }),
-    );
+    const ctx = await buildContext(makeReq({ cookie, 'x-tenant-slug': 'acme' }));
     expect(ctx.auth.kind).toBe('anonymous');
   });
 
@@ -113,9 +103,7 @@ describe('buildContext', () => {
       user: { id: 'user-1', email: 'owner@acme.test' },
     });
     const cookie = await makeCookie('user-1');
-    const ctx = await buildContext(
-      makeReq({ cookie, 'x-tenant-slug': 'acme' }),
-    );
+    const ctx = await buildContext(makeReq({ cookie, 'x-tenant-slug': 'acme' }));
     expect(ctx.auth).toMatchObject({
       kind: 'authenticated',
       role: 'OWNER',

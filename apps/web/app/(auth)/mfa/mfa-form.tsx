@@ -3,10 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  mfaChallengeSchema,
-  type MfaChallengeInput,
-} from '@repo/validation/auth';
+import { mfaChallengeSchema, type MfaChallengeInput } from '@repo/validation/auth';
 import { Button, Input, Label } from '@repo/ui';
 import { verifyMfaAction } from './actions';
 

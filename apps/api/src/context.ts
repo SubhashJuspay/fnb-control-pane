@@ -80,9 +80,7 @@ export async function buildContext(req: ContextRequest): Promise<RequestContext>
       userId: session.userId,
       tenantId: tenant.id,
       status: 'ACTIVE',
-      OR: locationId
-        ? [{ locationId }, { locationId: null }]
-        : [{ locationId: null }],
+      OR: locationId ? [{ locationId }, { locationId: null }] : [{ locationId: null }],
     },
     orderBy: { locationId: 'desc' },
     select: {

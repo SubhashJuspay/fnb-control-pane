@@ -32,8 +32,8 @@ Loki, Datadog, plain `docker logs`.
 
 ## Common issues
 
-| Symptom | First check |
-|---|---|
-| "Forbidden" on every request | Verify `X-Tenant-Slug` header reaches `api`; check Membership row exists |
-| Sign-in succeeds but app shows tenant 404 | User has no Membership; create one or invite via UI |
-| Subscriptions not delivering | Check SSE connection in browser devtools; verify Postgres `LISTEN/NOTIFY` working |
+| Symptom                                   | First check                                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------------- |
+| "Forbidden" on every request              | Verify `X-Tenant-Slug` header reaches `api`; check Membership row exists          |
+| Sign-in succeeds but app shows tenant 404 | User has no Membership; create one or invite via UI                               |
+| Subscriptions not delivering              | Check SSE connection in browser devtools; verify Postgres `LISTEN/NOTIFY` working |

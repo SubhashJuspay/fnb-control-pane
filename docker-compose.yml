@@ -8,12 +8,12 @@ services:
       POSTGRES_PASSWORD: fnb_dev
       POSTGRES_DB: fnb_control_pane
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "fnb", "-d", "fnb_control_pane"]
+      test: ['CMD', 'pg_isready', '-U', 'fnb', '-d', 'fnb_control_pane']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -23,8 +23,8 @@ services:
     container_name: fnb_mailhog
     restart: unless-stopped
     ports:
-      - "1025:1025"  # SMTP
-      - "8025:8025"  # Web UI
+      - '1025:1025' # SMTP
+      - '8025:8025' # Web UI
 
   api:
     build:
@@ -38,13 +38,13 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       SMTP_HOST: mailhog
-      SMTP_PORT: "1025"
+      SMTP_PORT: '1025'
       EMAIL_FROM: ${EMAIL_FROM:-noreply@example.com}
       NODE_ENV: development
       LOG_LEVEL: debug
-      API_PORT: "4000"
+      API_PORT: '4000'
     ports:
-      - "4000:4000"
+      - '4000:4000'
     volumes:
       - ./apps/api:/app/apps/api
       - ./packages:/app/packages
@@ -70,11 +70,11 @@ services:
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       INTERNAL_API_URL: http://api:4000/graphql
       SMTP_HOST: mailhog
-      SMTP_PORT: "1025"
+      SMTP_PORT: '1025'
       EMAIL_FROM: ${EMAIL_FROM:-noreply@example.com}
       NODE_ENV: development
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - ./apps/web:/app/apps/web
       - ./packages:/app/packages

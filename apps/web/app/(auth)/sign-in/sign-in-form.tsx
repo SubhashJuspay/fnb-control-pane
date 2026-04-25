@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -81,9 +82,9 @@ export function SignInForm({ next, error: initialError }: SignInFormProps) {
         {pending ? 'Signing in…' : 'Sign in'}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        <a href="/forgot-password" className="underline">
+        <Link href="/forgot-password" className="underline">
           Forgot your password?
-        </a>
+        </Link>
       </p>
     </form>
   );

@@ -61,9 +61,7 @@ export async function findEmailTo(
 export function extractFirstUrl(body: string, prefix: string): string | null {
   const decoded = body
     .replace(/=\r?\n/g, '')
-    .replace(/=([0-9A-F]{2})/g, (_, hex: string) =>
-      String.fromCharCode(parseInt(hex, 16)),
-    );
+    .replace(/=([0-9A-F]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
   const idx = decoded.indexOf(prefix);
   if (idx < 0) return null;
   const slice = decoded.slice(idx);

@@ -1,19 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui';
 import { ResetPasswordForm } from './reset-password-form';
 
 interface ResetPasswordPageProps {
   params: Promise<{ token: string }>;
 }
 
-export default async function ResetPasswordPage({
-  params,
-}: ResetPasswordPageProps) {
+export default async function ResetPasswordPage({ params }: ResetPasswordPageProps) {
   const { token } = await params;
   return (
     <Card>

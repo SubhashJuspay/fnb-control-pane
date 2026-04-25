@@ -114,9 +114,9 @@ describe('tenantInvitations (integration)', () => {
   });
 
   it('forbidden: anonymous viewer cannot list invitations', async () => {
-    await expect(
-      resolveTenantInvitations({}, makeContext({ prisma })),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolveTenantInvitations({}, makeContext({ prisma }))).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
   });
 });
 
@@ -150,10 +150,10 @@ describe('tenantLocations admin (integration)', () => {
         currency: 'USD',
       },
     });
-    const result = (await resolveTenantLocationsAdmin(
-      {},
-      ownerCtxA(),
-    )) as Array<{ name: string; tenantId: string }>;
+    const result = (await resolveTenantLocationsAdmin({}, ownerCtxA())) as Array<{
+      name: string;
+      tenantId: string;
+    }>;
     expect(result.map((r) => r.name).sort()).toEqual(['Branch 2', 'Tenant A Main']);
     for (const loc of result) {
       expect(loc.tenantId).toBe(A.tenantId);
@@ -161,9 +161,9 @@ describe('tenantLocations admin (integration)', () => {
   });
 
   it('forbidden: anonymous cannot list locations', async () => {
-    await expect(
-      resolveTenantLocationsAdmin({}, makeContext({ prisma })),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolveTenantLocationsAdmin({}, makeContext({ prisma }))).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
   });
 });
 
@@ -200,19 +200,16 @@ describe('auditLogs (integration)', () => {
       tenantId: string;
     }>;
     // Tenant scoping: only A's two entries.
-    expect(result.map((r) => r.action).sort()).toEqual([
-      'a.first',
-      'a.second',
-    ]);
+    expect(result.map((r) => r.action).sort()).toEqual(['a.first', 'a.second']);
     for (const row of result) expect(row.tenantId).toBe(A.tenantId);
     // DESC order check (newest first).
     expect(result[0]?.action).toBe('a.second');
   });
 
   it('forbidden: anonymous cannot read audit logs', async () => {
-    await expect(
-      resolveAuditLogs({}, makeContext({ prisma })),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolveAuditLogs({}, makeContext({ prisma }))).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
   });
 });
 
@@ -230,10 +227,7 @@ describe('revokeInvitation (integration)', () => {
         expiresAt: new Date(Date.now() + 86_400_000),
       },
     });
-    const result = await resolveRevokeInvitation(
-      { invitationId: inv.id },
-      ownerCtxA(),
-    );
+    const result = await resolveRevokeInvitation({ invitationId: inv.id }, ownerCtxA());
     expect(result.id).toBe(inv.id);
     const remaining = await prisma.invitation.findUnique({ where: { id: inv.id } });
     expect(remaining).toBeNull();

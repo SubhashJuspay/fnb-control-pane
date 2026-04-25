@@ -42,9 +42,7 @@ ViewerType.implement({
 });
 
 /** Pure resolver for Query.viewer — extracted so it can be unit-tested. */
-export async function resolveViewer(
-  ctx: RequestContext,
-): Promise<ViewerShape | null> {
+export async function resolveViewer(ctx: RequestContext): Promise<ViewerShape | null> {
   const userId = userIdFor(ctx);
   if (!userId) return null;
   const u = await ctx.prisma.user.findUnique({

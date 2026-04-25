@@ -1,8 +1,5 @@
 import { execSync } from 'node:child_process';
-import {
-  PostgreSqlContainer,
-  type StartedPostgreSqlContainer,
-} from '@testcontainers/postgresql';
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { PrismaClient } from '@repo/db';
 
 let container: StartedPostgreSqlContainer | null = null;

@@ -101,9 +101,7 @@ export function CreateLocationDialog({
     }
   }, [open, reset]);
 
-  const [{ fetching }, createLocation] = useMutation(
-    AdminCreateLocationDocument,
-  );
+  const [{ fetching }, createLocation] = useMutation(AdminCreateLocationDocument);
 
   const onSubmit = handleSubmit(async (values) => {
     const result = await createLocation({
@@ -131,8 +129,8 @@ export function CreateLocationDialog({
         <DialogHeader>
           <DialogTitle>Create location</DialogTitle>
           <DialogDescription>
-            A location is a single physical site, with its own timezone,
-            currency, and business-day cutoff.
+            A location is a single physical site, with its own timezone, currency, and business-day
+            cutoff.
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={onSubmit} noValidate>
@@ -144,9 +142,7 @@ export function CreateLocationDialog({
               {...register('name')}
               aria-invalid={Boolean(errors.name)}
             />
-            {errors.name ? (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            ) : null}
+            {errors.name ? <p className="text-sm text-destructive">{errors.name.message}</p> : null}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="loc-slug">Slug</Label>
@@ -156,18 +152,12 @@ export function CreateLocationDialog({
               {...register('slug')}
               aria-invalid={Boolean(errors.slug)}
             />
-            {errors.slug ? (
-              <p className="text-sm text-destructive">{errors.slug.message}</p>
-            ) : null}
+            {errors.slug ? <p className="text-sm text-destructive">{errors.slug.message}</p> : null}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="loc-tz">Timezone</Label>
-              <select
-                id="loc-tz"
-                className={cn(SELECT_CLASS)}
-                {...register('timezone')}
-              >
+              <select id="loc-tz" className={cn(SELECT_CLASS)} {...register('timezone')}>
                 {TIMEZONES.map((tz) => (
                   <option key={tz} value={tz}>
                     {tz}
@@ -177,11 +167,7 @@ export function CreateLocationDialog({
             </div>
             <div className="grid gap-2">
               <Label htmlFor="loc-currency">Currency</Label>
-              <select
-                id="loc-currency"
-                className={cn(SELECT_CLASS)}
-                {...register('currency')}
-              >
+              <select id="loc-currency" className={cn(SELECT_CLASS)} {...register('currency')}>
                 {CURRENCIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -204,9 +190,7 @@ export function CreateLocationDialog({
                 aria-invalid={Boolean(errors.businessDayCutoff)}
               />
               {errors.businessDayCutoff ? (
-                <p className="text-sm text-destructive">
-                  {errors.businessDayCutoff.message}
-                </p>
+                <p className="text-sm text-destructive">{errors.businessDayCutoff.message}</p>
               ) : null}
             </div>
           </div>

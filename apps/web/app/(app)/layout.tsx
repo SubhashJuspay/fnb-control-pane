@@ -12,11 +12,7 @@ import { AppShell } from '@/components/shell/app-shell';
  *      switcher (which calls viewer with no tenant scope) works. Nested
  *      tenant/location layouts re-wrap with the right scope.
  */
-export default async function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect('/sign-in');
   const data = await loadAppShellData();

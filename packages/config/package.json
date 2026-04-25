@@ -9,7 +9,12 @@
     "./tailwind": "./tailwind.preset.ts",
     "./tsconfig": "./tsconfig.base.json"
   },
-  "files": ["eslint.cjs", "prettier.cjs", "tailwind.preset.ts", "tsconfig.base.json"],
+  "files": [
+    "eslint.cjs",
+    "prettier.cjs",
+    "tailwind.preset.ts",
+    "tsconfig.base.json"
+  ],
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",

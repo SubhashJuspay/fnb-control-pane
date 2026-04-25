@@ -42,21 +42,18 @@ describe('readSessionCookie', () => {
   });
 
   it('falls back to the __Secure- variant when present', () => {
-    expect(
-      readSessionCookie('foo=bar; __Secure-authjs.session-token=secure-token'),
-    ).toBe('secure-token');
+    expect(readSessionCookie('foo=bar; __Secure-authjs.session-token=secure-token')).toBe(
+      'secure-token',
+    );
   });
 
   it('prefers the unprefixed cookie when both are set', () => {
-    const header =
-      'authjs.session-token=plain; __Secure-authjs.session-token=secure';
+    const header = 'authjs.session-token=plain; __Secure-authjs.session-token=secure';
     expect(readSessionCookie(header)).toBe('plain');
   });
 
   it('decodes URL-encoded values', () => {
-    expect(readSessionCookie('authjs.session-token=hello%20world')).toBe(
-      'hello world',
-    );
+    expect(readSessionCookie('authjs.session-token=hello%20world')).toBe('hello world');
   });
 
   it('returns null when cookie is absent', () => {
@@ -64,9 +61,7 @@ describe('readSessionCookie', () => {
   });
 
   it('handles whitespace around cookie names and values', () => {
-    expect(readSessionCookie('  authjs.session-token =  spaced  ')).toBe(
-      'spaced',
-    );
+    expect(readSessionCookie('  authjs.session-token =  spaced  ')).toBe('spaced');
   });
 });
 

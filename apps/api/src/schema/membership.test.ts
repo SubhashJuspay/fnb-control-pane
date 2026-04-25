@@ -26,7 +26,9 @@ const fakeLog = {
 function ctxFor(auth: AuthContext): RequestContext {
   return {
     auth,
-    prisma: { membership: { findMany: mockMembershipFindMany } } as unknown as RequestContext['prisma'],
+    prisma: {
+      membership: { findMany: mockMembershipFindMany },
+    } as unknown as RequestContext['prisma'],
     requestId: 'test',
     log: fakeLog,
   };
@@ -49,9 +51,9 @@ describe('Membership type', () => {
 
 describe('resolveTenantMembers', () => {
   it('throws ForbiddenError for anonymous viewers', async () => {
-    await expect(
-      resolveTenantMembers({}, ctxFor({ kind: 'anonymous' })),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(resolveTenantMembers({}, ctxFor({ kind: 'anonymous' }))).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
     expect(mockMembershipFindMany).not.toHaveBeenCalled();
   });
 

@@ -2,20 +2,14 @@
 
 import { useState } from 'react';
 import { useQuery } from 'urql';
-import {
-  Button,
-  DataTable,
-  type Column,
-} from '@repo/ui';
+import { Button, DataTable, type Column } from '@repo/ui';
 import {
   AdminTenantLocationsDocument,
   type AdminTenantLocationsQuery,
 } from '@/lib/graphql/generated/graphql';
 import { CreateLocationDialog } from '@/components/admin/create-location-dialog';
 
-type LocationRow = NonNullable<
-  NonNullable<AdminTenantLocationsQuery['tenantLocations']>[number]
->;
+type LocationRow = NonNullable<NonNullable<AdminTenantLocationsQuery['tenantLocations']>[number]>;
 
 function formatDate(value: unknown): string {
   if (!value) return '—';
@@ -74,8 +68,8 @@ export default function AdminLocationsPage(): React.JSX.Element {
         <div>
           <h2 className="text-lg font-semibold">Locations</h2>
           <p className="text-sm text-muted-foreground">
-            Each tenant can run any number of locations. New locations start
-            empty — sub-projects fill in their settings.
+            Each tenant can run any number of locations. New locations start empty — sub-projects
+            fill in their settings.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>Create location</Button>

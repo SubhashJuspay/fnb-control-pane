@@ -1,10 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@repo/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui';
 import { MfaForm } from './mfa-form';
 
 export default function MfaPage() {
@@ -12,9 +6,7 @@ export default function MfaPage() {
     <Card>
       <CardHeader>
         <CardTitle>Two-factor authentication</CardTitle>
-        <CardDescription>
-          Enter the 6-digit code from your authenticator app.
-        </CardDescription>
+        <CardDescription>Enter the 6-digit code from your authenticator app.</CardDescription>
       </CardHeader>
       <CardContent>
         <MfaForm />

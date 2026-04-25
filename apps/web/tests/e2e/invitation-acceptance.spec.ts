@@ -8,10 +8,7 @@ test.describe('Invitation acceptance', () => {
     await clearMailHog();
   });
 
-  test('owner invites a manager who accepts via email link', async ({
-    page,
-    baseURL,
-  }) => {
+  test('owner invites a manager who accepts via email link', async ({ page, baseURL }) => {
     // 1. Owner signs in
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill('owner@acme.test');
@@ -21,9 +18,7 @@ test.describe('Invitation acceptance', () => {
 
     // 2. Owner navigates to /acme/admin/members
     await page.goto('/acme/admin/members');
-    await expect(
-      page.getByRole('heading', { name: /team members/i }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /team members/i })).toBeVisible();
 
     // 3. Open InviteMemberDialog
     await page.getByRole('button', { name: /invite member/i }).click();
@@ -67,10 +62,7 @@ test.describe('Invitation acceptance', () => {
     // 6. Fetch the email from MailHog
     const email = await findEmailTo(inviteeEmail, { timeoutMs: 15_000 });
     expect(email).not.toBeNull();
-    const inviteUrl = extractFirstUrl(
-      email!.Content.Body,
-      `${baseURL}/sign-up/`,
-    );
+    const inviteUrl = extractFirstUrl(email!.Content.Body, `${baseURL}/sign-up/`);
     expect(inviteUrl).toBeTruthy();
 
     // 7. Open invitation in a new context (so we lose the owner's session)
@@ -78,14 +70,10 @@ test.describe('Invitation acceptance', () => {
     const inviteeContext = await page.context().browser()!.newContext();
     const inviteeTab = await inviteeContext.newPage();
     await inviteeTab.goto(inviteUrl!);
-    await expect(
-      inviteeTab.getByText(/Acme Restaurant Group/i),
-    ).toBeVisible();
+    await expect(inviteeTab.getByText(/Acme Restaurant Group/i)).toBeVisible();
     await inviteeTab.getByLabel('Your name').fill('New Manager');
     await inviteeTab.getByLabel('Password').fill('Password123!');
-    await inviteeTab
-      .getByRole('button', { name: /create account/i })
-      .click();
+    await inviteeTab.getByRole('button', { name: /create account/i }).click();
 
     // 8. Should land in the app, scoped to acme/mission-st
     await inviteeTab.waitForURL(/\/acme(\/|$)/);

@@ -2,8 +2,7 @@ import type { CodegenConfig } from '@graphql-codegen/cli';
 
 const config: CodegenConfig = {
   overwrite: true,
-  schema:
-    process.env.CODEGEN_SCHEMA_URL ?? 'lib/graphql/schema.graphql',
+  schema: process.env.CODEGEN_SCHEMA_URL ?? 'lib/graphql/schema.graphql',
   documents: [
     'lib/graphql/operations/**/*.graphql',
     'app/**/*.tsx',

@@ -108,7 +108,6 @@ builder.queryField('tenantInvitations', (t) =>
     type: ['Invitation'],
     description: 'Pending (unaccepted, unexpired) invitations within the current tenant.',
     authScopes: { admin: true },
-    resolve: (query, _root, _args, ctx) =>
-      resolveTenantInvitations(query, ctx) as never,
+    resolve: (query, _root, _args, ctx) => resolveTenantInvitations(query, ctx) as never,
   }),
 );

@@ -21,8 +21,8 @@ const nextConfig: NextConfig = {
   // so we register an extensionAlias to handle that during transpile.
   webpack: (config) => {
     config.resolve = config.resolve ?? {};
-    const existing = (config.resolve as { extensionAlias?: Record<string, string[]> })
-      .extensionAlias ?? {};
+    const existing =
+      (config.resolve as { extensionAlias?: Record<string, string[]> }).extensionAlias ?? {};
     (config.resolve as { extensionAlias?: Record<string, string[]> }).extensionAlias = {
       ...existing,
       '.js': ['.ts', '.tsx', '.js'],

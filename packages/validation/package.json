@@ -14,7 +14,7 @@
     "./invitation": "./src/invitation.ts"
   },
   "scripts": {
-    "lint": "eslint src",
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

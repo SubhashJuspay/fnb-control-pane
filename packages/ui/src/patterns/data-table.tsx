@@ -1,5 +1,12 @@
 import type * as React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/table.js';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '../components/table.js';
 import { EmptyState } from './empty-state.js';
 
 export interface Column<T> {

@@ -1,12 +1,10 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  forgotPasswordSchema,
-  type ForgotPasswordInput,
-} from '@repo/validation/auth';
+import { forgotPasswordSchema, type ForgotPasswordInput } from '@repo/validation/auth';
 import { Button, Input, Label } from '@repo/ui';
 import { forgotPasswordAction } from './actions';
 
@@ -70,9 +68,9 @@ export function ForgotPasswordForm() {
         {pending ? 'Sending…' : 'Send reset link'}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        <a href="/sign-in" className="underline">
+        <Link href="/sign-in" className="underline">
           Back to sign in
-        </a>
+        </Link>
       </p>
     </form>
   );
