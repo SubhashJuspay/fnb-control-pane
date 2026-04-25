@@ -1,0 +1,47 @@
+{
+  "name": "@app/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsup",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pothos/core": "^4.4.0",
+    "@pothos/plugin-dataloader": "^4.4.0",
+    "@pothos/plugin-errors": "^4.3.0",
+    "@pothos/plugin-prisma": "^4.6.0",
+    "@pothos/plugin-relay": "^4.4.0",
+    "@pothos/plugin-scope-auth": "^4.1.4",
+    "@pothos/plugin-tracing": "^1.1.0",
+    "@pothos/plugin-zod": "4.2.2",
+    "@repo/db": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@repo/validation": "workspace:*",
+    "fastify": "^5.2.1",
+    "graphql": "^16.10.0",
+    "graphql-yoga": "^5.10.4",
+    "nodemailer": "^6.9.16",
+    "pino": "^9.6.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@repo/config": "workspace:*",
+    "@testcontainers/postgresql": "^10.16.0",
+    "@types/node": "^22.10.2",
+    "@types/nodemailer": "^6.4.17",
+    "@vitest/coverage-v8": "^2.1.8",
+    "pino-pretty": "^13.0.0",
+    "testcontainers": "^10.16.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
