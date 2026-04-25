@@ -30,6 +30,11 @@ model Tenant {
   invitations Invitation[]
   auditLogs   AuditLog[]
 
+  categories     Category[]
+  taxCategories  TaxCategory[]
+  menuItems      MenuItem[]
+  modifierGroups ModifierGroup[]
+
   @@map("tenants")
 }
 
@@ -50,6 +55,11 @@ model Location {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   memberships Membership[]
   invitations Invitation[]
+
+  taxRates          TaxRate[]
+  menus             Menu[]
+  locationItems     LocationItem[]
+  locationModifiers LocationModifier[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -207,4 +217,234 @@ enum UserStatus {
 enum MembershipStatus {
   ACTIVE
   REVOKED
+}
+
+// ─── Menu & Catalog ───────────────────────────────────────────
+model Category {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  slug       String
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  MenuItem[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("categories")
+}
+
+model TaxCategory {
+  id         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String          @map("tenant_id") @db.Uuid
+  name       String
+  kind       TaxCategoryKind
+  archivedAt DateTime?       @map("archived_at")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rates  TaxRate[]
+  items  MenuItem[]
+
+  @@unique([tenantId, kind])
+  @@map("tax_categories")
+}
+
+model TaxRate {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taxCategoryId  String    @map("tax_category_id") @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  ratePermille   Int       @map("rate_permille")
+  effectiveFrom  DateTime  @default(now()) @map("effective_from")
+  effectiveUntil DateTime? @map("effective_until")
+
+  taxCategory TaxCategory @relation(fields: [taxCategoryId], references: [id], onDelete: Cascade)
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([taxCategoryId, locationId, effectiveFrom])
+  @@map("tax_rates")
+}
+
+model MenuItem {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String  @map("tenant_id") @db.Uuid
+  categoryId    String? @map("category_id") @db.Uuid
+  taxCategoryId String  @map("tax_category_id") @db.Uuid
+
+  name             String
+  shortDescription String?    @map("short_description")
+  description      String?
+  basePriceCents   Int        @map("base_price_cents")
+  imageUrl         String?    @map("image_url")
+  course           ItemCourse @default(MAIN)
+  printerStation   String?    @map("printer_station")
+  dietaryTags      String[]   @default([]) @map("dietary_tags")
+  allergenTags     String[]   @default([]) @map("allergen_tags")
+  archivedAt       DateTime?  @map("archived_at")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category          Category?               @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  taxCategory       TaxCategory             @relation(fields: [taxCategoryId], references: [id], onDelete: Restrict)
+  modifierGroups    MenuItemModifierGroup[]
+  sectionItems      MenuSectionItem[]
+  locationOverrides LocationItem[]
+
+  @@index([tenantId, archivedAt])
+  @@index([tenantId, categoryId])
+  @@map("menu_items")
+}
+
+model ModifierGroup {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  name          String
+  minSelections Int       @default(0) @map("min_selections")
+  maxSelections Int       @default(1) @map("max_selections")
+  archivedAt    DateTime? @map("archived_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant          Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  modifiers       Modifier[]
+  itemAttachments MenuItemModifierGroup[]
+
+  @@index([tenantId])
+  @@map("modifier_groups")
+}
+
+model Modifier {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modifierGroupId String    @map("modifier_group_id") @db.Uuid
+  name            String
+  priceDeltaCents Int       @default(0) @map("price_delta_cents")
+  isDefault       Boolean   @default(false) @map("is_default")
+  sortOrder       Int       @default(0) @map("sort_order")
+  archivedAt      DateTime? @map("archived_at")
+
+  modifierGroup     ModifierGroup      @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  locationOverrides LocationModifier[]
+
+  @@index([modifierGroupId])
+  @@map("modifiers")
+}
+
+model MenuItemModifierGroup {
+  menuItemId      String @map("menu_item_id") @db.Uuid
+  modifierGroupId String @map("modifier_group_id") @db.Uuid
+  sortOrder       Int    @default(0) @map("sort_order")
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@id([menuItemId, modifierGroupId])
+  @@map("menu_item_modifier_groups")
+}
+
+model Menu {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId  String    @map("location_id") @db.Uuid
+  name        String
+  description String?
+  sortOrder   Int       @default(0) @map("sort_order")
+  schedule    Json?
+  isActive    Boolean   @default(true) @map("is_active")
+  archivedAt  DateTime? @map("archived_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  location Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  sections MenuSection[]
+
+  @@index([locationId, archivedAt])
+  @@map("menus")
+}
+
+model MenuSection {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  menuId     String    @map("menu_id") @db.Uuid
+  name       String
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+
+  menu  Menu              @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  items MenuSectionItem[]
+
+  @@index([menuId])
+  @@map("menu_sections")
+}
+
+model MenuSectionItem {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  menuSectionId      String    @map("menu_section_id") @db.Uuid
+  menuItemId         String    @map("menu_item_id") @db.Uuid
+  sortOrder          Int       @default(0) @map("sort_order")
+  priceOverrideCents Int?      @map("price_override_cents")
+  archivedAt         DateTime? @map("archived_at")
+
+  menuSection MenuSection @relation(fields: [menuSectionId], references: [id], onDelete: Cascade)
+  menuItem    MenuItem    @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([menuSectionId, menuItemId])
+  @@index([menuItemId])
+  @@map("menu_section_items")
+}
+
+model LocationItem {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId String   @map("location_id") @db.Uuid
+  menuItemId String   @map("menu_item_id") @db.Uuid
+  hidden     Boolean  @default(false)
+  available  Boolean  @default(true)
+  priceCents Int?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, menuItemId])
+  @@index([locationId])
+  @@map("location_items")
+}
+
+model LocationModifier {
+  id                      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId              String   @map("location_id") @db.Uuid
+  modifierId              String   @map("modifier_id") @db.Uuid
+  hidden                  Boolean  @default(false)
+  available               Boolean  @default(true)
+  priceDeltaOverrideCents Int?     @map("price_delta_override_cents")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  modifier Modifier @relation(fields: [modifierId], references: [id], onDelete: Cascade)
+
+  @@unique([locationId, modifierId])
+  @@index([locationId])
+  @@map("location_modifiers")
+}
+
+enum TaxCategoryKind {
+  FOOD
+  NON_ALCOHOL_BEV
+  ALCOHOL
+  RETAIL
+  OTHER
+}
+
+enum ItemCourse {
+  APPETIZER
+  MAIN
+  DESSERT
+  SIDE
+  BEVERAGE
+  OTHER
 }
