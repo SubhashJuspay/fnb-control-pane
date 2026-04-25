@@ -19,7 +19,9 @@ const serverEnvSchema = z.object({
     .transform((v) => (v === undefined ? undefined : Number(v))),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
-  EMAIL_FROM: z.string().email().optional(),
+  // EMAIL_FROM may be a bare address ("noreply@example.com") or a display
+  // form ("Display Name <noreply@example.com>") — both are valid for SMTP.
+  EMAIL_FROM: z.string().min(1).optional(),
 });
 
 const publicEnvSchema = z.object({
