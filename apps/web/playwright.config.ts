@@ -47,6 +47,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false, // tests share a database; run sequentially for safety
+  workers: 1, // single worker because resetTestData() truncates global state
   retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {

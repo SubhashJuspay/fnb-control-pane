@@ -94,7 +94,7 @@ export function MenuSectionCard({ section, onChanged }: MenuSectionCardProps): R
     .filter((x): x is string => Boolean(x));
 
   return (
-    <li ref={ref} style={style} className="list-none">
+    <li ref={ref} style={style} className="list-none" data-testid={`menu-section-${id}`}>
       <Card>
         <CardContent className="flex flex-col gap-3 pt-4">
           <div className="flex items-center gap-2">

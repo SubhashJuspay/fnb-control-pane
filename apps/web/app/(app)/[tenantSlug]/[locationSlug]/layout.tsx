@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { GraphqlProvider } from '@/lib/graphql/provider';
 import { loadAppShellData } from '@/lib/viewer';
-import { LocationCurrencyContext } from '@/lib/location-currency';
+import { LocationCurrencyProvider } from '@/lib/location-currency';
 
 /**
  * Location-scoped layout. Validates that the viewer can see this location
@@ -27,9 +27,9 @@ export default async function LocationLayout({
   if (!location) redirect(`/${tenantSlug}/overview`);
   return (
     <GraphqlProvider scope={{ tenantSlug, locationId: location.id }}>
-      <LocationCurrencyContext.Provider value={location.currency}>
+      <LocationCurrencyProvider currency={location.currency}>
         {children}
-      </LocationCurrencyContext.Provider>
+      </LocationCurrencyProvider>
     </GraphqlProvider>
   );
 }

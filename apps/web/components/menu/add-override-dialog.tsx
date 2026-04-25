@@ -43,6 +43,7 @@ export function AddOverrideDialog({
   const [, upsertOverride] = useMutation(UpsertLocationItemDocument);
   const [priceCents, setPriceCents] = useState<number | null>(null);
   const [hidden, setHidden] = useState(false);
+  const [available, setAvailable] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset state when the dialog opens with a new item.
@@ -50,13 +51,14 @@ export function AddOverrideDialog({
     if (open) {
       setPriceCents(null);
       setHidden(false);
+      setAvailable(true);
     }
   }, [open, item.id]);
 
   const onSave = async (): Promise<void> => {
     setSubmitting(true);
     const result = await upsertOverride({
-      input: { menuItemId: item.id, priceCents, hidden },
+      input: { menuItemId: item.id, priceCents, hidden, available },
     });
     setSubmitting(false);
     if (result.error) {
@@ -115,6 +117,14 @@ export function AddOverrideDialog({
               onChange={(e) => setHidden(e.target.checked)}
             />
             Hide this item at this location
+          </label>
+          <label className="flex items-center gap-2 text-sm" data-testid="override-mark-86">
+            <input
+              type="checkbox"
+              checked={!available}
+              onChange={(e) => setAvailable(!e.target.checked)}
+            />
+            Mark 86 (out of stock)
           </label>
         </div>
         <DialogFooter>

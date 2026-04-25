@@ -87,7 +87,7 @@ query CatalogTaxCategories {
   }
 }
 
-query CatalogTaxCategoryRates($id: UUID!, $locationId: UUID!) {
+query CatalogTaxCategoryRates($locationId: UUID!) {
   catalogTaxCategories {
     id
     name

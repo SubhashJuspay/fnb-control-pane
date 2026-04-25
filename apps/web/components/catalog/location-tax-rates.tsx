@@ -80,7 +80,7 @@ function LocationRateRow({
 }): React.JSX.Element {
   const [{ data, fetching }] = useQuery({
     query: CatalogTaxCategoryRatesDocument,
-    variables: { id: taxCategoryId, locationId: location.id },
+    variables: { locationId: location.id },
   });
   const taxCat = (data?.catalogTaxCategories ?? []).find((c) => c?.id === taxCategoryId);
   const rates = taxCat?.ratesAtLocation ?? [];
