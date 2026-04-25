@@ -202,3 +202,29 @@ mutation SetItem86($input: SetItem86Input!) {
     available
   }
 }
+
+query LocationOverridesPage($first: Int, $after: String) {
+  catalogItems(first: $first, after: $after, filter: { includeArchived: false }) {
+    edges {
+      cursor
+      node {
+        id
+        name
+        basePriceCents
+        imageUrl
+        locationOverride {
+          id
+          menuItemId
+          priceCents
+          available
+          hidden
+        }
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+    totalCount
+  }
+}
