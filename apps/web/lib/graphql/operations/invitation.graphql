@@ -1,0 +1,19 @@
+query InvitationByToken($token: String!) {
+  invitationByToken(token: $token) {
+    id
+    email
+    role
+    tenantName
+    locationName
+    expiresAt
+    acceptedAt
+  }
+}
+
+mutation AcceptInvitation($input: AcceptInvitationInput!) {
+  acceptInvitation(input: $input) {
+    id
+    email
+    name
+  }
+}
