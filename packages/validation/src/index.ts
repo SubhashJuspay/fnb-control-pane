@@ -3,3 +3,7 @@ export * from './tenant.js';
 export * from './location.js';
 export * from './membership.js';
 export * from './invitation.js';
+export * from './schedule.js';
+export * from './dietary-tags.js';
+export * from './catalog.js';
+export * from './menu.js';
