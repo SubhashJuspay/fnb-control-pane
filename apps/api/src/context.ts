@@ -33,13 +33,23 @@ export interface ContextRequest {
 function anonymousContext(
   requestId: string,
   bindings: Record<string, unknown> = {},
+  userId?: string,
 ): RequestContext {
-  return {
+  const ctx: RequestContext = {
     auth: { kind: 'anonymous' },
     prisma,
     requestId,
     log: childLogger({ requestId, ...bindings }),
   };
+  // The viewer / tenant-list resolvers run BEFORE a tenant has been chosen
+  // (the location switcher needs them) and read this side-channel via
+  // `userIdFor(ctx)`. We attach it whenever we have a verified session but
+  // no resolved tenant scope, so authenticated callers can list their own
+  // tenants/memberships without a tenant header.
+  if (userId) {
+    (ctx as RequestContext & { __userId: string }).__userId = userId;
+  }
+  return ctx;
 }
 
 export async function buildContext(req: ContextRequest): Promise<RequestContext> {
@@ -54,7 +64,7 @@ export async function buildContext(req: ContextRequest): Promise<RequestContext>
   const locationId = req.headers['x-location-id'] ?? null;
 
   if (!tenantSlug) {
-    return anonymousContext(requestId, { userId: session.userId });
+    return anonymousContext(requestId, { userId: session.userId }, session.userId);
   }
 
   const tenant = await prisma.tenant.findUnique({
@@ -62,7 +72,7 @@ export async function buildContext(req: ContextRequest): Promise<RequestContext>
     select: { id: true, slug: true },
   });
   if (!tenant) {
-    return anonymousContext(requestId, { userId: session.userId });
+    return anonymousContext(requestId, { userId: session.userId }, session.userId);
   }
 
   const membership = await prisma.membership.findFirst({

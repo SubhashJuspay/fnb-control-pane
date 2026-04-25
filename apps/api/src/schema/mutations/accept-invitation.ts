@@ -118,16 +118,23 @@ export async function resolveAcceptInvitation(
   });
 }
 
-// NOTE: acceptInvitation is the documented anonymous-allowed mutation. We
-// deliberately omit `authScopes` — the invitation token itself is the auth
-// credential. Do not add scope checks here.
+// NOTE: acceptInvitation is the documented anonymous-allowed mutation. The
+// invitation token itself is the auth credential. We use `authScopes: () =>
+// true` (rather than an empty object, which scope-auth treats as "no scope
+// can satisfy") to opt out of scope checks for this single field. We also
+// skip type-scopes so the returned User's field-level scopes don't fire.
 builder.mutationField('acceptInvitation', (t) =>
   t.prismaField({
     type: 'User',
     args: { input: t.arg({ type: AcceptInvitationInput, required: true }) },
     validate: { schema: z.object({ input: acceptInvitationSchema }) },
     skipTypeScopes: true,
-    authScopes: {},
+    authScopes: () => true,
+    // Grant the `authenticated` scope to the returned User so its
+    // field-level checks (e.g. User.email) succeed. The token-bearing
+    // caller has just proven they own this email, so reading it back is
+    // safe.
+    grantScopes: ['authenticated'],
     resolve: (query, _root, args, ctx) =>
       resolveAcceptInvitation(query, args.input as AcceptInvitationArgs, ctx) as never,
   }),

@@ -47,8 +47,16 @@ export const builder = new SchemaBuilder<{
     authScopes: async (ctx) => {
       const auth = ctx.auth;
       if (auth.kind !== 'authenticated') {
+        // The viewer / location-switcher path runs BEFORE a tenant has been
+        // chosen and therefore lands here. We still consider that caller
+        // `authenticated` (so they can read their own Membership rows on
+        // the Viewer type) but never grant role-scoped permissions without
+        // a resolved tenant.
+        const sideChannelUserId = (
+          ctx as unknown as { __userId?: string }
+        ).__userId;
         return {
-          authenticated: false,
+          authenticated: typeof sideChannelUserId === 'string' && sideChannelUserId.length > 0,
           owner: false,
           admin: false,
           manager: false,

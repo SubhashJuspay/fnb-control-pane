@@ -5,7 +5,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 async function proxy(req: NextRequest): Promise<Response> {
-  const target = env.INTERNAL_API_URL ?? 'http://api:4000/graphql';
+  const base = env.INTERNAL_API_URL ?? 'http://api:4000/graphql';
+  // Preserve the original querystring (urql sends GET queries with the
+  // GraphQL document encoded into the URL). Without this, GET requests
+  // arrive at the upstream with no query string and Yoga responds 400
+  // "Must provide query string."
+  const qs = req.nextUrl.search ?? '';
+  const target = qs ? `${base}${base.includes('?') ? '&' : '?'}${qs.slice(1)}` : base;
 
   const headers = new Headers();
   // Forward content-type and accept so the api can parse the request and pick
