@@ -14,3 +14,5 @@ import './update-modifier.js';
 import './reorder-modifiers.js';
 import './archive-modifier.js';
 import './attach-modifier-group.js';
+import './create-tax-category.js';
+import './set-tax-rate.js';
