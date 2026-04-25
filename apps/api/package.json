@@ -14,6 +14,7 @@
     "prisma:pothos": "pnpm --filter @repo/db exec prisma generate"
   },
   "dependencies": {
+    "@auth/core": "^0.37.2",
     "@pothos/core": "^4.4.0",
     "@pothos/plugin-dataloader": "^4.4.0",
     "@pothos/plugin-errors": "^4.3.0",

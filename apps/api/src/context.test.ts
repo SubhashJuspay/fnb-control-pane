@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { encode } from '@auth/core/jwt';
+
+const SECRET = 'test-secret-at-least-32-chars-xxxx';
+const COOKIE_NAME = 'authjs.session-token';
 
 const {
-  mockSessionFindUnique,
+  mockUserFindUnique,
   mockTenantFindUnique,
   mockMembershipFindFirst,
   mockLocationFindFirst,
 } = vi.hoisted(() => ({
-  mockSessionFindUnique: vi.fn(),
+  mockUserFindUnique: vi.fn(),
   mockTenantFindUnique: vi.fn(),
   mockMembershipFindFirst: vi.fn(),
   mockLocationFindFirst: vi.fn(),
@@ -14,23 +18,35 @@ const {
 
 vi.mock('./prisma.js', () => ({
   prisma: {
-    session: { findUnique: mockSessionFindUnique },
+    user: { findUnique: mockUserFindUnique },
     tenant: { findUnique: mockTenantFindUnique },
     membership: { findFirst: mockMembershipFindFirst },
     location: { findFirst: mockLocationFindFirst },
   },
 }));
 
-import { buildContext, type ContextRequest } from './context.js';
+beforeEach(() => {
+  process.env.AUTH_SECRET = SECRET;
+});
 
-const future = new Date(Date.now() + 1000 * 60 * 60 * 24);
+import { buildContext, type ContextRequest } from './context.js';
 
 function makeReq(headers: ContextRequest['headers']): ContextRequest {
   return { headers };
 }
 
+async function makeCookie(userId: string): Promise<string> {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const token = await encode({
+    secret: SECRET,
+    salt: COOKIE_NAME,
+    token: { sub: userId, iat: nowSec, exp: nowSec + 60 * 60 },
+  });
+  return `${COOKIE_NAME}=${token}`;
+}
+
 beforeEach(() => {
-  mockSessionFindUnique.mockReset();
+  mockUserFindUnique.mockReset();
   mockTenantFindUnique.mockReset();
   mockMembershipFindFirst.mockReset();
   mockLocationFindFirst.mockReset();
@@ -42,7 +58,7 @@ describe('buildContext', () => {
     expect(ctx.auth.kind).toBe('anonymous');
     expect(typeof ctx.requestId).toBe('string');
     expect(ctx.requestId.length).toBeGreaterThan(0);
-    expect(mockSessionFindUnique).not.toHaveBeenCalled();
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
   it('preserves the supplied X-Request-Id', async () => {
@@ -53,57 +69,39 @@ describe('buildContext', () => {
   });
 
   it('returns anonymous when authenticated but no tenant header', async () => {
-    mockSessionFindUnique.mockResolvedValueOnce({
-      userId: 'user-1',
-      sessionToken: 'tok',
-      expires: future,
-    });
-    const ctx = await buildContext(
-      makeReq({ cookie: 'authjs.session-token=tok' }),
-    );
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE' });
+    const cookie = await makeCookie('user-1');
+    const ctx = await buildContext(makeReq({ cookie }));
     expect(ctx.auth.kind).toBe('anonymous');
     expect(mockTenantFindUnique).not.toHaveBeenCalled();
   });
 
   it('returns anonymous when tenant slug does not match', async () => {
-    mockSessionFindUnique.mockResolvedValueOnce({
-      userId: 'user-1',
-      sessionToken: 'tok',
-      expires: future,
-    });
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE' });
     mockTenantFindUnique.mockResolvedValueOnce(null);
+    const cookie = await makeCookie('user-1');
     const ctx = await buildContext(
-      makeReq({
-        cookie: 'authjs.session-token=tok',
-        'x-tenant-slug': 'unknown',
-      }),
+      makeReq({ cookie, 'x-tenant-slug': 'unknown' }),
     );
     expect(ctx.auth.kind).toBe('anonymous');
   });
 
   it('returns anonymous when user has no membership in the tenant', async () => {
-    mockSessionFindUnique.mockResolvedValueOnce({
-      userId: 'user-1',
-      sessionToken: 'tok',
-      expires: future,
-    });
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE' });
     mockTenantFindUnique.mockResolvedValueOnce({
       id: 'tenant-1',
       slug: 'acme',
     });
     mockMembershipFindFirst.mockResolvedValueOnce(null);
+    const cookie = await makeCookie('user-1');
     const ctx = await buildContext(
-      makeReq({ cookie: 'authjs.session-token=tok', 'x-tenant-slug': 'acme' }),
+      makeReq({ cookie, 'x-tenant-slug': 'acme' }),
     );
     expect(ctx.auth.kind).toBe('anonymous');
   });
 
   it('returns authenticated context for tenant-wide membership (location null)', async () => {
-    mockSessionFindUnique.mockResolvedValueOnce({
-      userId: 'user-1',
-      sessionToken: 'tok',
-      expires: future,
-    });
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE' });
     mockTenantFindUnique.mockResolvedValueOnce({
       id: 'tenant-1',
       slug: 'acme',
@@ -114,8 +112,9 @@ describe('buildContext', () => {
       locationId: null,
       user: { id: 'user-1', email: 'owner@acme.test' },
     });
+    const cookie = await makeCookie('user-1');
     const ctx = await buildContext(
-      makeReq({ cookie: 'authjs.session-token=tok', 'x-tenant-slug': 'acme' }),
+      makeReq({ cookie, 'x-tenant-slug': 'acme' }),
     );
     expect(ctx.auth).toMatchObject({
       kind: 'authenticated',
@@ -128,11 +127,7 @@ describe('buildContext', () => {
   });
 
   it('returns authenticated context with location resolved when provided', async () => {
-    mockSessionFindUnique.mockResolvedValueOnce({
-      userId: 'user-1',
-      sessionToken: 'tok',
-      expires: future,
-    });
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'user-1', status: 'ACTIVE' });
     mockTenantFindUnique.mockResolvedValueOnce({
       id: 'tenant-1',
       slug: 'acme',
@@ -148,9 +143,10 @@ describe('buildContext', () => {
       timezone: 'America/Los_Angeles',
       currency: 'USD',
     });
+    const cookie = await makeCookie('user-1');
     const ctx = await buildContext(
       makeReq({
-        cookie: 'authjs.session-token=tok',
+        cookie,
         'x-tenant-slug': 'acme',
         'x-location-id': 'loc-1',
       }),

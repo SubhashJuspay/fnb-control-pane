@@ -1,16 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { encode } from '@auth/core/jwt';
 
-const { mockFindUnique } = vi.hoisted(() => ({
-  mockFindUnique: vi.fn(),
+const { mockUserFindUnique } = vi.hoisted(() => ({
+  mockUserFindUnique: vi.fn(),
 }));
 
 vi.mock('./prisma.js', () => ({
   prisma: {
-    session: {
-      findUnique: mockFindUnique,
+    user: {
+      findUnique: mockUserFindUnique,
     },
   },
 }));
+
+const SECRET = 'test-secret-at-least-32-chars-xxxx';
+const COOKIE_NAME = 'authjs.session-token';
+const SECURE_COOKIE_NAME = '__Secure-authjs.session-token';
+
+beforeEach(() => {
+  process.env.AUTH_SECRET = SECRET;
+});
 
 import { readSessionCookie, verifySession } from './auth.js';
 
@@ -61,9 +70,27 @@ describe('readSessionCookie', () => {
   });
 });
 
+async function makeAuthJsToken(opts: {
+  sub: string;
+  salt?: string;
+  exp?: number;
+}): Promise<string> {
+  const salt = opts.salt ?? COOKIE_NAME;
+  const nowSec = Math.floor(Date.now() / 1000);
+  return encode({
+    secret: SECRET,
+    salt,
+    token: {
+      sub: opts.sub,
+      iat: nowSec,
+      exp: opts.exp ?? nowSec + 60 * 60,
+    },
+  });
+}
+
 describe('verifySession', () => {
   beforeEach(() => {
-    mockFindUnique.mockReset();
+    mockUserFindUnique.mockReset();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -72,45 +99,62 @@ describe('verifySession', () => {
   it('returns null when no cookie is present', async () => {
     const result = await verifySession(undefined);
     expect(result).toBeNull();
-    expect(mockFindUnique).not.toHaveBeenCalled();
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
-  it('returns null when the session row is missing', async () => {
-    mockFindUnique.mockResolvedValueOnce(null);
-    const result = await verifySession('authjs.session-token=tok-1');
+  it('returns null when the cookie is missing the session token', async () => {
+    const result = await verifySession('foo=bar; baz=qux');
     expect(result).toBeNull();
-    expect(mockFindUnique).toHaveBeenCalledWith({
-      where: { sessionToken: 'tok-1' },
-      select: { userId: true, sessionToken: true, expires: true },
-    });
+    expect(mockUserFindUnique).not.toHaveBeenCalled();
   });
 
-  it('returns null when the session has expired', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-25T12:00:00Z'));
-    mockFindUnique.mockResolvedValueOnce({
-      userId: 'user-1',
-      sessionToken: 'tok-2',
-      expires: new Date('2026-04-25T11:59:59Z'),
-    });
-    const result = await verifySession('authjs.session-token=tok-2');
+  it('returns null when the JWT cannot be decoded', async () => {
+    const result = await verifySession('authjs.session-token=not-a-real-jwt');
     expect(result).toBeNull();
   });
 
-  it('returns the verified session when valid', async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date('2026-04-25T12:00:00Z'));
-    const expires = new Date('2026-05-01T00:00:00Z');
-    mockFindUnique.mockResolvedValueOnce({
-      userId: 'user-2',
-      sessionToken: 'tok-3',
-      expires,
+  it('returns null when the JWT has expired', async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const expiredToken = await makeAuthJsToken({
+      sub: 'user-1',
+      exp: nowSec - 60,
     });
-    const result = await verifySession('authjs.session-token=tok-3');
-    expect(result).toEqual({
-      userId: 'user-2',
-      sessionToken: 'tok-3',
-      expiresAt: expires,
+    const result = await verifySession(`${COOKIE_NAME}=${expiredToken}`);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the user does not exist', async () => {
+    mockUserFindUnique.mockResolvedValueOnce(null);
+    const token = await makeAuthJsToken({ sub: 'missing-user' });
+    const result = await verifySession(`${COOKIE_NAME}=${token}`);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the user is not ACTIVE', async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'u1', status: 'INVITED' });
+    const token = await makeAuthJsToken({ sub: 'u1' });
+    const result = await verifySession(`${COOKIE_NAME}=${token}`);
+    expect(result).toBeNull();
+  });
+
+  it('returns the verified session for a valid JWT and active user', async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'u2', status: 'ACTIVE' });
+    const token = await makeAuthJsToken({ sub: 'u2' });
+    const result = await verifySession(`${COOKIE_NAME}=${token}`);
+    expect(result).not.toBeNull();
+    expect(result?.userId).toBe('u2');
+    expect(result?.sessionToken).toBe(token);
+    expect(result?.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('also accepts the __Secure- prefixed cookie variant', async () => {
+    mockUserFindUnique.mockResolvedValueOnce({ id: 'u3', status: 'ACTIVE' });
+    const token = await makeAuthJsToken({
+      sub: 'u3',
+      salt: SECURE_COOKIE_NAME,
     });
+    const result = await verifySession(`${SECURE_COOKIE_NAME}=${token}`);
+    expect(result).not.toBeNull();
+    expect(result?.userId).toBe('u3');
   });
 });

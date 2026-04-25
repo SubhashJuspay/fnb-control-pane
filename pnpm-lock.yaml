@@ -20,6 +20,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@auth/core':
+        specifier: ^0.37.2
+        version: 0.37.2(nodemailer@6.10.1)
       '@pothos/core':
         specifier: ^4.4.0
         version: 4.12.0(graphql@16.13.2)
@@ -5816,7 +5819,7 @@ snapshots:
       immutable: 5.1.5
       invariant: 2.2.4
 
-  '@auth/core@0.37.2':
+  '@auth/core@0.37.2(nodemailer@6.10.1)':
     dependencies:
       '@panva/hkdf': 1.2.1
       '@types/cookie': 0.6.0
@@ -5825,6 +5828,8 @@ snapshots:
       oauth4webapi: 3.8.5
       preact: 10.11.3
       preact-render-to-string: 5.2.3(preact@10.11.3)
+    optionalDependencies:
+      nodemailer: 6.10.1
 
   '@auth/core@0.41.2':
     dependencies:
@@ -10354,7 +10359,7 @@ snapshots:
 
   next-auth@5.0.0-beta.25(next@15.5.15(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(react@19.2.5):
     dependencies:
-      '@auth/core': 0.37.2
+      '@auth/core': 0.37.2(nodemailer@6.10.1)
       next: 15.5.15(@babel/core@7.29.0)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
       react: 19.2.5
 
