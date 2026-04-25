@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
@@ -10,6 +12,23 @@ const graphqlEsm = fileURLToPath(
     import.meta.url,
   ),
 );
+
+// Testcontainers needs a DOCKER_HOST. Default Linux socket is missing on macOS;
+// fall back to OrbStack or Docker Desktop sockets if present. Developers can
+// override by setting DOCKER_HOST themselves.
+function detectDockerHost(): string | undefined {
+  if (process.env.DOCKER_HOST) return process.env.DOCKER_HOST;
+  const candidates = [
+    `${homedir()}/.orbstack/run/docker.sock`,
+    `${homedir()}/.docker/run/docker.sock`,
+    '/var/run/docker.sock',
+  ];
+  for (const path of candidates) {
+    if (existsSync(path)) return `unix://${path}`;
+  }
+  return undefined;
+}
+const detectedDockerHost = detectDockerHost();
 
 export default defineConfig({
   resolve: {
@@ -45,6 +64,11 @@ export default defineConfig({
       EMAIL_FROM: 'test@example.com',
       NODE_ENV: 'test',
       LOG_LEVEL: 'silent',
+      // Testcontainers config — only set if a Docker socket was found.
+      ...(detectedDockerHost ? { DOCKER_HOST: detectedDockerHost } : {}),
+      // OrbStack lacks the cgroup hooks Ryuk relies on; disabling avoids a
+      // 30-second container start hang. Cleanup is still done in afterAll.
+      TESTCONTAINERS_RYUK_DISABLED: 'true',
     },
     include: ['src/**/*.test.ts'],
   },
