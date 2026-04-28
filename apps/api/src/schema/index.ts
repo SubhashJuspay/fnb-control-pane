@@ -33,6 +33,7 @@ import './mutations/catalog/index.js';
 import './mutations/menu/index.js';
 import './mutations/location-overrides/index.js';
 import './mutations/pos/index.js';
+import './subscriptions/index.js';
 
 export { builder };
 

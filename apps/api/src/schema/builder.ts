@@ -83,7 +83,8 @@ builder.scalarType('UUID', {
   },
 });
 
-// Initialize Query/Mutation root types. Domain modules attach fields via
-// builder.queryField / builder.mutationField.
+// Initialize Query/Mutation/Subscription root types. Domain modules attach
+// fields via builder.queryField / builder.mutationField / builder.subscriptionField.
 builder.queryType({});
 builder.mutationType({});
+builder.subscriptionType({});
