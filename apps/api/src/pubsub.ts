@@ -87,3 +87,7 @@ export const pubsub = new PgPubSub();
 export function ticketChannelName(locationId: string): string {
   return `ticket_updates_${locationId}`;
 }
+
+export function floorChannelName(locationId: string): string {
+  return `floor_updates_${locationId}`;
+}
