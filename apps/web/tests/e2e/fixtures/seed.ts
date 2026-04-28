@@ -20,6 +20,11 @@ function hashPassword(password: string): string {
  * Wave 6 extension: also wipe Acme's POS rows (tickets, ticket items,
  * ticket-item modifiers, discounts) so pos-flow / kds-flow / discount-and-
  * void specs always start with an empty board.
+ *
+ * Wave 7 extension: also wipe Acme's floor + reservation rows (sections,
+ * tables, reservations) so floor-flow / reservation-flow specs always start
+ * from a known baseline. Reservations are deleted before tickets because of
+ * the `Reservation.ticketId` FK (SetNull, but cleaner to drop in order).
  */
 export async function resetTestData(): Promise<void> {
   await prisma.auditLog.deleteMany({
@@ -59,7 +64,22 @@ export async function resetTestData(): Promise<void> {
     await prisma.discount.deleteMany({
       where: { location: { tenantId: acme.id } },
     });
+    // Reservations link to tickets via Reservation.ticketId (SetNull on
+    // delete). Drop reservations first so the FK isn't dangling when we wipe
+    // tickets — and so cascading section/table deletes (next block) don't
+    // hit "tableId still referenced" surprises.
+    await prisma.reservation.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
     await prisma.ticket.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
+    // Floor rows. Tables cascade-delete from a section, but archived/null-
+    // section tables don't, so wipe tables first then sections.
+    await prisma.table.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
+    await prisma.section.deleteMany({
       where: { location: { tenantId: acme.id } },
     });
 
@@ -508,4 +528,175 @@ export async function fireSeededTicket(
   opts: SeededTicketOptions = {},
 ): Promise<SeededTicketResult> {
   return createSeededTicket(opts, 'FIRED');
+}
+
+export interface CreateFloorFixturesOptions {
+  /** Tenant slug to scope fixtures to. Defaults to the seeded `acme` tenant. */
+  tenantSlug?: string;
+  /** Location slug. Defaults to `mission-st`. */
+  locationSlug?: string;
+}
+
+interface FloorFixtures {
+  tenantId: string;
+  locationId: string;
+  section: { id: string; name: string };
+  table: {
+    id: string;
+    label: string;
+    capacity: number;
+    positionX: number;
+    positionY: number;
+  };
+}
+
+/**
+ * Bootstrap the minimum floor rows that floor-flow / reservation-flow specs
+ * need: a single `Main` section and a 4-top RECT table `T-1` at (100, 100).
+ * Idempotent across reruns — re-uses upsert / findFirst so it's safe to call
+ * from `beforeEach` after `resetTestData()`.
+ */
+export async function createFloorFixtures(
+  opts: CreateFloorFixturesOptions = {},
+): Promise<FloorFixtures> {
+  const tenantSlug = opts.tenantSlug ?? 'acme';
+  const locationSlug = opts.locationSlug ?? 'mission-st';
+  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+  if (!tenant) throw new Error(`tenant not found: ${tenantSlug}`);
+  const location = await prisma.location.findUnique({
+    where: { tenantId_slug: { tenantId: tenant.id, slug: locationSlug } },
+  });
+  if (!location) throw new Error(`location not found: ${locationSlug}`);
+
+  const section = await prisma.section.upsert({
+    where: { locationId_name: { locationId: location.id, name: 'Main' } },
+    update: { sortOrder: 0, archivedAt: null },
+    create: { locationId: location.id, name: 'Main', sortOrder: 0 },
+  });
+
+  const table = await prisma.table.upsert({
+    where: { locationId_label: { locationId: location.id, label: 'T-1' } },
+    update: {
+      sectionId: section.id,
+      capacity: 4,
+      shape: 'RECT',
+      positionX: 100,
+      positionY: 100,
+      width: 80,
+      height: 80,
+      rotation: 0,
+      manualState: 'NONE',
+      archivedAt: null,
+    },
+    create: {
+      locationId: location.id,
+      sectionId: section.id,
+      label: 'T-1',
+      capacity: 4,
+      shape: 'RECT',
+      positionX: 100,
+      positionY: 100,
+      width: 80,
+      height: 80,
+      rotation: 0,
+    },
+  });
+
+  return {
+    tenantId: tenant.id,
+    locationId: location.id,
+    section: { id: section.id, name: section.name },
+    table: {
+      id: table.id,
+      label: table.label,
+      capacity: table.capacity,
+      positionX: table.positionX,
+      positionY: table.positionY,
+    },
+  };
+}
+
+export interface CloseTicketViaPrismaOptions {
+  ticketId: string;
+  /**
+   * Add a Latte ticket item (re-uses `createCatalogFixtures` Latte) before
+   * closing. Defaults to false — set to true for tests that walk the full
+   * fire → ready → served → close cycle without using the POS UI.
+   */
+  withLatteItem?: boolean;
+}
+
+/**
+ * Close a ticket end-to-end using Prisma directly. Mirrors the POS
+ * `closeTicket` mutation enough that the floor query observes the table as
+ * AVAILABLE again, including the post-commit `completeReservationAfterClose`
+ * side-effect (we replicate it here so reservation-flow tests can verify the
+ * reservation ends up COMPLETED without going through the POS UI).
+ *
+ * Optionally adds a single Latte line in NEW state, then walks
+ * NEW → FIRED → READY → SERVED → ticket CLOSED, matching the close-ticket
+ * state guard (all items must be SERVED or VOIDED).
+ */
+export async function closeTicketViaPrisma(
+  opts: CloseTicketViaPrismaOptions,
+): Promise<void> {
+  const ticket = await prisma.ticket.findUniqueOrThrow({
+    where: { id: opts.ticketId },
+    select: {
+      id: true,
+      locationId: true,
+      location: { select: { tenantId: true } },
+    },
+  });
+
+  if (opts.withLatteItem) {
+    const latte = await prisma.menuItem.findFirstOrThrow({
+      where: { tenantId: ticket.location.tenantId, name: 'Latte' },
+      select: { id: true, name: true, basePriceCents: true, course: true },
+    });
+    await prisma.ticketItem.create({
+      data: {
+        ticketId: ticket.id,
+        menuItemId: latte.id,
+        nameSnapshot: latte.name,
+        unitPriceCents: latte.basePriceCents,
+        quantity: 1,
+        modifiersTotalCents: 0,
+        lineSubtotalCents: latte.basePriceCents,
+        course: latte.course,
+        status: 'NEW',
+      },
+    });
+  }
+
+  // NEW → FIRED → READY → SERVED for every non-voided line.
+  const items = await prisma.ticketItem.findMany({
+    where: { ticketId: ticket.id, status: { not: 'VOIDED' } },
+    select: { id: true },
+  });
+  if (items.length > 0) {
+    const firedAt = new Date(Date.now() - 3 * 60 * 1000);
+    await prisma.ticketItem.updateMany({
+      where: { id: { in: items.map((i) => i.id) } },
+      data: { status: 'SERVED', firedAt },
+    });
+  }
+
+  await prisma.ticket.update({
+    where: { id: ticket.id },
+    data: { status: 'CLOSED', closedAt: new Date() },
+  });
+
+  // Mirror `completeReservationAfterClose`: any SEATED reservation linked to
+  // this ticket transitions to COMPLETED.
+  const reservation = await prisma.reservation.findFirst({
+    where: { ticketId: ticket.id, status: 'SEATED' },
+    select: { id: true },
+  });
+  if (reservation) {
+    await prisma.reservation.update({
+      where: { id: reservation.id },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    });
+  }
 }
