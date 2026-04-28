@@ -8,12 +8,15 @@ import {
   TicketDocument,
   TicketUpdatesDocument,
 } from '@/lib/graphql/generated/graphql';
+import { ActiveTicketPanel } from './active-ticket-panel';
 import { OpenTicketsSidebar } from './open-tickets-sidebar';
 import { MenuTileGrid } from './menu-tile-grid';
 
 interface PosWorkspaceProps {
   tenantSlug: string;
   locationSlug: string;
+  /** Whether the viewer can run manager-only mutations (reopenTicket, etc.). */
+  canManagerActions: boolean;
 }
 
 /**
@@ -27,7 +30,11 @@ interface PosWorkspaceProps {
  * tickets list and the active ticket query. Refetch happens on every event
  * via the `requestPolicy: 'network-only'` re-fire below.
  */
-export function PosWorkspace({ tenantSlug, locationSlug }: PosWorkspaceProps): React.JSX.Element {
+export function PosWorkspace({
+  tenantSlug,
+  locationSlug,
+  canManagerActions,
+}: PosWorkspaceProps): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -89,10 +96,14 @@ export function PosWorkspace({ tenantSlug, locationSlug }: PosWorkspaceProps): R
           <MenuTileGrid activeTicketId={activeTicketId} />
         </div>
         <div className="hidden w-96 flex-col border-l bg-surface md:flex">
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
-            {activeTicketId ? (
-              <p>Active ticket panel arrives in the next task.</p>
-            ) : (
+          {activeTicketId ? (
+            <ActiveTicketPanel
+              ticketId={activeTicketId}
+              canManagerActions={canManagerActions}
+              onTicketClosed={() => refetchOpenTickets({ requestPolicy: 'network-only' })}
+            />
+          ) : (
+            <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
               <p>
                 Select an open ticket or create a new one.
                 <br />
@@ -100,8 +111,8 @@ export function PosWorkspace({ tenantSlug, locationSlug }: PosWorkspaceProps): R
                   Tenant: {tenantSlug} · Location: {locationSlug}
                 </span>
               </p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
