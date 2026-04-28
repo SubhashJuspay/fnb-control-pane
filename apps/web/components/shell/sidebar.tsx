@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
-import { BarChart3, LayoutDashboard, Settings, Users, UserCircle } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Settings, ShoppingBag, Users, UserCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@repo/ui';
 import type { AppShellTenant } from '@/lib/viewer';
@@ -47,6 +47,12 @@ export function Sidebar({ tenants }: SidebarProps) {
       label: 'Guests',
       icon: UserCircle,
       matches: (path) => path.startsWith(`/${tenantSlug}/${locationSlug}/guests`),
+    });
+    items.push({
+      href: `/${tenantSlug}/${locationSlug}/online-orders`,
+      label: 'Online Orders',
+      icon: ShoppingBag,
+      matches: (path) => path.startsWith(`/${tenantSlug}/${locationSlug}/online-orders`),
     });
     items.push({
       href: `/${tenantSlug}/${locationSlug}/settings`,
