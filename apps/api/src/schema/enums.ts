@@ -71,3 +71,15 @@ export const ReservationStatusEnum = builder.enumType('ReservationStatus', {
     'CANCELLED',
   ] as const,
 });
+
+export const EmploymentTypeEnum = builder.enumType('EmploymentType', {
+  values: ['FULL_TIME', 'PART_TIME', 'CONTRACTOR'] as const,
+});
+
+export const ShiftStatusEnum = builder.enumType('ShiftStatus', {
+  values: ['DRAFT', 'PUBLISHED', 'CANCELLED'] as const,
+});
+
+export const DayOfWeekEnum = builder.enumType('DayOfWeek', {
+  values: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const,
+});
