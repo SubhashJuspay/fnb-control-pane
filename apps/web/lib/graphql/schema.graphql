@@ -183,6 +183,11 @@ input CompleteReservationInput {
   id: UUID!
 }
 
+input ConfirmOnlineOrderInput {
+  estimatedReadyAt: DateTime
+  id: UUID!
+}
+
 input ConfirmReservationInput {
   id: UUID!
 }
@@ -670,6 +675,9 @@ type Mutation {
   cancelShift(input: CancelShiftInput!): Shift
   closeTicket(input: CloseTicketInput!): Ticket
   completeReservation(input: CompleteReservationInput!): Reservation
+
+  """Confirm a PENDING online order: fires all NEW items."""
+  confirmOnlineOrder(input: ConfirmOnlineOrderInput!): OnlineOrderRequest
   confirmReservation(input: ConfirmReservationInput!): Reservation
   createCategory(input: CreateCategoryInput!): Category
   createGuest(input: CreateGuestInput!): Guest
@@ -703,6 +711,9 @@ type Mutation {
   publishWeek(input: PublishWeekInput!): [Shift!]
   punchIn(input: PunchInInput!): TimeEntry
   punchOut(input: PunchOutInput!): TimeEntry
+
+  """Reject a PENDING online order. Voids the linked ticket and items."""
+  rejectOnlineOrder(input: RejectOnlineOrderInput!): OnlineOrderRequest
   removeItemFromMenuSection(input: RemoveItemFromMenuSectionInput!): RemoveItemFromMenuSectionResult
   reopenTicket(input: ReopenTicketInput!): Ticket
   reorderCategories(input: ReorderCategoriesInput!): ReorderCategoriesResult
@@ -721,6 +732,11 @@ type Mutation {
   setTicketItemModifiers(input: SetTicketItemModifiersInput!): TicketItem
   setUserAvailability(input: SetUserAvailabilityInput!): [AvailabilityWindow!]
   startBreak(input: StartBreakInput!): Break
+
+  """
+  Anonymous public submit. Rate-limited per IP (10/min). Creates a Ticket + OnlineOrderRequest, auto-links Guest by phone.
+  """
+  submitOnlineOrder(input: SubmitOnlineOrderInput!): SubmitOnlineOrderResult
   unarchiveMenuItem(input: UnarchiveMenuItemInput!): MenuItem
   updateCategory(input: UpdateCategoryInput!): Category
   updateGuest(input: UpdateGuestInput!): Guest
@@ -747,6 +763,70 @@ type Mutation {
   voidTicketItem(input: VoidTicketItemInput!): TicketItem
 }
 
+enum OnlineOrderConfirmStatus {
+  CONFIRMED
+  PENDING
+  REJECTED
+}
+
+input OnlineOrderFilter {
+  fromDate: DateTime
+  status: OnlineOrderConfirmStatus
+  toDate: DateTime
+}
+
+type OnlineOrderRequest {
+  confirmStatus: OnlineOrderConfirmStatus
+  confirmedAt: DateTime
+  confirmedBy: User
+  createdAt: DateTime
+  customerEmail: String
+  customerName: String
+  customerPhone: String
+  id: ID
+  notes: String
+  pickupAt: DateTime
+  pickupKind: OnlinePickupKind
+  rejectReason: String
+  rejectedAt: DateTime
+  rejectedBy: User
+  ticket: Ticket
+}
+
+type OnlineOrderRequestCreated {
+  request: OnlineOrderRequest
+}
+
+union OnlineOrderRequestEvent = OnlineOrderRequestCreated | OnlineOrderRequestUpdated
+
+type OnlineOrderRequestUpdated {
+  request: OnlineOrderRequest
+}
+
+"""
+Public, sanitized projection of an online order request used by the customer-facing tracking page.
+"""
+type OnlineOrderTracking {
+  confirmStatus: OnlineOrderConfirmStatus
+  customerName: String
+  estimatedReadyAt: DateTime
+  isReady: Boolean
+  itemSummary: String
+  pickupAt: DateTime
+  pickupKind: OnlinePickupKind
+  rejectReason: String
+  shortNumber: Int
+  subtotalCents: Int
+  taxCents: Int
+  ticketStatus: TicketStatus
+  totalCents: Int
+}
+
+enum OnlinePickupKind {
+  ASAP
+  SCHEDULED
+}
+
 input OpenTicketAtTableInput {
   customerLabel: String
   partySize: Int
@@ -756,6 +836,11 @@ input OpenTicketAtTableInput {
 input OpenTicketInput {
   customerLabel: String
   orderType: OrderType
+}
+
+enum OrderOriginChannel {
+  IN_PERSON
+  ONLINE
 }
 
 enum OrderType {
@@ -768,6 +853,56 @@ type PageInfo {
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
   startCursor: String
+}
+
+type PublicLocation {
+  activeMenus(at: DateTime): [PublicMenu!]
+  currency: String
+  id: ID
+  name: String
+  slug: String
+  tenantName: String
+  timezone: String
+}
+
+type PublicMenu {
+  description: String
+  id: ID
+  name: String
+  sections: [PublicMenuSection!]
+}
+
+type PublicMenuItem {
+  available: Boolean
+  description: String
+  dietaryTags: [String!]
+  effectivePriceCents: Int
+  id: ID
+  imageUrl: String
+  modifierGroups: [PublicModifierGroup!]
+  name: String
+  shortDescription: String
+}
+
+type PublicMenuSection {
+  id: ID
+  items: [PublicMenuItem!]
+  name: String
+}
+
+type PublicModifier {
+  available: Boolean
+  id: ID
+  name: String
+  priceDeltaCents: Int
+}
+
+type PublicModifierGroup {
+  id: ID
+  maxSelections: Int
+  minSelections: Int
+  modifiers: [PublicModifier!]
+  name: String
 }
 
 input PublishShiftInput {
@@ -885,8 +1020,21 @@ type Query {
   """Tenants the current viewer has at least one ACTIVE membership in."""
   myTenants: [Tenant!]
 
+  """Single online order request by id, scoped to the viewer's location."""
+  onlineOrderRequest(id: UUID!): OnlineOrderRequest
+
+  """
+  Online order requests at the viewer's location. Staff scope; sorted by createdAt desc.
+  """
+  onlineOrderRequests(filter: OnlineOrderFilter): [OnlineOrderRequest!]
+
   """All OPEN tickets at the viewer's location, ordered by openedAt asc."""
   openTickets: [Ticket!]
+
+  """
+  Anonymous lookup of a tenant + location by slug, returning a sanitized public projection.
+  """
+  publicLocationBySlug(locationSlug: String!, tenantSlug: String!): PublicLocation
 
   """Single reservation by id, scoped to the viewer's location."""
   reservation(id: UUID!): Reservation
@@ -953,6 +1101,11 @@ type Query {
   """Top-selling menu items in range, sorted by `by`."""
   topItems(by: TopItemsSort = QUANTITY, dateRange: DateRangeInput!, limit: Int = 10): [TopItem!]
 
+  """
+  Public, anonymous tracking lookup. Returns sanitized projection or null.
+  """
+  trackOnlineOrder(token: String!): OnlineOrderTracking
+
   """Availability windows for a given user. Manager scope."""
   userAvailability(userId: UUID!): [AvailabilityWindow!]
 
@@ -1018,6 +1171,11 @@ type QueryTicketHistoryConnection {
 type QueryTicketHistoryConnectionEdge {
   cursor: String!
   node: Ticket
+}
+
+input RejectOnlineOrderInput {
+  id: UUID!
+  rejectReason: String!
 }
 
 input RemoveItemFromMenuSectionInput {
@@ -1271,11 +1429,42 @@ input StartBreakInput {
   timeEntryId: UUID!
 }
 
+input SubmitOnlineOrderInput {
+  customerEmail: String
+  customerName: String!
+  customerPhone: String!
+  items: [SubmitOnlineOrderItemInput!]!
+  locationSlug: String!
+  notes: String
+  pickupAt: DateTime
+  pickupKind: OnlinePickupKind!
+  tenantSlug: String!
+}
+
+input SubmitOnlineOrderItemInput {
+  menuItemId: UUID!
+  modifiers: [UUID!]
+  notes: String
+  quantity: Int!
+}
+
+type SubmitOnlineOrderResult {
+  estimatedReadyAt: DateTime
+  shortNumber: Int
+  trackingToken: String
+  trackingUrl: String
+}
+
 type Subscription {
   """
   Stream of table / reservation / section events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
   """
   floorUpdates: FloorUpdateEvent
+
+  """
+  Stream of online-order events at the viewer's location. Backed by Postgres LISTEN/NOTIFY.
+  """
+  onlineOrderRequests: OnlineOrderRequestEvent
 
   """
   Stream of shift / time-entry events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
@@ -1387,6 +1576,7 @@ type Ticket {
   openedAt: DateTime
   openedBy: User
   orderType: OrderType
+  originChannel: OrderOriginChannel
   shortNumber: Int
   status: TicketStatus
   subtotalCents: Int
