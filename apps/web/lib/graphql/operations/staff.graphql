@@ -1,0 +1,353 @@
+query JobRoles {
+  jobRoles {
+    id
+    name
+    color
+    archivedAt
+    createdAt
+    updatedAt
+  }
+}
+
+query StaffRoster {
+  staffRoster {
+    id
+    employmentType
+    hireDate
+    hourlyRateCents
+    terminationDate
+    notes
+    createdAt
+    updatedAt
+    user {
+      id
+      name
+      email
+    }
+    location {
+      id
+      name
+      slug
+    }
+  }
+}
+
+query StaffEmploymentProfile($userId: UUID!) {
+  employmentProfile(userId: $userId) {
+    id
+    employmentType
+    hireDate
+    hourlyRateCents
+    terminationDate
+    notes
+    user {
+      id
+      name
+      email
+    }
+    location {
+      id
+      name
+    }
+  }
+}
+
+query MyAvailability {
+  myAvailability {
+    id
+    dayOfWeek
+    startTime
+    endTime
+    notes
+  }
+}
+
+query UserAvailability($userId: UUID!) {
+  userAvailability(userId: $userId) {
+    id
+    dayOfWeek
+    startTime
+    endTime
+    notes
+  }
+}
+
+query ScheduleForWeek($weekStart: DateTime!) {
+  scheduleForWeek(weekStart: $weekStart) {
+    id
+    startsAt
+    endsAt
+    status
+    notes
+    cancelReason
+    cancelledAt
+    durationMinutes
+    user {
+      id
+      name
+      email
+    }
+    jobRole {
+      id
+      name
+      color
+    }
+  }
+}
+
+query MyShifts($from: DateTime, $to: DateTime) {
+  myShifts(from: $from, to: $to) {
+    id
+    startsAt
+    endsAt
+    status
+    notes
+    durationMinutes
+    jobRole {
+      id
+      name
+      color
+    }
+    location {
+      id
+      name
+    }
+  }
+}
+
+query ShiftById($id: UUID!) {
+  shift(id: $id) {
+    id
+    startsAt
+    endsAt
+    status
+    notes
+    durationMinutes
+    user {
+      id
+      name
+    }
+    jobRole {
+      id
+      name
+      color
+    }
+  }
+}
+
+query MyActiveTimeEntry {
+  myActiveTimeEntry {
+    id
+    clockedInAt
+    clockedOutAt
+    totalBreakMinutes
+    netMinutes
+    manualEdit
+    breaks {
+      id
+      startedAt
+      endedAt
+    }
+    shift {
+      id
+      startsAt
+      endsAt
+      jobRole {
+        id
+        name
+        color
+      }
+    }
+  }
+}
+
+query TimeEntries($filter: TimeEntriesFilter) {
+  timeEntries(filter: $filter) {
+    id
+    clockedInAt
+    clockedOutAt
+    totalBreakMinutes
+    netMinutes
+    manualEdit
+    manualEditReason
+    user {
+      id
+      name
+      email
+    }
+    breaks {
+      id
+      startedAt
+      endedAt
+    }
+  }
+}
+
+mutation StaffCreateJobRole($input: CreateJobRoleInput!) {
+  createJobRole(input: $input) {
+    id
+    name
+    color
+    archivedAt
+  }
+}
+
+mutation StaffUpdateJobRole($input: UpdateJobRoleInput!) {
+  updateJobRole(input: $input) {
+    id
+    name
+    color
+    archivedAt
+  }
+}
+
+mutation StaffArchiveJobRole($input: ArchiveJobRoleInput!) {
+  archiveJobRole(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation StaffUpsertEmploymentProfile($input: UpsertEmploymentProfileInput!) {
+  upsertEmploymentProfile(input: $input) {
+    id
+    employmentType
+    hourlyRateCents
+    hireDate
+    terminationDate
+    notes
+  }
+}
+
+mutation StaffEndEmployment($input: EndEmploymentInput!) {
+  endEmployment(input: $input) {
+    id
+    terminationDate
+  }
+}
+
+mutation StaffSetMyAvailability($input: SetAvailabilityInput!) {
+  setMyAvailability(input: $input) {
+    id
+    dayOfWeek
+    startTime
+    endTime
+  }
+}
+
+mutation StaffSetUserAvailability($input: SetUserAvailabilityInput!) {
+  setUserAvailability(input: $input) {
+    id
+    dayOfWeek
+    startTime
+    endTime
+  }
+}
+
+mutation StaffCreateShift($input: CreateShiftInput!) {
+  createShift(input: $input) {
+    id
+    startsAt
+    endsAt
+    status
+  }
+}
+
+mutation StaffUpdateShift($input: UpdateShiftInput!) {
+  updateShift(input: $input) {
+    id
+    startsAt
+    endsAt
+    status
+  }
+}
+
+mutation StaffPublishShift($input: PublishShiftInput!) {
+  publishShift(input: $input) {
+    id
+    status
+  }
+}
+
+mutation StaffPublishWeek($input: PublishWeekInput!) {
+  publishWeek(input: $input) {
+    id
+    status
+  }
+}
+
+mutation StaffCancelShift($input: CancelShiftInput!) {
+  cancelShift(input: $input) {
+    id
+    status
+    cancelReason
+    cancelledAt
+  }
+}
+
+mutation StaffDuplicateWeek($input: DuplicateWeekInput!) {
+  duplicateWeek(input: $input) {
+    id
+    startsAt
+    endsAt
+    status
+  }
+}
+
+mutation TimeClockPunchIn($input: PunchInInput!) {
+  punchIn(input: $input) {
+    id
+    clockedInAt
+  }
+}
+
+mutation TimeClockPunchOut($input: PunchOutInput!) {
+  punchOut(input: $input) {
+    id
+    clockedInAt
+    clockedOutAt
+    totalBreakMinutes
+  }
+}
+
+mutation TimeClockStartBreak($input: StartBreakInput!) {
+  startBreak(input: $input) {
+    id
+    startedAt
+  }
+}
+
+mutation TimeClockEndBreak($input: EndBreakInput!) {
+  endBreak(input: $input) {
+    id
+    startedAt
+    endedAt
+  }
+}
+
+mutation TimeClockEditTimeEntry($input: EditTimeEntryInput!) {
+  editTimeEntry(input: $input) {
+    id
+    clockedInAt
+    clockedOutAt
+    totalBreakMinutes
+    manualEdit
+    manualEditReason
+  }
+}
+
+subscription ScheduleUpdates {
+  scheduleUpdates {
+    ... on ShiftChangedEvent {
+      shift {
+        id
+      }
+    }
+    ... on TimeEntryChangedEvent {
+      timeEntry {
+        id
+      }
+      userId
+    }
+  }
+}

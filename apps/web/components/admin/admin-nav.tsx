@@ -21,6 +21,16 @@ const TABS: NavTab[] = [
     matches: (path, slug) => path.startsWith(`/${slug}/admin/members`),
   },
   {
+    href: (slug) => `/${slug}/admin/staff`,
+    label: 'Staff',
+    matches: (path, slug) => path.startsWith(`/${slug}/admin/staff`),
+  },
+  {
+    href: (slug) => `/${slug}/admin/job-roles`,
+    label: 'Job roles',
+    matches: (path, slug) => path.startsWith(`/${slug}/admin/job-roles`),
+  },
+  {
     href: (slug) => `/${slug}/admin/locations`,
     label: 'Locations',
     matches: (path, slug) => path.startsWith(`/${slug}/admin/locations`),

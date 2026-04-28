@@ -61,6 +61,10 @@ input ArchiveCategoryInput {
   id: UUID!
 }
 
+input ArchiveJobRoleInput {
+  id: UUID!
+}
+
 input ArchiveMenuInput {
   id: UUID!
 }
@@ -118,7 +122,33 @@ type AuditLog {
   resourceType: String
 }
 
+type AvailabilityWindow {
+  createdAt: DateTime
+  dayOfWeek: DayOfWeek
+  endTime: String
+  id: ID
+  notes: String
+  startTime: String
+}
+
+input AvailabilityWindowInput {
+  dayOfWeek: DayOfWeek!
+  endTime: String!
+  startTime: String!
+}
+
+type Break {
+  endedAt: DateTime
+  id: ID
+  startedAt: DateTime
+}
+
 input CancelReservationInput {
+  cancelReason: String
+  id: UUID!
+}
+
+input CancelShiftInput {
   cancelReason: String
   id: UUID!
 }
@@ -157,6 +187,11 @@ input CreateCategoryInput {
   name: String!
   slug: String!
   sortOrder: Int
+}
+
+input CreateJobRoleInput {
+  color: String
+  name: String!
 }
 
 input CreateLocationInput {
@@ -215,6 +250,14 @@ input CreateSectionInput {
   sortOrder: Int
 }
 
+input CreateShiftInput {
+  endsAt: DateTime!
+  jobRoleId: UUID!
+  notes: String
+  startsAt: DateTime!
+  userId: UUID!
+}
+
 input CreateTableInput {
   capacity: Int
   height: Int
@@ -236,6 +279,16 @@ input CreateTaxCategoryInput {
 A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
 """
 scalar DateTime
+
+enum DayOfWeek {
+  FRI
+  MON
+  SAT
+  SUN
+  THU
+  TUE
+  WED
+}
 
 input DetachModifierGroupInput {
   menuItemId: UUID!
@@ -274,6 +327,48 @@ enum DiscountKind {
 }
 
 union DiscountScope = LineScope | TicketScope
+
+input DuplicateWeekInput {
+  locationId: UUID!
+  targetWeekStart: DateTime!
+  weekStart: DateTime!
+}
+
+input EditTimeEntryInput {
+  clockedInAt: DateTime!
+  clockedOutAt: DateTime
+  id: UUID!
+  manualEditReason: String!
+  totalBreakMinutes: Int
+}
+
+type EmploymentProfile {
+  createdAt: DateTime
+  employmentType: EmploymentType
+  hireDate: DateTime
+  hourlyRateCents: Int
+  id: ID
+  location: Location
+  notes: String
+  terminationDate: DateTime
+  updatedAt: DateTime
+  user: User
+}
+
+enum EmploymentType {
+  CONTRACTOR
+  FULL_TIME
+  PART_TIME
+}
+
+input EndBreakInput {
+  breakId: UUID!
+}
+
+input EndEmploymentInput {
+  id: UUID!
+  terminationDate: DateTime!
+}
 
 input FireTicketInput {
   ticketId: UUID!
@@ -326,6 +421,15 @@ enum ItemCourse {
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
 scalar JSON
+
+type JobRole {
+  archivedAt: DateTime
+  color: String
+  createdAt: DateTime
+  id: ID
+  name: String
+  updatedAt: DateTime
+}
 
 """Discount scope marker — discount applies to a single ticket line."""
 type LineScope {
@@ -478,6 +582,7 @@ type Mutation {
   applyLineDiscount(input: ApplyLineDiscountInput!): Discount
   applyTicketDiscount(input: ApplyTicketDiscountInput!): Discount
   archiveCategory(input: ArchiveCategoryInput!): Category
+  archiveJobRole(input: ArchiveJobRoleInput!): JobRole
   archiveMenu(input: ArchiveMenuInput!): Menu
   archiveMenuItem(input: ArchiveMenuItemInput!): MenuItem
   archiveMenuSection(input: ArchiveMenuSectionInput!): MenuSection
@@ -488,10 +593,12 @@ type Mutation {
   assignTableServer(input: AssignTableServerInput!): Table
   attachModifierGroupToItem(input: AttachModifierGroupInput!): AttachModifierGroupResult
   cancelReservation(input: CancelReservationInput!): Reservation
+  cancelShift(input: CancelShiftInput!): Shift
   closeTicket(input: CloseTicketInput!): Ticket
   completeReservation(input: CompleteReservationInput!): Reservation
   confirmReservation(input: ConfirmReservationInput!): Reservation
   createCategory(input: CreateCategoryInput!): Category
+  createJobRole(input: CreateJobRoleInput!): JobRole
   createLocation(input: CreateLocationInput!): Location
   createMenu(input: CreateMenuInput!): Menu
   createMenuItem(input: CreateMenuItemInput!): MenuItem
@@ -499,9 +606,14 @@ type Mutation {
   createModifierGroup(input: CreateModifierGroupInput!): ModifierGroup
   createReservation(input: CreateReservationInput!): Reservation
   createSection(input: CreateSectionInput!): Section
+  createShift(input: CreateShiftInput!): Shift
   createTable(input: CreateTableInput!): Table
   createTaxCategory(input: CreateTaxCategoryInput!): TaxCategory
   detachModifierGroupFromItem(input: DetachModifierGroupInput!): DetachModifierGroupResult
+  duplicateWeek(input: DuplicateWeekInput!): [Shift!]
+  editTimeEntry(input: EditTimeEntryInput!): TimeEntry
+  endBreak(input: EndBreakInput!): Break
+  endEmployment(input: EndEmploymentInput!): EmploymentProfile
   fireTicket(input: FireTicketInput!): Ticket
   fireTicketItem(input: FireTicketItemInput!): TicketItem
   inviteStaff(input: InviteStaffInput!): Invitation
@@ -510,6 +622,10 @@ type Mutation {
   markTicketItemServed(input: MarkTicketItemServedInput!): TicketItem
   openTicket(input: OpenTicketInput!): Ticket
   openTicketAtTable(input: OpenTicketAtTableInput!): Ticket
+  publishShift(input: PublishShiftInput!): Shift
+  publishWeek(input: PublishWeekInput!): [Shift!]
+  punchIn(input: PunchInInput!): TimeEntry
+  punchOut(input: PunchOutInput!): TimeEntry
   removeItemFromMenuSection(input: RemoveItemFromMenuSectionInput!): RemoveItemFromMenuSectionResult
   reopenTicket(input: ReopenTicketInput!): Ticket
   reorderCategories(input: ReorderCategoriesInput!): ReorderCategoriesResult
@@ -522,11 +638,15 @@ type Mutation {
   revokeMembership(input: RevokeMembershipInput!): Membership
   seatReservation(input: SeatReservationInput!): SeatReservationResult
   setItem86(input: SetItem86Input!): LocationItem
+  setMyAvailability(input: SetAvailabilityInput!): [AvailabilityWindow!]
   setTableManualState(input: SetTableManualStateInput!): Table
   setTaxRate(input: SetTaxRateInput!): TaxRate
   setTicketItemModifiers(input: SetTicketItemModifiersInput!): TicketItem
+  setUserAvailability(input: SetUserAvailabilityInput!): [AvailabilityWindow!]
+  startBreak(input: StartBreakInput!): Break
   unarchiveMenuItem(input: UnarchiveMenuItemInput!): MenuItem
   updateCategory(input: UpdateCategoryInput!): Category
+  updateJobRole(input: UpdateJobRoleInput!): JobRole
   updateMembershipRole(input: UpdateMembershipRoleInput!): Membership
   updateMenu(input: UpdateMenuInput!): Menu
   updateMenuItem(input: UpdateMenuItemInput!): MenuItem
@@ -536,10 +656,12 @@ type Mutation {
   updateModifierGroup(input: UpdateModifierGroupInput!): ModifierGroup
   updateReservation(input: UpdateReservationInput!): Reservation
   updateSection(input: UpdateSectionInput!): Section
+  updateShift(input: UpdateShiftInput!): Shift
   updateTable(input: UpdateTableInput!): Table
   updateTicketItem(input: UpdateTicketItemInput!): TicketItem
   updateTicketLabel(input: UpdateTicketLabelInput!): Ticket
   updateTicketOrderType(input: UpdateTicketOrderTypeInput!): Ticket
+  upsertEmploymentProfile(input: UpsertEmploymentProfileInput!): EmploymentProfile
   upsertLocationItem(input: UpsertLocationItemInput!): LocationItem
   upsertLocationModifier(input: UpsertLocationModifierInput!): LocationModifier
   voidDiscount(input: VoidDiscountInput!): Discount
@@ -570,6 +692,24 @@ type PageInfo {
   startCursor: String
 }
 
+input PublishShiftInput {
+  id: UUID!
+}
+
+input PublishWeekInput {
+  locationId: UUID!
+  weekStart: DateTime!
+}
+
+input PunchInInput {
+  locationId: UUID!
+  shiftId: UUID
+}
+
+input PunchOutInput {
+  timeEntryId: UUID!
+}
+
 type Query {
   """Audit-log entries within the current tenant. Requires admin role."""
   auditLogs(after: String, before: String, first: Int, last: Int): QueryAuditLogsConnection
@@ -595,6 +735,11 @@ type Query {
   catalogTaxCategories: [TaxCategory!]
 
   """
+  Single employment profile for a user at the viewer's location. Admin or self.
+  """
+  employmentProfile(userId: UUID!): EmploymentProfile
+
+  """
   Non-archived sections at the viewer's location, ordered by sortOrder asc.
   """
   floorSections: [Section!]
@@ -604,6 +749,11 @@ type Query {
 
   """Look up an invitation by its single-use token. Anonymous-allowed."""
   invitationByToken(token: String!): InvitationLookup
+
+  """
+  Job roles defined for the viewer's tenant. Manager scope. Includes archived; ordered by archivedAt asc, name asc.
+  """
+  jobRoles: [JobRole!]
 
   """
   Tickets with at least one FIRED-or-READY item, ordered by oldest unready item.
@@ -626,6 +776,19 @@ type Query {
   """All LocationItem rows at the viewer's location. Requires manager role."""
   locationOverrides: [LocationItem!]
 
+  """
+  The viewer current open punch — TimeEntry with clockedOutAt IS NULL — or null when not punched in.
+  """
+  myActiveTimeEntry: TimeEntry
+
+  """Availability windows declared by the viewer."""
+  myAvailability: [AvailabilityWindow!]
+
+  """
+  Shifts assigned to the viewer at the viewer's location, optionally filtered by [from, to). Self scope.
+  """
+  myShifts(from: DateTime, to: DateTime): [Shift!]
+
   """Tenants the current viewer has at least one ACTIVE membership in."""
   myTenants: [Tenant!]
 
@@ -642,6 +805,21 @@ type Query {
   Reservations whose requestedTime falls on the given day (in the location's timezone), ordered by requestedTime asc.
   """
   reservationsForDay(date: DateTime!): [Reservation!]
+
+  """
+  Shifts at the viewer's location whose startsAt falls in the 7-day window beginning at local midnight on weekStart. Manager scope.
+  """
+  scheduleForWeek(weekStart: DateTime!): [Shift!]
+
+  """
+  Single shift by id, scoped to the viewer's location. Manager, or self if assigned.
+  """
+  shift(id: UUID!): Shift
+
+  """
+  Employment profiles at the viewer's location. Manager scope. Active first, ordered by hireDate desc.
+  """
+  staffRoster: [EmploymentProfile!]
 
   """Pending (unaccepted, unexpired) invitations within the current tenant."""
   tenantInvitations: [Invitation!]
@@ -664,6 +842,14 @@ type Query {
 
   """Ticket history at the viewer's location. Requires manager role."""
   ticketHistory(after: String, before: String, filter: TicketHistoryFilter, first: Int, last: Int): QueryTicketHistoryConnection
+
+  """
+  Time entries at the viewer's location, ordered by clockedInAt desc. Manager scope.
+  """
+  timeEntries(filter: TimeEntriesFilter): [TimeEntry!]
+
+  """Availability windows for a given user. Manager scope."""
+  userAvailability(userId: UUID!): [AvailabilityWindow!]
 
   """The currently signed-in user, regardless of tenant context."""
   viewer: Viewer
@@ -856,6 +1042,8 @@ enum Role {
   VIEWER
 }
 
+union ScheduleUpdateEvent = ShiftChangedEvent | TimeEntryChangedEvent
+
 """A concrete time window with absolute UTC bounds."""
 type ScheduleWindow {
   end: DateTime
@@ -889,6 +1077,10 @@ type SectionChangedEvent {
   section: Section
 }
 
+input SetAvailabilityInput {
+  windows: [AvailabilityWindowInput!]!
+}
+
 input SetItem86Input {
   available: Boolean!
   menuItemId: UUID!
@@ -911,11 +1103,52 @@ input SetTicketItemModifiersInput {
   ticketItemId: UUID!
 }
 
+input SetUserAvailabilityInput {
+  userId: UUID!
+  windows: [AvailabilityWindowInput!]!
+}
+
+type Shift {
+  cancelReason: String
+  cancelledAt: DateTime
+  createdAt: DateTime
+  createdBy: User
+  durationMinutes: Int
+  endsAt: DateTime
+  id: ID
+  jobRole: JobRole
+  location: Location
+  notes: String
+  startsAt: DateTime
+  status: ShiftStatus
+  updatedAt: DateTime
+  user: User
+}
+
+type ShiftChangedEvent {
+  shift: Shift
+}
+
+enum ShiftStatus {
+  CANCELLED
+  DRAFT
+  PUBLISHED
+}
+
+input StartBreakInput {
+  timeEntryId: UUID!
+}
+
 type Subscription {
   """
   Stream of table / reservation / section events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
   """
   floorUpdates: FloorUpdateEvent
+
+  """
+  Stream of shift / time-entry events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
+  """
+  scheduleUpdates: ScheduleUpdateEvent
 
   """
   Stream of ticket / item / discount events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
@@ -1103,6 +1336,34 @@ enum TicketStatus {
 
 union TicketUpdateEvent = DiscountChanged | TicketChanged | TicketItemChanged
 
+input TimeEntriesFilter {
+  fromDate: DateTime
+  toDate: DateTime
+  userId: UUID
+}
+
+type TimeEntry {
+  breaks: [Break!]
+  clockedInAt: DateTime
+  clockedOutAt: DateTime
+  createdAt: DateTime
+  id: ID
+  location: Location
+  manualEdit: Boolean
+  manualEditBy: User
+  manualEditReason: String
+  netMinutes: Int
+  shift: Shift
+  totalBreakMinutes: Int
+  updatedAt: DateTime
+  user: User
+}
+
+type TimeEntryChangedEvent {
+  timeEntry: TimeEntry
+  userId: UUID
+}
+
 scalar UUID
 
 input UnarchiveMenuItemInput {
@@ -1113,6 +1374,12 @@ input UpdateCategoryInput {
   id: UUID!
   name: String
   slug: String
+}
+
+input UpdateJobRoleInput {
+  color: String
+  id: UUID!
+  name: String
 }
 
 input UpdateMembershipRoleInput {
@@ -1184,6 +1451,15 @@ input UpdateSectionInput {
   sortOrder: Int
 }
 
+input UpdateShiftInput {
+  endsAt: DateTime
+  id: UUID!
+  jobRoleId: UUID
+  notes: String
+  startsAt: DateTime
+  userId: UUID
+}
+
 input UpdateTableInput {
   capacity: Int
   height: Int
@@ -1211,6 +1487,16 @@ input UpdateTicketLabelInput {
 input UpdateTicketOrderTypeInput {
   orderType: OrderType!
   ticketId: UUID!
+}
+
+input UpsertEmploymentProfileInput {
+  employmentType: EmploymentType!
+  hireDate: DateTime!
+  hourlyRateCents: Int
+  locationId: UUID!
+  notes: String
+  terminationDate: DateTime
+  userId: UUID!
 }
 
 input UpsertLocationItemInput {
