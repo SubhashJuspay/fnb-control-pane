@@ -19,6 +19,7 @@ const VIEWER_QUERY = /* GraphQL */ `
             slug
             name
             currency
+            timezone
           }
         }
         location {
@@ -37,6 +38,8 @@ export interface AppShellLocation {
   name: string;
   /** ISO 4217 code; defaults to 'USD' if upstream returned null. */
   currency: string;
+  /** IANA timezone, e.g. 'America/Los_Angeles'. Defaults to UTC if upstream returned null. */
+  timezone: string;
 }
 
 export interface AppShellTenant {
@@ -68,7 +71,13 @@ interface RawMembership {
     id: string;
     slug: string;
     name: string;
-    locations: Array<{ id: string; slug: string; name: string; currency: string | null }>;
+    locations: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      currency: string | null;
+      timezone: string | null;
+    }>;
   };
   location: { id: string; slug: string; name: string } | null;
 }
@@ -142,6 +151,7 @@ export async function loadAppShellData(): Promise<AppShellData | null> {
           slug: loc.slug,
           name: loc.name,
           currency: loc.currency ?? 'USD',
+          timezone: loc.timezone ?? 'UTC',
         });
         seen.add(loc.id);
       }

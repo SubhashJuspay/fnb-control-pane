@@ -20,4 +20,5 @@ export * from './patterns/schedule-editor.js';
 export * from './patterns/ticket-card.js';
 export * from './patterns/floor-canvas.js';
 export * from './patterns/table-tile.js';
+export * from './patterns/week-grid.js';
 export * from './components/money-input.js';
