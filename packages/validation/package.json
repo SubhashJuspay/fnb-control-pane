@@ -23,7 +23,8 @@
     "./staff": "./src/staff.ts",
     "./time-clock": "./src/time-clock.ts",
     "./guest": "./src/guest.ts",
-    "./analytics": "./src/analytics.ts"
+    "./analytics": "./src/analytics.ts",
+    "./online-order": "./src/online-order.ts"
   },
   "scripts": {
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src",
