@@ -35,6 +35,8 @@ model Tenant {
   menuItems      MenuItem[]
   modifierGroups ModifierGroup[]
 
+  jobRoles JobRole[]
+
   @@map("tenants")
 }
 
@@ -67,6 +69,10 @@ model Location {
   sections     Section[]
   tables       Table[]
   reservations Reservation[]
+
+  employmentProfiles EmploymentProfile[]
+  shifts             Shift[]
+  timeEntries        TimeEntry[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -103,6 +109,13 @@ model User {
 
   tablesAssigned      Table[]       @relation("TableAssignedServer")
   reservationsCreated Reservation[] @relation("ReservationCreatedBy")
+
+  employmentProfiles  EmploymentProfile[]  @relation("UserEmploymentProfile")
+  availabilityWindows AvailabilityWindow[] @relation("UserAvailability")
+  shifts              Shift[]              @relation("UserShift")
+  shiftsCreated       Shift[]              @relation("ShiftCreatedBy")
+  timeEntries         TimeEntry[]          @relation("UserTimeEntry")
+  timeEntryEdits      TimeEntry[]          @relation("TimeEntryEditBy")
 
   @@map("users")
 }
@@ -734,4 +747,142 @@ enum ReservationStatus {
   COMPLETED
   NO_SHOW
   CANCELLED
+}
+
+// ─── Staff & Scheduling ───────────────────────────────
+model JobRole {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  name       String
+  color      String    @default("#6366f1")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shifts Shift[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("job_roles")
+}
+
+model EmploymentProfile {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String         @map("user_id") @db.Uuid
+  locationId      String         @map("location_id") @db.Uuid
+  employmentType  EmploymentType @default(FULL_TIME) @map("employment_type")
+  hourlyRateCents Int?           @map("hourly_rate_cents")
+  hireDate        DateTime       @map("hire_date") @db.Date
+  terminationDate DateTime?      @map("termination_date") @db.Date
+  notes           String?
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  user     User     @relation("UserEmploymentProfile", fields: [userId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, locationId])
+  @@index([locationId])
+  @@map("employment_profiles")
+}
+
+model AvailabilityWindow {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  dayOfWeek DayOfWeekDb @map("day_of_week")
+  startTime String      @map("start_time")
+  endTime   String      @map("end_time")
+  notes     String?
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  user User @relation("UserAvailability", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("availability_windows")
+}
+
+model Shift {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId   String      @map("location_id") @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  jobRoleId    String      @map("job_role_id") @db.Uuid
+  startsAt     DateTime    @map("starts_at")
+  endsAt       DateTime    @map("ends_at")
+  status       ShiftStatus @default(DRAFT)
+  notes        String?
+  createdById  String      @map("created_by_id") @db.Uuid
+  cancelledAt  DateTime?   @map("cancelled_at")
+  cancelReason String?     @map("cancel_reason")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  location    Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user        User        @relation("UserShift", fields: [userId], references: [id], onDelete: Restrict)
+  jobRole     JobRole     @relation(fields: [jobRoleId], references: [id], onDelete: Restrict)
+  createdBy   User        @relation("ShiftCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  timeEntries TimeEntry[]
+
+  @@index([locationId, startsAt])
+  @@index([userId, startsAt])
+  @@map("shifts")
+}
+
+model TimeEntry {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId        String    @map("location_id") @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  shiftId           String?   @map("shift_id") @db.Uuid
+  clockedInAt       DateTime  @map("clocked_in_at")
+  clockedOutAt      DateTime? @map("clocked_out_at")
+  totalBreakMinutes Int       @default(0) @map("total_break_minutes")
+  manualEdit        Boolean   @default(false) @map("manual_edit")
+  manualEditReason  String?   @map("manual_edit_reason")
+  manualEditById    String?   @map("manual_edit_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  location     Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  user         User     @relation("UserTimeEntry", fields: [userId], references: [id], onDelete: Restrict)
+  shift        Shift?   @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+  manualEditBy User?    @relation("TimeEntryEditBy", fields: [manualEditById], references: [id], onDelete: SetNull)
+  breaks       Break[]
+
+  @@index([userId, clockedInAt])
+  @@index([locationId, clockedInAt])
+  @@map("time_entries")
+}
+
+model Break {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  timeEntryId String    @map("time_entry_id") @db.Uuid
+  startedAt   DateTime  @map("started_at")
+  endedAt     DateTime? @map("ended_at")
+
+  timeEntry TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+
+  @@index([timeEntryId])
+  @@map("breaks")
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACTOR
+}
+
+enum ShiftStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+enum DayOfWeekDb {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
 }
