@@ -97,6 +97,9 @@ export async function resetTestData(): Promise<void> {
     await prisma.ticket.deleteMany({
       where: { location: { tenantId: acme.id } },
     });
+    // Guests are tenant-scoped; reservation + ticket cleanups above null out
+    // FKs back to guest, so wiping guests last is safe.
+    await prisma.guest.deleteMany({ where: { tenantId: acme.id } });
     // Floor rows. Tables cascade-delete from a section, but archived/null-
     // section tables don't, so wipe tables first then sections.
     await prisma.table.deleteMany({
@@ -812,4 +815,213 @@ export async function closeTicketViaPrisma(
       data: { status: 'COMPLETED', completedAt: new Date() },
     });
   }
+}
+
+export interface CreateAnalyticsFixturesOptions {
+  tenantSlug?: string;
+  locationSlug?: string;
+}
+
+export interface AnalyticsFixtures {
+  tenantId: string;
+  locationId: string;
+  guestId: string;
+  ticketId: string;
+  latteId: string;
+}
+
+export interface ClosedTicketWithItemOptions {
+  tenantSlug?: string;
+  locationSlug?: string;
+  /** Item name to seed as a single line. Defaults to 'Latte'. */
+  itemName?: 'Latte' | 'Croissant';
+  /** Optional guest to link to the ticket. */
+  guestId?: string | null;
+  /** Override `closedAt`; defaults to "now". */
+  closedAt?: Date;
+  /** Pre-tax line subtotal. Defaults to the menu item's base price. */
+  unitPriceCents?: number;
+  /** Tax rate permille (e.g. 825 = 8.25%). Defaults to 825. */
+  taxPermille?: number;
+}
+
+export interface ClosedTicketResult {
+  ticketId: string;
+  itemId: string;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+}
+
+/**
+ * Seed a single CLOSED ticket with one line item — generic helper used by
+ * the analytics-flow spec to drop revenue into the dashboard window. The
+ * resulting ticket has correct `subtotalCents` / `taxCents` / `totalCents`
+ * so dashboard KPIs match expectations exactly.
+ */
+export async function closedTicketWithItem(
+  opts: ClosedTicketWithItemOptions = {},
+): Promise<ClosedTicketResult> {
+  const tenantSlug = opts.tenantSlug ?? 'acme';
+  const locationSlug = opts.locationSlug ?? 'mission-st';
+  const itemName = opts.itemName ?? 'Latte';
+  const taxPermille = opts.taxPermille ?? 825;
+
+  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+  if (!tenant) throw new Error(`tenant not found: ${tenantSlug}`);
+  const location = await prisma.location.findUnique({
+    where: { tenantId_slug: { tenantId: tenant.id, slug: locationSlug } },
+  });
+  if (!location) throw new Error(`location not found: ${locationSlug}`);
+  const owner = await prisma.user.findUnique({
+    where: { email: 'owner@acme.test' },
+  });
+  if (!owner) throw new Error('owner@acme.test not seeded');
+  const item = await prisma.menuItem.findFirstOrThrow({
+    where: { tenantId: tenant.id, name: itemName },
+    select: { id: true, name: true, basePriceCents: true, course: true },
+  });
+
+  const closedAt = opts.closedAt ?? new Date();
+  // Anchor businessDay at UTC midnight of the closedAt date so it matches
+  // what the api computes for Pacific tickets that closed after the 04:00
+  // cutoff.
+  const businessDay = new Date(
+    Date.UTC(
+      closedAt.getUTCFullYear(),
+      closedAt.getUTCMonth(),
+      closedAt.getUTCDate(),
+    ),
+  );
+  const shortNumber = await nextShortNumber(location.id, businessDay);
+
+  const unitPriceCents = opts.unitPriceCents ?? item.basePriceCents;
+  const subtotalCents = unitPriceCents;
+  // ratePermille is per-ten-thousand to allow 1/100th-of-a-percent precision
+  // (matches `apps/api/src/order/tax.ts`). 825 → 8.25%.
+  const taxCents = Math.round((subtotalCents * taxPermille) / 10000);
+  const totalCents = subtotalCents + taxCents;
+
+  const ticket = await prisma.ticket.create({
+    data: {
+      locationId: location.id,
+      shortNumber,
+      businessDay,
+      orderType: 'DINE_IN',
+      status: 'CLOSED',
+      openedById: owner.id,
+      openedAt: new Date(closedAt.getTime() - 30 * 60 * 1000),
+      closedAt,
+      subtotalCents,
+      discountCents: 0,
+      taxCents,
+      totalCents,
+      guestId: opts.guestId ?? null,
+    },
+  });
+
+  const lineItem = await prisma.ticketItem.create({
+    data: {
+      ticketId: ticket.id,
+      menuItemId: item.id,
+      nameSnapshot: item.name,
+      unitPriceCents,
+      quantity: 1,
+      modifiersTotalCents: 0,
+      lineSubtotalCents: subtotalCents,
+      course: item.course,
+      status: 'SERVED',
+      firedById: owner.id,
+      firedAt: new Date(closedAt.getTime() - 25 * 60 * 1000),
+      readyAt: new Date(closedAt.getTime() - 15 * 60 * 1000),
+      servedAt: new Date(closedAt.getTime() - 10 * 60 * 1000),
+    },
+  });
+
+  return {
+    ticketId: ticket.id,
+    itemId: lineItem.id,
+    subtotalCents,
+    taxCents,
+    totalCents,
+  };
+}
+
+/**
+ * Bootstrap the rows the analytics dashboard / insights specs expect:
+ *   • A Food tax category + 8.25% rate at the location.
+ *   • A Latte menu item ($4.50).
+ *   • A Guest "Alice" with phone "555-0100".
+ *   • One CLOSED ticket today at noon with 1× Latte (SERVED) linked to Alice.
+ *
+ * Idempotent at the catalog level (re-uses `createCatalogFixtures`).
+ */
+export async function createAnalyticsFixtures(
+  opts: CreateAnalyticsFixturesOptions = {},
+): Promise<AnalyticsFixtures> {
+  const tenantSlug = opts.tenantSlug ?? 'acme';
+  const locationSlug = opts.locationSlug ?? 'mission-st';
+
+  const catalog = await createCatalogFixtures({ tenantSlug });
+  const location = await prisma.location.findUnique({
+    where: {
+      tenantId_slug: { tenantId: catalog.tenant.id, slug: locationSlug },
+    },
+  });
+  if (!location) throw new Error(`location not found: ${locationSlug}`);
+
+  // 8.25% tax rate at this location.
+  const existingRate = await prisma.taxRate.findFirst({
+    where: { taxCategoryId: catalog.tax.id, locationId: location.id },
+  });
+  if (!existingRate) {
+    await prisma.taxRate.create({
+      data: {
+        taxCategoryId: catalog.tax.id,
+        locationId: location.id,
+        ratePermille: 825,
+        effectiveFrom: new Date(Date.now() - 60 * 60 * 1000),
+      },
+    });
+  }
+
+  // Alice. resetTestData clears guests so this create is safe.
+  const guest = await prisma.guest.create({
+    data: {
+      tenantId: catalog.tenant.id,
+      name: 'Alice',
+      phone: '555-0100',
+    },
+  });
+
+  // Build "today at 12:00 in America/Los_Angeles" by anchoring noon UTC and
+  // letting the api re-bucket; the actual hour bucket isn't asserted, only
+  // that some bar appears on the hours chart.
+  const now = new Date();
+  const noonUtc = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 19),
+  );
+
+  const ticket = await closedTicketWithItem({
+    tenantSlug,
+    locationSlug,
+    itemName: 'Latte',
+    guestId: guest.id,
+    closedAt: noonUtc,
+  });
+
+  // Mirror `closeTicket`'s post-commit Guest.lastSeenAt bump so the UI
+  // shows visitCount=1 immediately.
+  await prisma.guest.update({
+    where: { id: guest.id },
+    data: { lastSeenAt: noonUtc },
+  });
+
+  return {
+    tenantId: catalog.tenant.id,
+    locationId: location.id,
+    guestId: guest.id,
+    ticketId: ticket.ticketId,
+    latteId: catalog.latte.id,
+  };
 }
