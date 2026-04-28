@@ -32,6 +32,7 @@ import './mutations/update-membership-role.js';
 import './mutations/catalog/index.js';
 import './mutations/menu/index.js';
 import './mutations/location-overrides/index.js';
+import './mutations/pos/index.js';
 
 export { builder };
 
