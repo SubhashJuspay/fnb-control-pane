@@ -1,0 +1,283 @@
+query FloorTables {
+  floorTables {
+    id
+    label
+    capacity
+    shape
+    positionX
+    positionY
+    width
+    height
+    rotation
+    manualState
+    archivedAt
+    section {
+      id
+      name
+    }
+    assignedServer {
+      id
+      name
+    }
+    state
+    activeTicket {
+      id
+      shortNumber
+      customerLabel
+      totalCents
+    }
+    upcomingReservation {
+      id
+      guestName
+      partySize
+      requestedTime
+    }
+  }
+}
+
+query FloorSections {
+  floorSections {
+    id
+    name
+    sortOrder
+    archivedAt
+  }
+}
+
+query ReservationsForDay($date: DateTime!) {
+  reservationsForDay(date: $date) {
+    id
+    kind
+    status
+    guestName
+    guestPhone
+    partySize
+    requestedTime
+    durationMinutes
+    notes
+    seatedAt
+    completedAt
+    cancelReason
+    table {
+      id
+      label
+    }
+    ticket {
+      id
+      shortNumber
+    }
+  }
+}
+
+query Waitlist {
+  waitlist {
+    id
+    guestName
+    guestPhone
+    partySize
+    notes
+    createdAt
+  }
+}
+
+query Reservation($id: UUID!) {
+  reservation(id: $id) {
+    id
+    kind
+    status
+    guestName
+    guestPhone
+    partySize
+    notes
+    requestedTime
+    durationMinutes
+    seatedAt
+    completedAt
+    noShowAt
+    cancelledAt
+    cancelReason
+    table {
+      id
+      label
+    }
+    ticket {
+      id
+      shortNumber
+    }
+    createdBy {
+      id
+      name
+    }
+    createdAt
+  }
+}
+
+mutation CreateSection($input: CreateSectionInput!) {
+  createSection(input: $input) {
+    id
+    name
+  }
+}
+
+mutation UpdateSection($input: UpdateSectionInput!) {
+  updateSection(input: $input) {
+    id
+    name
+    sortOrder
+  }
+}
+
+mutation ArchiveSection($input: ArchiveSectionInput!) {
+  archiveSection(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation ReorderSections($input: ReorderSectionsInput!) {
+  reorderSections(input: $input) {
+    id
+    sortOrder
+  }
+}
+
+mutation CreateTable($input: CreateTableInput!) {
+  createTable(input: $input) {
+    id
+    label
+  }
+}
+
+mutation UpdateTable($input: UpdateTableInput!) {
+  updateTable(input: $input) {
+    id
+    label
+    capacity
+    shape
+    positionX
+    positionY
+    width
+    height
+    rotation
+  }
+}
+
+mutation ArchiveTable($input: ArchiveTableInput!) {
+  archiveTable(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation AssignTableServer($input: AssignTableServerInput!) {
+  assignTableServer(input: $input) {
+    id
+    assignedServer {
+      id
+      name
+    }
+  }
+}
+
+mutation SetTableManualState($input: SetTableManualStateInput!) {
+  setTableManualState(input: $input) {
+    id
+    manualState
+  }
+}
+
+mutation OpenTicketAtTable($input: OpenTicketAtTableInput!) {
+  openTicketAtTable(input: $input) {
+    id
+    shortNumber
+  }
+}
+
+mutation CreateReservation($input: CreateReservationInput!) {
+  createReservation(input: $input) {
+    id
+    status
+  }
+}
+
+mutation UpdateReservation($input: UpdateReservationInput!) {
+  updateReservation(input: $input) {
+    id
+  }
+}
+
+mutation ConfirmReservation($input: ConfirmReservationInput!) {
+  confirmReservation(input: $input) {
+    id
+    status
+  }
+}
+
+mutation CancelReservation($input: CancelReservationInput!) {
+  cancelReservation(input: $input) {
+    id
+    status
+    cancelReason
+  }
+}
+
+mutation MarkReservationNoShow($input: MarkNoShowInput!) {
+  markReservationNoShow(input: $input) {
+    id
+    status
+  }
+}
+
+mutation AddWalkin($input: AddWalkinInput!) {
+  addWalkin(input: $input) {
+    id
+    status
+  }
+}
+
+mutation SeatReservation($input: SeatReservationInput!) {
+  seatReservation(input: $input) {
+    reservation {
+      id
+      status
+      seatedAt
+    }
+    ticket {
+      id
+      shortNumber
+    }
+  }
+}
+
+mutation CompleteReservation($input: CompleteReservationInput!) {
+  completeReservation(input: $input) {
+    id
+    status
+  }
+}
+
+subscription FloorUpdates {
+  floorUpdates {
+    __typename
+    ... on TableChangedEvent {
+      table {
+        id
+        state
+        activeTicket {
+          id
+        }
+      }
+    }
+    ... on ReservationChangedEvent {
+      reservation {
+        id
+        status
+      }
+    }
+    ... on SectionChangedEvent {
+      section {
+        id
+      }
+    }
+  }
+}

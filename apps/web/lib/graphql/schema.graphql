@@ -29,6 +29,13 @@ input AddTicketItemModifierInput {
   modifierId: UUID!
 }
 
+input AddWalkinInput {
+  guestName: String!
+  guestPhone: String
+  notes: String
+  partySize: Int!
+}
+
 type AppError {
   code: String
   message: String
@@ -74,6 +81,19 @@ input ArchiveModifierInput {
   id: UUID!
 }
 
+input ArchiveSectionInput {
+  id: UUID!
+}
+
+input ArchiveTableInput {
+  id: UUID!
+}
+
+input AssignTableServerInput {
+  assignedServerId: UUID
+  tableId: UUID!
+}
+
 input AttachModifierGroupInput {
   menuItemId: UUID!
   modifierGroupId: UUID!
@@ -98,6 +118,11 @@ type AuditLog {
   resourceType: String
 }
 
+input CancelReservationInput {
+  cancelReason: String
+  id: UUID!
+}
+
 input CatalogItemFilter {
   archivedOnly: Boolean
   categoryId: UUID
@@ -118,6 +143,14 @@ type Category {
 input CloseTicketInput {
   closeNote: String
   ticketId: UUID!
+}
+
+input CompleteReservationInput {
+  id: UUID!
+}
+
+input ConfirmReservationInput {
+  id: UUID!
 }
 
 input CreateCategoryInput {
@@ -165,6 +198,33 @@ input CreateModifierGroupInput {
   maxSelections: Int
   minSelections: Int
   name: String!
+}
+
+input CreateReservationInput {
+  durationMinutes: Int
+  guestName: String!
+  guestPhone: String
+  notes: String
+  partySize: Int!
+  requestedTime: DateTime!
+  tableId: UUID
+}
+
+input CreateSectionInput {
+  name: String!
+  sortOrder: Int
+}
+
+input CreateTableInput {
+  capacity: Int
+  height: Int
+  label: String!
+  positionX: Int!
+  positionY: Int!
+  rotation: Int
+  sectionId: UUID
+  shape: TableShape
+  width: Int
 }
 
 input CreateTaxCategoryInput {
@@ -222,6 +282,8 @@ input FireTicketInput {
 input FireTicketItemInput {
   ticketItemId: UUID!
 }
+
+union FloorUpdateEvent = ReservationChangedEvent | SectionChangedEvent | TableChangedEvent
 
 type Invitation {
   acceptedAt: DateTime
@@ -305,6 +367,10 @@ enum LocationStatus {
   ACTIVE
   ARCHIVED
   CLOSED
+}
+
+input MarkNoShowInput {
+  id: UUID!
 }
 
 input MarkTicketItemReadyInput {
@@ -408,6 +474,7 @@ type Mutation {
   addItemToMenuSection(input: AddItemToMenuSectionInput!): MenuSectionItem
   addModifier(input: AddModifierInput!): Modifier
   addTicketItem(input: AddTicketItemInput!): TicketItem
+  addWalkin(input: AddWalkinInput!): Reservation
   applyLineDiscount(input: ApplyLineDiscountInput!): Discount
   applyTicketDiscount(input: ApplyTicketDiscountInput!): Discount
   archiveCategory(input: ArchiveCategoryInput!): Category
@@ -416,22 +483,33 @@ type Mutation {
   archiveMenuSection(input: ArchiveMenuSectionInput!): MenuSection
   archiveModifier(input: ArchiveModifierInput!): Modifier
   archiveModifierGroup(input: ArchiveModifierGroupInput!): ModifierGroup
+  archiveSection(input: ArchiveSectionInput!): Section
+  archiveTable(input: ArchiveTableInput!): Table
+  assignTableServer(input: AssignTableServerInput!): Table
   attachModifierGroupToItem(input: AttachModifierGroupInput!): AttachModifierGroupResult
+  cancelReservation(input: CancelReservationInput!): Reservation
   closeTicket(input: CloseTicketInput!): Ticket
+  completeReservation(input: CompleteReservationInput!): Reservation
+  confirmReservation(input: ConfirmReservationInput!): Reservation
   createCategory(input: CreateCategoryInput!): Category
   createLocation(input: CreateLocationInput!): Location
   createMenu(input: CreateMenuInput!): Menu
   createMenuItem(input: CreateMenuItemInput!): MenuItem
   createMenuSection(input: CreateMenuSectionInput!): MenuSection
   createModifierGroup(input: CreateModifierGroupInput!): ModifierGroup
+  createReservation(input: CreateReservationInput!): Reservation
+  createSection(input: CreateSectionInput!): Section
+  createTable(input: CreateTableInput!): Table
   createTaxCategory(input: CreateTaxCategoryInput!): TaxCategory
   detachModifierGroupFromItem(input: DetachModifierGroupInput!): DetachModifierGroupResult
   fireTicket(input: FireTicketInput!): Ticket
   fireTicketItem(input: FireTicketItemInput!): TicketItem
   inviteStaff(input: InviteStaffInput!): Invitation
+  markReservationNoShow(input: MarkNoShowInput!): Reservation
   markTicketItemReady(input: MarkTicketItemReadyInput!): TicketItem
   markTicketItemServed(input: MarkTicketItemServedInput!): TicketItem
   openTicket(input: OpenTicketInput!): Ticket
+  openTicketAtTable(input: OpenTicketAtTableInput!): Ticket
   removeItemFromMenuSection(input: RemoveItemFromMenuSectionInput!): RemoveItemFromMenuSectionResult
   reopenTicket(input: ReopenTicketInput!): Ticket
   reorderCategories(input: ReorderCategoriesInput!): ReorderCategoriesResult
@@ -439,9 +517,12 @@ type Mutation {
   reorderMenuSections(input: ReorderMenuSectionsInput!): ReorderMenuSectionsResult
   reorderMenus(input: ReorderMenusInput!): ReorderMenusResult
   reorderModifiers(input: ReorderModifiersInput!): ReorderModifiersResult
+  reorderSections(input: ReorderSectionsInput!): [Section!]
   revokeInvitation(input: RevokeInvitationInput!): RevokeInvitationResult
   revokeMembership(input: RevokeMembershipInput!): Membership
+  seatReservation(input: SeatReservationInput!): SeatReservationResult
   setItem86(input: SetItem86Input!): LocationItem
+  setTableManualState(input: SetTableManualStateInput!): Table
   setTaxRate(input: SetTaxRateInput!): TaxRate
   setTicketItemModifiers(input: SetTicketItemModifiersInput!): TicketItem
   unarchiveMenuItem(input: UnarchiveMenuItemInput!): MenuItem
@@ -453,6 +534,9 @@ type Mutation {
   updateMenuSectionItem(input: UpdateMenuSectionItemInput!): MenuSectionItem
   updateModifier(input: UpdateModifierInput!): Modifier
   updateModifierGroup(input: UpdateModifierGroupInput!): ModifierGroup
+  updateReservation(input: UpdateReservationInput!): Reservation
+  updateSection(input: UpdateSectionInput!): Section
+  updateTable(input: UpdateTableInput!): Table
   updateTicketItem(input: UpdateTicketItemInput!): TicketItem
   updateTicketLabel(input: UpdateTicketLabelInput!): Ticket
   updateTicketOrderType(input: UpdateTicketOrderTypeInput!): Ticket
@@ -461,6 +545,12 @@ type Mutation {
   voidDiscount(input: VoidDiscountInput!): Discount
   voidTicket(input: VoidTicketInput!): Ticket
   voidTicketItem(input: VoidTicketItemInput!): TicketItem
+}
+
+input OpenTicketAtTableInput {
+  customerLabel: String
+  partySize: Int
+  tableId: UUID!
 }
 
 input OpenTicketInput {
@@ -504,6 +594,14 @@ type Query {
   """
   catalogTaxCategories: [TaxCategory!]
 
+  """
+  Non-archived sections at the viewer's location, ordered by sortOrder asc.
+  """
+  floorSections: [Section!]
+
+  """Non-archived tables at the viewer's location, ordered by label asc."""
+  floorTables: [Table!]
+
   """Look up an invitation by its single-use token. Anonymous-allowed."""
   invitationByToken(token: String!): InvitationLookup
 
@@ -534,6 +632,17 @@ type Query {
   """All OPEN tickets at the viewer's location, ordered by openedAt asc."""
   openTickets: [Ticket!]
 
+  """Single reservation by id, scoped to the viewer's location."""
+  reservation(id: UUID!): Reservation
+
+  """Reservations currently WAITING or SEATED at the viewer's location."""
+  reservationsActive: [Reservation!]
+
+  """
+  Reservations whose requestedTime falls on the given day (in the location's timezone), ordered by requestedTime asc.
+  """
+  reservationsForDay(date: DateTime!): [Reservation!]
+
   """Pending (unaccepted, unexpired) invitations within the current tenant."""
   tenantInvitations: [Invitation!]
 
@@ -558,6 +667,11 @@ type Query {
 
   """The currently signed-in user, regardless of tenant context."""
   viewer: Viewer
+
+  """
+  Walk-ins currently WAITING at the viewer's location, ordered by createdAt asc (oldest first).
+  """
+  waitlist: [Reservation!]
 }
 
 type QueryAuditLogsConnection {
@@ -676,6 +790,51 @@ type ReorderModifiersResult {
   ids: [ID!]
 }
 
+input ReorderSectionsInput {
+  orderedIds: [UUID!]!
+}
+
+type Reservation {
+  cancelReason: String
+  cancelledAt: DateTime
+  completedAt: DateTime
+  createdAt: DateTime
+  createdBy: User
+  durationMinutes: Int
+  guestName: String
+  guestPhone: String
+  id: ID
+  kind: ReservationKind
+  noShowAt: DateTime
+  notes: String
+  partySize: Int
+  requestedTime: DateTime
+  seatedAt: DateTime
+  status: ReservationStatus
+  table: Table
+  ticket: Ticket
+  updatedAt: DateTime
+}
+
+type ReservationChangedEvent {
+  reservation: Reservation
+}
+
+enum ReservationKind {
+  RESERVATION
+  WALKIN
+}
+
+enum ReservationStatus {
+  CANCELLED
+  COMPLETED
+  CONFIRMED
+  NO_SHOW
+  PENDING
+  SEATED
+  WAITING
+}
+
 input RevokeInvitationInput {
   invitationId: String!
 }
@@ -703,9 +862,41 @@ type ScheduleWindow {
   start: DateTime
 }
 
+input SeatReservationInput {
+  reservationId: UUID!
+  tableId: UUID
+}
+
+"""
+Result of seating a reservation: the reservation and its newly opened ticket.
+"""
+type SeatReservationResult {
+  reservation: Reservation
+  ticket: Ticket
+}
+
+type Section {
+  archivedAt: DateTime
+  createdAt: DateTime
+  id: ID
+  name: String
+  sortOrder: Int
+  tables: [Table!]
+  updatedAt: DateTime
+}
+
+type SectionChangedEvent {
+  section: Section
+}
+
 input SetItem86Input {
   available: Boolean!
   menuItemId: UUID!
+}
+
+input SetTableManualStateInput {
+  manualState: TableManualState!
+  tableId: UUID!
 }
 
 input SetTaxRateInput {
@@ -722,9 +913,56 @@ input SetTicketItemModifiersInput {
 
 type Subscription {
   """
+  Stream of table / reservation / section events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
+  """
+  floorUpdates: FloorUpdateEvent
+
+  """
   Stream of ticket / item / discount events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
   """
   ticketUpdates: TicketUpdateEvent
+}
+
+type Table {
+  activeTicket: Ticket
+  archivedAt: DateTime
+  assignedServer: User
+  capacity: Int
+  createdAt: DateTime
+  height: Int
+  id: ID
+  label: String
+  manualState: TableManualState
+  positionX: Int
+  positionY: Int
+  rotation: Int
+  section: Section
+  shape: TableShape
+  state: TableState
+  upcomingReservation: Reservation
+  updatedAt: DateTime
+  width: Int
+}
+
+type TableChangedEvent {
+  table: Table
+}
+
+enum TableManualState {
+  CLEANING
+  NONE
+}
+
+enum TableShape {
+  CIRCLE
+  RECT
+}
+
+enum TableState {
+  AVAILABLE
+  CLEANING
+  OCCUPIED
+  RESERVED
 }
 
 type TaxCategory {
@@ -786,6 +1024,7 @@ type Ticket {
   shortNumber: Int
   status: TicketStatus
   subtotalCents: Int
+  table: Table
   taxCents: Int
   totalCents: Int
   voidReason: String
@@ -926,6 +1165,36 @@ input UpdateModifierInput {
   isDefault: Boolean
   name: String
   priceDeltaCents: Int
+}
+
+input UpdateReservationInput {
+  durationMinutes: Int
+  guestName: String
+  guestPhone: String
+  id: UUID!
+  notes: String
+  partySize: Int
+  requestedTime: DateTime
+  tableId: UUID
+}
+
+input UpdateSectionInput {
+  id: UUID!
+  name: String
+  sortOrder: Int
+}
+
+input UpdateTableInput {
+  capacity: Int
+  height: Int
+  id: UUID!
+  label: String
+  positionX: Int
+  positionY: Int
+  rotation: Int
+  sectionId: UUID
+  shape: TableShape
+  width: Int
 }
 
 input UpdateTicketItemInput {
