@@ -68,6 +68,6 @@ export async function setupTestDb(): Promise<TestDb> {
  */
 export async function truncateAll(p: PrismaClient): Promise<void> {
   await p.$executeRawUnsafe(
-    'TRUNCATE TABLE audit_logs, invitations, memberships, sessions, accounts, verification_tokens, discounts, ticket_item_modifiers, ticket_items, reservations, tickets, tables, sections, location_modifiers, location_items, menu_section_items, menu_sections, menus, menu_item_modifier_groups, modifiers, modifier_groups, menu_items, tax_rates, tax_categories, categories, breaks, time_entries, shifts, availability_windows, employment_profiles, job_roles, guests, users, locations, tenants RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE audit_logs, invitations, memberships, sessions, accounts, verification_tokens, online_order_requests, discounts, ticket_item_modifiers, ticket_items, reservations, tickets, tables, sections, location_modifiers, location_items, menu_section_items, menu_sections, menus, menu_item_modifier_groups, modifiers, modifier_groups, menu_items, tax_rates, tax_categories, categories, breaks, time_entries, shifts, availability_windows, employment_profiles, job_roles, guests, users, locations, tenants RESTART IDENTITY CASCADE',
   );
 }
