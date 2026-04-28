@@ -9,3 +9,7 @@ import './add-ticket-item.js';
 import './update-ticket-item.js';
 import './void-ticket-item.js';
 import './set-ticket-item-modifiers.js';
+import './fire-ticket.js';
+import './fire-ticket-item.js';
+import './mark-ticket-item-ready.js';
+import './mark-ticket-item-served.js';
