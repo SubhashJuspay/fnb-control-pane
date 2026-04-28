@@ -145,9 +145,14 @@ query TicketHistory($first: Int, $after: String, $filter: TicketHistoryFilter) {
         totalCents
         openedAt
         closedAt
+        businessDay
         openedBy {
           id
           name
+        }
+        items {
+          id
+          status
         }
       }
     }
