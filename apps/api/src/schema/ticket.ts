@@ -139,6 +139,13 @@ export function sortKitchenTickets(
 /**
  * Pure resolver for `Query.kitchenTickets`. Tickets at the viewer's location
  * with at least one FIRED-or-READY item, ordered by oldest unready item.
+ *
+ * Sorting is computed in a side query that only pulls (id, status, firedAt)
+ * so the Pothos `query` selection forwarded into `findMany` is the canonical
+ * source of truth for column projection — passing our own `include` here
+ * overrides the GraphQL field selection (notably `items.modifiers`) and
+ * causes Pothos's prisma plugin to fall back to per-row `findUniqueOrThrow`
+ * with a missing parent id. Caught by E2E.
  */
 export async function resolveKitchenTickets(
   query: object,
@@ -146,17 +153,36 @@ export async function resolveKitchenTickets(
 ): Promise<unknown[]> {
   if (ctx.auth.kind !== 'authenticated') throw new ForbiddenError();
   if (!ctx.auth.location) throw new ForbiddenError('A location context is required');
-  const rows = (await ctx.prisma.ticket.findMany({
-    ...query,
-    where: {
-      locationId: ctx.auth.location.id,
-      items: { some: { status: { in: ['FIRED', 'READY'] } } },
-    },
-    include: {
+  const where = {
+    locationId: ctx.auth.location.id,
+    items: { some: { status: { in: ['FIRED', 'READY'] as const } } },
+  };
+  // Sort key fetch — independent of the GraphQL selection.
+  const sortInput = (await ctx.prisma.ticket.findMany({
+    where,
+    select: {
+      id: true,
       items: { select: { status: true, firedAt: true } },
     },
-  })) as Array<TicketRow & { items: Array<{ status: string; firedAt: Date | null }> }>;
-  return sortKitchenTickets(rows);
+  })) as Array<{ id: string; items: Array<{ status: string; firedAt: Date | null }> }>;
+  const sortedIds = sortKitchenTickets(
+    sortInput.map((r) => ({ ...r, items: r.items })) as unknown as Array<
+      TicketRow & { items: Array<{ status: string; firedAt: Date | null }> }
+    >,
+  ).map((r) => (r as { id: string }).id);
+
+  // Now fetch the actual rows using the Pothos-provided selection so child
+  // relations (items.modifiers, etc.) are resolved correctly in one trip.
+  const rows = (await ctx.prisma.ticket.findMany({
+    ...query,
+    where,
+  })) as Array<TicketRow>;
+  // Re-order rows by `sortedIds`. Stable for any unexpected mismatch.
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return sortedIds.flatMap((id) => {
+    const row = byId.get(id);
+    return row ? [row] : [];
+  });
 }
 
 export interface TicketHistoryFilterArgs {

@@ -16,6 +16,10 @@ function hashPassword(password: string): string {
  * overrides specs always start clean. The seed script never touches catalog
  * tables, so this is safe — every catalog row was created by a prior test
  * run or fixture call.
+ *
+ * Wave 6 extension: also wipe Acme's POS rows (tickets, ticket items,
+ * ticket-item modifiers, discounts) so pos-flow / kds-flow / discount-and-
+ * void specs always start with an empty board.
  */
 export async function resetTestData(): Promise<void> {
   await prisma.auditLog.deleteMany({
@@ -46,6 +50,17 @@ export async function resetTestData(): Promise<void> {
         tenantId: acme.id,
         user: { email: { not: 'owner@acme.test' } },
       },
+    });
+
+    // POS rows. Cascade removes ticket items / discounts / modifiers when we
+    // delete tickets, but discounts can also be ticket-orphaned (line-only),
+    // so we wipe them up-front in the right order. Locations belong to Acme,
+    // so scoping by `location.tenantId` covers every Acme ticket.
+    await prisma.discount.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
+    await prisma.ticket.deleteMany({
+      where: { location: { tenantId: acme.id } },
     });
 
     // Catalog + menu rows. Cascade deletes from `menus` -> sections -> items
@@ -154,4 +169,343 @@ export async function createCatalogFixtures(opts: CreateCatalogFixturesOptions =
     }));
 
   return { tenant, tax, category, latte };
+}
+
+export interface CreatePosFixturesOptions {
+  /** Tenant slug to scope fixtures to. Defaults to the seeded `acme` tenant. */
+  tenantSlug?: string;
+  /** Location slug. Defaults to `mission-st`. */
+  locationSlug?: string;
+}
+
+interface PosFixtures {
+  tenantId: string;
+  locationId: string;
+  ownerUserId: string;
+  taxCategoryId: string;
+  categoryId: string;
+  latteId: string;
+  croissantId: string;
+  sizeGroupId: string;
+  sizeSmallId: string;
+  sizeMediumId: string;
+  sizeLargeId: string;
+}
+
+/**
+ * Bootstrap the minimum POS rows the three E2E specs need:
+ *   • Food tax category + 8.25% rate at the location.
+ *   • Drinks category.
+ *   • Size modifier group (required-1, three modifiers).
+ *   • Latte ($4.50) attached to the Size group.
+ *   • Croissant ($3.50) with no required modifier groups (direct add).
+ *
+ * Idempotent across reruns. The seeded `owner@acme.test` is already an OWNER
+ * (tenant-wide membership), which satisfies both staff + manager scope at any
+ * location.
+ */
+export async function createPosFixtures(
+  opts: CreatePosFixturesOptions = {},
+): Promise<PosFixtures> {
+  const tenantSlug = opts.tenantSlug ?? 'acme';
+  const locationSlug = opts.locationSlug ?? 'mission-st';
+  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+  if (!tenant) throw new Error(`tenant not found: ${tenantSlug}`);
+  const location = await prisma.location.findUnique({
+    where: { tenantId_slug: { tenantId: tenant.id, slug: locationSlug } },
+  });
+  if (!location) throw new Error(`location not found: ${locationSlug}`);
+  const owner = await prisma.user.findUnique({ where: { email: 'owner@acme.test' } });
+  if (!owner) throw new Error('owner@acme.test not seeded');
+
+  const tax = await prisma.taxCategory.upsert({
+    where: { tenantId_kind: { tenantId: tenant.id, kind: 'FOOD' } },
+    update: {},
+    create: { tenantId: tenant.id, name: 'Food', kind: 'FOOD' },
+  });
+
+  // 8.25% (825 permille) tax rate effective an hour ago so it applies now.
+  const existingRate = await prisma.taxRate.findFirst({
+    where: { taxCategoryId: tax.id, locationId: location.id },
+  });
+  if (!existingRate) {
+    await prisma.taxRate.create({
+      data: {
+        taxCategoryId: tax.id,
+        locationId: location.id,
+        ratePermille: 825,
+        effectiveFrom: new Date(Date.now() - 60 * 60 * 1000),
+      },
+    });
+  }
+
+  const category = await prisma.category.upsert({
+    where: { tenantId_slug: { tenantId: tenant.id, slug: 'drinks' } },
+    update: {},
+    create: { tenantId: tenant.id, name: 'Drinks', slug: 'drinks' },
+  });
+
+  const sizeGroup =
+    (await prisma.modifierGroup.findFirst({
+      where: { tenantId: tenant.id, name: 'Size' },
+    })) ??
+    (await prisma.modifierGroup.create({
+      data: {
+        tenantId: tenant.id,
+        name: 'Size',
+        minSelections: 1,
+        maxSelections: 1,
+      },
+    }));
+  const small =
+    (await prisma.modifier.findFirst({
+      where: { modifierGroupId: sizeGroup.id, name: 'Small' },
+    })) ??
+    (await prisma.modifier.create({
+      data: {
+        modifierGroupId: sizeGroup.id,
+        name: 'Small',
+        priceDeltaCents: 0,
+        sortOrder: 0,
+      },
+    }));
+  const medium =
+    (await prisma.modifier.findFirst({
+      where: { modifierGroupId: sizeGroup.id, name: 'Medium' },
+    })) ??
+    (await prisma.modifier.create({
+      data: {
+        modifierGroupId: sizeGroup.id,
+        name: 'Medium',
+        priceDeltaCents: 75,
+        sortOrder: 1,
+      },
+    }));
+  const large =
+    (await prisma.modifier.findFirst({
+      where: { modifierGroupId: sizeGroup.id, name: 'Large' },
+    })) ??
+    (await prisma.modifier.create({
+      data: {
+        modifierGroupId: sizeGroup.id,
+        name: 'Large',
+        priceDeltaCents: 150,
+        sortOrder: 2,
+      },
+    }));
+
+  const latte =
+    (await prisma.menuItem.findFirst({
+      where: { tenantId: tenant.id, name: 'Latte' },
+    })) ??
+    (await prisma.menuItem.create({
+      data: {
+        tenantId: tenant.id,
+        taxCategoryId: tax.id,
+        categoryId: category.id,
+        name: 'Latte',
+        basePriceCents: 450,
+        course: 'BEVERAGE',
+        dietaryTags: ['VEGETARIAN'],
+      },
+    }));
+  // Ensure the Size group is attached to Latte (idempotent).
+  await prisma.menuItemModifierGroup.upsert({
+    where: {
+      menuItemId_modifierGroupId: {
+        menuItemId: latte.id,
+        modifierGroupId: sizeGroup.id,
+      },
+    },
+    update: {},
+    create: { menuItemId: latte.id, modifierGroupId: sizeGroup.id, sortOrder: 0 },
+  });
+
+  const croissant =
+    (await prisma.menuItem.findFirst({
+      where: { tenantId: tenant.id, name: 'Croissant' },
+    })) ??
+    (await prisma.menuItem.create({
+      data: {
+        tenantId: tenant.id,
+        taxCategoryId: tax.id,
+        categoryId: category.id,
+        name: 'Croissant',
+        basePriceCents: 350,
+        course: 'MAIN',
+      },
+    }));
+
+  return {
+    tenantId: tenant.id,
+    locationId: location.id,
+    ownerUserId: owner.id,
+    taxCategoryId: tax.id,
+    categoryId: category.id,
+    latteId: latte.id,
+    croissantId: croissant.id,
+    sizeGroupId: sizeGroup.id,
+    sizeSmallId: small.id,
+    sizeMediumId: medium.id,
+    sizeLargeId: large.id,
+  };
+}
+
+export interface SeededTicketOptions {
+  tenantSlug?: string;
+  locationSlug?: string;
+  /** Item names from `createPosFixtures` to add as ticket items. */
+  itemNames?: ReadonlyArray<'Latte' | 'Croissant'>;
+  customerLabel?: string;
+}
+
+interface SeededTicketResult {
+  ticket: {
+    id: string;
+    shortNumber: number;
+    customerLabel: string | null;
+  };
+  itemIds: string[];
+}
+
+/**
+ * Compute today's UTC business day for the demo location, mirroring the api
+ * helper. We replicate the logic here to avoid pulling the api package into
+ * the e2e fixture surface — `mission-st` uses the default 04:00 cutoff in
+ * America/Los_Angeles, but for the test environment we collapse to UTC
+ * midnight which is what the api ends up with for any time after the cutoff.
+ */
+function todayBusinessDay(): Date {
+  const now = new Date();
+  const yyyy = now.getUTCFullYear();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(now.getUTCDate()).padStart(2, '0');
+  return new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`);
+}
+
+async function nextShortNumber(locationId: string, businessDay: Date): Promise<number> {
+  const r = await prisma.ticket.aggregate({
+    where: { locationId, businessDay },
+    _max: { shortNumber: true },
+  });
+  return (r._max.shortNumber ?? 0) + 1;
+}
+
+async function createSeededTicket(
+  opts: SeededTicketOptions,
+  status: 'NEW' | 'FIRED',
+): Promise<SeededTicketResult> {
+  const F = await createPosFixtures({
+    tenantSlug: opts.tenantSlug,
+    locationSlug: opts.locationSlug,
+  });
+  const itemNames = opts.itemNames ?? ['Latte', 'Croissant'];
+
+  // Resolve item ids + courses + price up-front so we can snapshot.
+  const itemRows = await Promise.all(
+    itemNames.map(async (name) => {
+      const row = await prisma.menuItem.findFirstOrThrow({
+        where: { tenantId: F.tenantId, name },
+        select: { id: true, name: true, basePriceCents: true, course: true },
+      });
+      return row;
+    }),
+  );
+
+  const businessDay = todayBusinessDay();
+  const shortNumber = await nextShortNumber(F.locationId, businessDay);
+
+  const ticket = await prisma.ticket.create({
+    data: {
+      locationId: F.locationId,
+      shortNumber,
+      businessDay,
+      customerLabel: opts.customerLabel ?? 'Sarah',
+      orderType: 'DINE_IN',
+      status: 'OPEN',
+      openedById: F.ownerUserId,
+    },
+  });
+
+  // Pick a Medium-size modifier for the Latte so the snapshot is realistic.
+  const mediumDelta = 75;
+  const firedAt = status === 'FIRED' ? new Date(Date.now() - 3 * 60 * 1000) : null;
+
+  const created: string[] = [];
+  let runningSubtotal = 0;
+  for (const row of itemRows) {
+    const isLatte = row.name === 'Latte';
+    const modifierTotal = isLatte ? mediumDelta : 0;
+    const lineSubtotal = (row.basePriceCents + modifierTotal) * 1;
+    const ti = await prisma.ticketItem.create({
+      data: {
+        ticketId: ticket.id,
+        menuItemId: row.id,
+        nameSnapshot: row.name,
+        unitPriceCents: row.basePriceCents,
+        quantity: 1,
+        modifiersTotalCents: modifierTotal,
+        lineSubtotalCents: lineSubtotal,
+        course: row.course,
+        status: status === 'FIRED' ? 'FIRED' : 'NEW',
+        firedById: status === 'FIRED' ? F.ownerUserId : null,
+        firedAt,
+      },
+    });
+    if (isLatte) {
+      const sizeMedium = await prisma.modifier.findFirstOrThrow({
+        where: { modifierGroupId: F.sizeGroupId, name: 'Medium' },
+      });
+      await prisma.ticketItemModifier.create({
+        data: {
+          ticketItemId: ti.id,
+          modifierId: sizeMedium.id,
+          nameSnapshot: 'Medium',
+          priceDeltaCents: mediumDelta,
+          modifierGroupName: 'Size',
+        },
+      });
+    }
+    created.push(ti.id);
+    runningSubtotal += lineSubtotal;
+  }
+
+  // For FIRED tickets, totals reflect tax pre-emptively so the KDS card looks
+  // realistic — but the close-ticket flow recomputes anyway, so we only need
+  // to seed `subtotalCents` correctly for the open-tickets sidebar.
+  await prisma.ticket.update({
+    where: { id: ticket.id },
+    data: { subtotalCents: runningSubtotal, totalCents: runningSubtotal },
+  });
+
+  return {
+    ticket: {
+      id: ticket.id,
+      shortNumber: ticket.shortNumber,
+      customerLabel: ticket.customerLabel,
+    },
+    itemIds: created,
+  };
+}
+
+/**
+ * Create an OPEN ticket with NEW items at the demo location, bypassing the
+ * POS UI. Used by the discount-and-void spec so it can focus on dialogs
+ * without re-exercising the full add-item lifecycle.
+ */
+export async function openSeededTicket(
+  opts: SeededTicketOptions = {},
+): Promise<SeededTicketResult> {
+  return createSeededTicket(opts, 'NEW');
+}
+
+/**
+ * Create an OPEN ticket whose items are already in FIRED status (firedAt is
+ * 3 minutes ago). Used by the kds-flow spec so the kitchen board has a card
+ * to show without exercising the open → add → fire UI dance.
+ */
+export async function fireSeededTicket(
+  opts: SeededTicketOptions = {},
+): Promise<SeededTicketResult> {
+  return createSeededTicket(opts, 'FIRED');
 }

@@ -137,7 +137,11 @@ export function LineRow({
     .join(', ');
 
   return (
-    <li className={`flex flex-col gap-1 border-b px-3 py-2 ${isVoided ? 'opacity-60' : ''}`}>
+    <li
+      data-testid={`line-row-${line.id ?? ''}`}
+      data-status={status}
+      className={`flex flex-col gap-1 border-b px-3 py-2 ${isVoided ? 'opacity-60' : ''}`}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           {editingQty ? (

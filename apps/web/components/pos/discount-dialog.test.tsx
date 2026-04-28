@@ -85,7 +85,9 @@ describe('DiscountDialog', () => {
     expect(call?.input.ticketId).toBe('t-1');
     expect(call?.input.kind).toBe('FLAT');
     expect(call?.input.amountCents).toBe(500);
-    expect(call?.input.percentBp).toBeNull();
+    // Unused fields are omitted (not null) so the api's `.optional()` schema
+    // accepts the input — caught by E2E.
+    expect(call?.input.percentBp).toBeUndefined();
     expect(call?.input.reason).toBe('Manager comp');
     expect(applyLineDiscountMock).not.toHaveBeenCalled();
   });
@@ -116,7 +118,7 @@ describe('DiscountDialog', () => {
     expect(call?.input.ticketItemId).toBe('ti-9');
     expect(call?.input.kind).toBe('PERCENT');
     expect(call?.input.percentBp).toBe(1000);
-    expect(call?.input.amountCents).toBeNull();
+    expect(call?.input.amountCents).toBeUndefined();
     expect(call?.input.reason).toBe('Loyalty discount');
     expect(applyTicketDiscountMock).not.toHaveBeenCalled();
   });

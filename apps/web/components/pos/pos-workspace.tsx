@@ -93,7 +93,20 @@ export function PosWorkspace({
       />
       <main className="flex flex-1 flex-row overflow-hidden">
         <div className="flex flex-1 flex-col overflow-hidden">
-          <MenuTileGrid activeTicketId={activeTicketId} />
+          <MenuTileGrid
+            activeTicketId={activeTicketId}
+            onItemAdded={() => {
+              // urql's default cache does not refetch the parent Ticket
+              // query when AddTicketItem returns a brand-new TicketItem
+              // entity. Force-refresh both the active ticket panel (so the
+              // new line surfaces) and the open-tickets sidebar (so the
+              // line count + totals stay in sync). Caught by E2E.
+              if (activeTicketId) {
+                refetchActiveTicket({ requestPolicy: 'network-only' });
+              }
+              refetchOpenTickets({ requestPolicy: 'network-only' });
+            }}
+          />
         </div>
         <div className="hidden w-96 flex-col border-l bg-surface md:flex">
           {activeTicketId ? (

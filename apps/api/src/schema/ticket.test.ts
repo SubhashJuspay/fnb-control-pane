@@ -268,15 +268,33 @@ describe('resolveKitchenTickets', () => {
   it('queries tickets with FIRED-or-READY items, then sorts client-side', async () => {
     const t1 = new Date('2024-01-01T12:00:00Z');
     const t2 = new Date('2024-01-01T12:05:00Z');
+    // First findMany — sort key fetch (id + items.status/firedAt only).
     mockTicketFindMany.mockResolvedValueOnce([
       { id: 'a', items: [{ status: 'FIRED', firedAt: t2 }] },
       { id: 'b', items: [{ status: 'FIRED', firedAt: t1 }] },
+    ]);
+    // Second findMany — Pothos-driven row fetch with the GraphQL selection.
+    mockTicketFindMany.mockResolvedValueOnce([
+      { id: 'a' },
+      { id: 'b' },
     ]);
     const out = (await resolveKitchenTickets({}, staffCtx('loc-9'))) as Array<{
       id: string;
     }>;
     expect(out.map((t) => t.id)).toEqual(['b', 'a']);
-    expect(mockTicketFindMany).toHaveBeenCalledWith(
+    // Both calls must be location-scoped to FIRED/READY items.
+    expect(mockTicketFindMany).toHaveBeenCalledTimes(2);
+    expect(mockTicketFindMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          locationId: 'loc-9',
+          items: { some: { status: { in: ['FIRED', 'READY'] } } },
+        }),
+      }),
+    );
+    expect(mockTicketFindMany).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
         where: expect.objectContaining({
           locationId: 'loc-9',

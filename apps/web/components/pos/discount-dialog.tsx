@@ -146,16 +146,27 @@ export function DiscountDialog({
   const datalistId = 'discount-reason-options';
 
   const onSubmit = handleSubmit(async (values) => {
-    const baseInput = {
+    // The api `applyTicketDiscount` / `applyLineDiscount` validation schema
+    // declares `amountCents` and `percentBp` as `.optional()` (i.e. allows
+    // omission), not `.nullable()`. Sending `null` is rejected with
+    // "Expected number, received null" — caught by E2E. Therefore omit the
+    // field entirely when not used by the chosen discount kind.
+    const baseInput: {
+      kind: DiscountKind;
+      reason: string;
+      amountCents?: number;
+      percentBp?: number;
+    } = {
       kind: values.kind === 'PERCENT' ? DiscountKind.Percent : DiscountKind.Flat,
       reason: values.reason,
-      amountCents: values.kind === 'FLAT' ? values.amountCents ?? null : null,
-      // Convert human percent to basis points for the api.
-      percentBp:
-        values.kind === 'PERCENT' && values.percent != null
-          ? Math.round(values.percent * 100)
-          : null,
     };
+    if (values.kind === 'FLAT' && values.amountCents != null) {
+      baseInput.amountCents = values.amountCents;
+    }
+    if (values.kind === 'PERCENT' && values.percent != null) {
+      // Convert human percent to basis points for the api.
+      baseInput.percentBp = Math.round(values.percent * 100);
+    }
     if (target.kind === 'ticket') {
       const result = await applyTicketDiscount({
         input: { ticketId: target.ticketId, ...baseInput },

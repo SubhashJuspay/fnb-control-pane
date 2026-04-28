@@ -20,6 +20,14 @@ type CatalogItemRow = NonNullable<NonNullable<ItemEdge>['node']>;
 interface MenuTileGridProps {
   /** Active ticket id from the URL search param. `null` disables tap-to-add. */
   activeTicketId: string | null;
+  /**
+   * Fired after a successful direct-add (no modifiers) or after the modifier
+   * picker confirms. Lets the workspace force-refresh the active ticket panel
+   * — urql's default cache invalidation does not trigger a refetch when a
+   * mutation returns a brand-new TicketItem because the parent Ticket entity
+   * is unchanged.
+   */
+  onItemAdded?: () => void;
 }
 
 const PAGE_SIZE = 250;
@@ -31,7 +39,10 @@ const PAGE_SIZE = 250;
  *     the per-group min/max rules; for items where every attached group is
  *     optional (min === 0) the user can simply submit with no selection.
  */
-export function MenuTileGrid({ activeTicketId }: MenuTileGridProps): React.JSX.Element {
+export function MenuTileGrid({
+  activeTicketId,
+  onItemAdded,
+}: MenuTileGridProps): React.JSX.Element {
   const currency = useLocationCurrency();
   const [{ data, fetching, error }] = useQuery({
     query: CatalogItemsDocument,
@@ -117,6 +128,7 @@ export function MenuTileGrid({ activeTicketId }: MenuTileGridProps): React.JSX.E
         return;
       }
       toast.success(`Added: ${item.name ?? 'item'}`);
+      onItemAdded?.();
       return;
     }
     setPickerTargetId(item.id);
@@ -196,7 +208,10 @@ export function MenuTileGrid({ activeTicketId }: MenuTileGridProps): React.JSX.E
           }}
           menuItemId={pickerTargetId}
           mode={{ kind: 'add', ticketId: activeTicketId }}
-          onSubmitted={() => setPickerTargetId(null)}
+          onSubmitted={() => {
+            setPickerTargetId(null);
+            onItemAdded?.();
+          }}
         />
       ) : null}
     </div>
