@@ -5,3 +5,7 @@ import './update-ticket-order-type.js';
 import './close-ticket.js';
 import './reopen-ticket.js';
 import './void-ticket.js';
+import './add-ticket-item.js';
+import './update-ticket-item.js';
+import './void-ticket-item.js';
+import './set-ticket-item-modifiers.js';
