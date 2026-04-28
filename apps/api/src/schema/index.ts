@@ -44,6 +44,7 @@ import './mutations/pos/index.js';
 import './mutations/floor/index.js';
 import './mutations/reservations/index.js';
 import './mutations/staff/index.js';
+import './mutations/scheduling/index.js';
 import './subscriptions/index.js';
 
 export { builder };
