@@ -21,6 +21,8 @@ import './tax-category.js';
 import './menu-item.js';
 import './modifier.js';
 import './menu.js';
+import './ticket.js';
+import './discount.js';
 import './mutations/create-location.js';
 import './mutations/invite-staff.js';
 import './mutations/accept-invitation.js';

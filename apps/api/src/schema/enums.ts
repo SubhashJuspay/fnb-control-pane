@@ -27,3 +27,19 @@ export const ItemCourseEnum = builder.enumType('ItemCourse', {
 export const TaxCategoryKindEnum = builder.enumType('TaxCategoryKind', {
   values: ['FOOD', 'NON_ALCOHOL_BEV', 'ALCOHOL', 'RETAIL', 'OTHER'] as const,
 });
+
+export const TicketStatusEnum = builder.enumType('TicketStatus', {
+  values: ['OPEN', 'CLOSED', 'VOIDED'] as const,
+});
+
+export const TicketItemStatusEnum = builder.enumType('TicketItemStatus', {
+  values: ['NEW', 'FIRED', 'READY', 'SERVED', 'VOIDED'] as const,
+});
+
+export const OrderTypeEnum = builder.enumType('OrderType', {
+  values: ['DINE_IN', 'TAKEOUT'] as const,
+});
+
+export const DiscountKindEnum = builder.enumType('DiscountKind', {
+  values: ['FLAT', 'PERCENT'] as const,
+});
