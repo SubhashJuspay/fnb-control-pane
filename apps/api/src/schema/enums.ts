@@ -43,3 +43,31 @@ export const OrderTypeEnum = builder.enumType('OrderType', {
 export const DiscountKindEnum = builder.enumType('DiscountKind', {
   values: ['FLAT', 'PERCENT'] as const,
 });
+
+export const TableShapeEnum = builder.enumType('TableShape', {
+  values: ['RECT', 'CIRCLE'] as const,
+});
+
+export const TableManualStateEnum = builder.enumType('TableManualState', {
+  values: ['NONE', 'CLEANING'] as const,
+});
+
+export const TableStateEnum = builder.enumType('TableState', {
+  values: ['AVAILABLE', 'OCCUPIED', 'RESERVED', 'CLEANING'] as const,
+});
+
+export const ReservationKindEnum = builder.enumType('ReservationKind', {
+  values: ['RESERVATION', 'WALKIN'] as const,
+});
+
+export const ReservationStatusEnum = builder.enumType('ReservationStatus', {
+  values: [
+    'PENDING',
+    'CONFIRMED',
+    'WAITING',
+    'SEATED',
+    'COMPLETED',
+    'NO_SHOW',
+    'CANCELLED',
+  ] as const,
+});
