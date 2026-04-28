@@ -57,6 +57,29 @@ export async function resetTestData(): Promise<void> {
       },
     });
 
+    // Staff & scheduling rows. FK order: breaks → time_entries → shifts →
+    // availability_windows → employment_profiles → job_roles. Scope by
+    // tenant via the location relation (or tenant directly for job roles).
+    await prisma.break.deleteMany({
+      where: { timeEntry: { location: { tenantId: acme.id } } },
+    });
+    await prisma.timeEntry.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
+    await prisma.shift.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
+    // Availability windows are user-scoped, not location-scoped. Drop any
+    // windows owned by users who still have a membership in Acme — that
+    // covers everything seeded by `createScheduleFixtures` and by tests.
+    await prisma.availabilityWindow.deleteMany({
+      where: { user: { memberships: { some: { tenantId: acme.id } } } },
+    });
+    await prisma.employmentProfile.deleteMany({
+      where: { location: { tenantId: acme.id } },
+    });
+    await prisma.jobRole.deleteMany({ where: { tenantId: acme.id } });
+
     // POS rows. Cascade removes ticket items / discounts / modifiers when we
     // delete tickets, but discounts can also be ticket-orphaned (line-only),
     // so we wipe them up-front in the right order. Locations belong to Acme,
@@ -613,6 +636,96 @@ export async function createFloorFixtures(
       positionX: table.positionX,
       positionY: table.positionY,
     },
+  };
+}
+
+export interface CreateScheduleFixturesOptions {
+  /** Tenant slug to scope fixtures to. Defaults to the seeded `acme` tenant. */
+  tenantSlug?: string;
+  /** Location slug. Defaults to `mission-st`. */
+  locationSlug?: string;
+}
+
+interface ScheduleFixtures {
+  tenantId: string;
+  locationId: string;
+  ownerUserId: string;
+  jobRoleId: string;
+  shiftId: string;
+}
+
+/**
+ * Bootstrap the minimum staff/scheduling rows the time-clock spec needs:
+ *   • A "Server" job role at the Acme tenant.
+ *   • A PUBLISHED shift for the seeded owner starting in 30 min, lasting 4h.
+ *
+ * Idempotent across reruns. Used by `time-clock-flow.spec.ts` so the punch-in
+ * flow can optionally bind the entry to a real shift.
+ */
+export async function createScheduleFixtures(
+  opts: CreateScheduleFixturesOptions = {},
+): Promise<ScheduleFixtures> {
+  const tenantSlug = opts.tenantSlug ?? 'acme';
+  const locationSlug = opts.locationSlug ?? 'mission-st';
+  const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
+  if (!tenant) throw new Error(`tenant not found: ${tenantSlug}`);
+  const location = await prisma.location.findUnique({
+    where: { tenantId_slug: { tenantId: tenant.id, slug: locationSlug } },
+  });
+  if (!location) throw new Error(`location not found: ${locationSlug}`);
+  const owner = await prisma.user.findUnique({ where: { email: 'owner@acme.test' } });
+  if (!owner) throw new Error('owner@acme.test not seeded');
+
+  const jobRole = await prisma.jobRole.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: 'Server' } },
+    update: { archivedAt: null },
+    create: {
+      tenantId: tenant.id,
+      name: 'Server',
+      color: '#6366f1',
+    },
+  });
+
+  const startsAt = new Date(Date.now() + 30 * 60 * 1000);
+  const endsAt = new Date(startsAt.getTime() + 4 * 60 * 60 * 1000);
+  // No natural unique key on shifts — find an existing not-cancelled shift for
+  // the owner overlapping the target window so this stays idempotent.
+  const existing = await prisma.shift.findFirst({
+    where: {
+      locationId: location.id,
+      userId: owner.id,
+      status: { not: 'CANCELLED' },
+      startsAt: { lte: endsAt },
+      endsAt: { gte: startsAt },
+    },
+  });
+  const shift =
+    existing ??
+    (await prisma.shift.create({
+      data: {
+        locationId: location.id,
+        userId: owner.id,
+        jobRoleId: jobRole.id,
+        startsAt,
+        endsAt,
+        status: 'PUBLISHED',
+        createdById: owner.id,
+      },
+    }));
+  // Ensure status is PUBLISHED in case an existing DRAFT shift got picked up.
+  if (shift.status !== 'PUBLISHED') {
+    await prisma.shift.update({
+      where: { id: shift.id },
+      data: { status: 'PUBLISHED' },
+    });
+  }
+
+  return {
+    tenantId: tenant.id,
+    locationId: location.id,
+    ownerUserId: owner.id,
+    jobRoleId: jobRole.id,
+    shiftId: shift.id,
   };
 }
 

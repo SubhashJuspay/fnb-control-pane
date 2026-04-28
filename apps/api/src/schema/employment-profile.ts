@@ -19,7 +19,15 @@ export type EmploymentProfileRow = {
 const MANAGER_ROLES: readonly string[] = ['OWNER', 'ADMIN', 'MANAGER'];
 const ADMIN_ROLES: readonly string[] = ['OWNER', 'ADMIN'];
 
-/** Pure resolver for `Query.staffRoster`. Manager scope at viewer location. */
+/**
+ * Pure resolver for `Query.staffRoster`. Manager scope.
+ *
+ * - With a location context: returns profiles at the viewer's location.
+ * - Without a location context (admin pages at `/admin/*` carry tenant scope
+ *   only): admins get every profile across the tenant's locations. Managers
+ *   without admin role still need a location — they aren't allowed to peek
+ *   at other locations they don't run.
+ */
 export async function resolveStaffRoster(
   query: object,
   ctx: RequestContext,
@@ -28,10 +36,19 @@ export async function resolveStaffRoster(
   if (!MANAGER_ROLES.includes(ctx.auth.role)) {
     throw new ForbiddenError('Only managers or above can view the staff roster');
   }
-  if (!ctx.auth.location) throw new ForbiddenError('A location context is required');
+  if (ctx.auth.location) {
+    return ctx.prisma.employmentProfile.findMany({
+      ...query,
+      where: { locationId: ctx.auth.location.id },
+      orderBy: [{ terminationDate: 'asc' }, { hireDate: 'desc' }],
+    });
+  }
+  if (!ADMIN_ROLES.includes(ctx.auth.role)) {
+    throw new ForbiddenError('A location context is required');
+  }
   return ctx.prisma.employmentProfile.findMany({
     ...query,
-    where: { locationId: ctx.auth.location.id },
+    where: { location: { tenantId: ctx.auth.tenant.id } },
     orderBy: [{ terminationDate: 'asc' }, { hireDate: 'desc' }],
   });
 }
