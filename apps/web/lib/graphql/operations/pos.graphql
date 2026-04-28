@@ -1,0 +1,342 @@
+query OpenTickets {
+  openTickets {
+    id
+    shortNumber
+    customerLabel
+    orderType
+    status
+    subtotalCents
+    discountCents
+    taxCents
+    totalCents
+    openedAt
+    items {
+      id
+      status
+    }
+  }
+}
+
+query Ticket($id: UUID!) {
+  ticket(id: $id) {
+    id
+    shortNumber
+    customerLabel
+    orderType
+    status
+    subtotalCents
+    discountCents
+    taxCents
+    totalCents
+    openedBy {
+      id
+      name
+      email
+    }
+    openedAt
+    closedAt
+    voidedAt
+    voidReason
+    closeNote
+    items {
+      id
+      status
+      nameSnapshot
+      unitPriceCents
+      quantity
+      modifiersTotalCents
+      lineSubtotalCents
+      course
+      notes
+      firedAt
+      readyAt
+      servedAt
+      voidedAt
+      voidReason
+      menuItem {
+        id
+        imageUrl
+      }
+      modifiers {
+        id
+        nameSnapshot
+        priceDeltaCents
+        modifierGroupName
+      }
+      discounts {
+        id
+        kind
+        computedCents
+        reason
+        appliedAt
+        voidedAt
+      }
+      effectivePriceAfterDiscountsCents
+    }
+    discounts {
+      id
+      kind
+      amountCents
+      percentBp
+      computedCents
+      reason
+      appliedBy {
+        id
+        name
+      }
+      appliedAt
+      voidedAt
+      voidReason
+      scope {
+        __typename
+        ... on TicketScope {
+          ticket {
+            id
+          }
+        }
+        ... on LineScope {
+          ticketItem {
+            id
+          }
+        }
+      }
+    }
+  }
+}
+
+query KitchenTickets {
+  kitchenTickets {
+    id
+    shortNumber
+    customerLabel
+    orderType
+    items {
+      id
+      status
+      nameSnapshot
+      quantity
+      course
+      modifiers {
+        id
+        nameSnapshot
+        modifierGroupName
+      }
+      firedAt
+      readyAt
+      voidedAt
+    }
+  }
+}
+
+query TicketHistory($first: Int, $after: String, $filter: TicketHistoryFilter) {
+  ticketHistory(first: $first, after: $after, filter: $filter) {
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    edges {
+      node {
+        id
+        shortNumber
+        customerLabel
+        orderType
+        status
+        subtotalCents
+        totalCents
+        openedAt
+        closedAt
+        openedBy {
+          id
+          name
+        }
+      }
+    }
+  }
+}
+
+query CatalogItemWithModifiers($id: UUID!) {
+  catalogItem(id: $id) {
+    id
+    name
+    basePriceCents
+    imageUrl
+    modifierGroups {
+      id
+      name
+      minSelections
+      maxSelections
+      modifiers {
+        id
+        name
+        priceDeltaCents
+        archivedAt
+        sortOrder
+      }
+    }
+  }
+}
+
+mutation OpenTicket($input: OpenTicketInput!) {
+  openTicket(input: $input) {
+    id
+  }
+}
+
+mutation UpdateTicketLabel($input: UpdateTicketLabelInput!) {
+  updateTicketLabel(input: $input) {
+    id
+    customerLabel
+  }
+}
+
+mutation UpdateTicketOrderType($input: UpdateTicketOrderTypeInput!) {
+  updateTicketOrderType(input: $input) {
+    id
+    orderType
+  }
+}
+
+mutation CloseTicket($input: CloseTicketInput!) {
+  closeTicket(input: $input) {
+    id
+    status
+    totalCents
+    closeNote
+  }
+}
+
+mutation ReopenTicket($input: ReopenTicketInput!) {
+  reopenTicket(input: $input) {
+    id
+    status
+  }
+}
+
+mutation VoidTicket($input: VoidTicketInput!) {
+  voidTicket(input: $input) {
+    id
+    status
+    voidReason
+  }
+}
+
+mutation AddTicketItem($input: AddTicketItemInput!) {
+  addTicketItem(input: $input) {
+    id
+    status
+  }
+}
+
+mutation UpdateTicketItem($input: UpdateTicketItemInput!) {
+  updateTicketItem(input: $input) {
+    id
+    quantity
+    notes
+    lineSubtotalCents
+  }
+}
+
+mutation VoidTicketItem($input: VoidTicketItemInput!) {
+  voidTicketItem(input: $input) {
+    id
+    status
+    voidReason
+  }
+}
+
+mutation SetTicketItemModifiers($input: SetTicketItemModifiersInput!) {
+  setTicketItemModifiers(input: $input) {
+    id
+    lineSubtotalCents
+    modifiers {
+      id
+      nameSnapshot
+    }
+  }
+}
+
+mutation FireTicket($input: FireTicketInput!) {
+  fireTicket(input: $input) {
+    id
+  }
+}
+
+mutation FireTicketItem($input: FireTicketItemInput!) {
+  fireTicketItem(input: $input) {
+    id
+    status
+    firedAt
+  }
+}
+
+mutation MarkTicketItemReady($input: MarkTicketItemReadyInput!) {
+  markTicketItemReady(input: $input) {
+    id
+    status
+    readyAt
+  }
+}
+
+mutation MarkTicketItemServed($input: MarkTicketItemServedInput!) {
+  markTicketItemServed(input: $input) {
+    id
+    status
+    servedAt
+  }
+}
+
+mutation ApplyTicketDiscount($input: ApplyTicketDiscountInput!) {
+  applyTicketDiscount(input: $input) {
+    id
+    computedCents
+    reason
+  }
+}
+
+mutation ApplyLineDiscount($input: ApplyLineDiscountInput!) {
+  applyLineDiscount(input: $input) {
+    id
+    computedCents
+    reason
+  }
+}
+
+mutation VoidDiscount($input: VoidDiscountInput!) {
+  voidDiscount(input: $input) {
+    id
+    voidedAt
+    voidReason
+  }
+}
+
+subscription TicketUpdates {
+  ticketUpdates {
+    __typename
+    ... on TicketChanged {
+      ticket {
+        id
+        shortNumber
+        status
+        totalCents
+        subtotalCents
+        discountCents
+        taxCents
+      }
+    }
+    ... on TicketItemChanged {
+      ticketItem {
+        id
+        status
+      }
+      ticketId
+    }
+    ... on DiscountChanged {
+      discount {
+        id
+        kind
+        computedCents
+      }
+      ticketId
+    }
+  }
+}

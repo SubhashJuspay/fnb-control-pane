@@ -17,9 +17,37 @@ input AddModifierInput {
   priceDeltaCents: Int
 }
 
+input AddTicketItemInput {
+  menuItemId: UUID!
+  modifiers: [AddTicketItemModifierInput!]
+  notes: String
+  quantity: Int
+  ticketId: UUID!
+}
+
+input AddTicketItemModifierInput {
+  modifierId: UUID!
+}
+
 type AppError {
   code: String
   message: String
+}
+
+input ApplyLineDiscountInput {
+  amountCents: Int
+  kind: DiscountKind!
+  percentBp: Int
+  reason: String!
+  ticketItemId: UUID!
+}
+
+input ApplyTicketDiscountInput {
+  amountCents: Int
+  kind: DiscountKind!
+  percentBp: Int
+  reason: String!
+  ticketId: UUID!
 }
 
 input ArchiveCategoryInput {
@@ -85,6 +113,11 @@ type Category {
   slug: String
   sortOrder: Int
   updatedAt: DateTime
+}
+
+input CloseTicketInput {
+  closeNote: String
+  ticketId: UUID!
 }
 
 input CreateCategoryInput {
@@ -155,6 +188,41 @@ type DetachModifierGroupResult {
   modifierGroupId: ID
 }
 
+type Discount {
+  amountCents: Int
+  appliedAt: DateTime
+  appliedBy: User
+  computedCents: Int
+  id: ID
+  kind: DiscountKind
+  percentBp: Int
+  reason: String
+  scope: DiscountScope
+  voidReason: String
+  voidedAt: DateTime
+  voidedBy: User
+}
+
+type DiscountChanged {
+  discount: Discount
+  ticketId: UUID
+}
+
+enum DiscountKind {
+  FLAT
+  PERCENT
+}
+
+union DiscountScope = LineScope | TicketScope
+
+input FireTicketInput {
+  ticketId: UUID!
+}
+
+input FireTicketItemInput {
+  ticketItemId: UUID!
+}
+
 type Invitation {
   acceptedAt: DateTime
   createdAt: DateTime
@@ -197,6 +265,11 @@ The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://
 """
 scalar JSON
 
+"""Discount scope marker — discount applies to a single ticket line."""
+type LineScope {
+  ticketItem: TicketItem
+}
+
 type Location {
   businessDayCutoff: String
   createdAt: DateTime
@@ -232,6 +305,14 @@ enum LocationStatus {
   ACTIVE
   ARCHIVED
   CLOSED
+}
+
+input MarkTicketItemReadyInput {
+  ticketItemId: UUID!
+}
+
+input MarkTicketItemServedInput {
+  ticketItemId: UUID!
 }
 
 type Membership {
@@ -326,6 +407,9 @@ type Mutation {
   acceptInvitation(input: AcceptInvitationInput!): User
   addItemToMenuSection(input: AddItemToMenuSectionInput!): MenuSectionItem
   addModifier(input: AddModifierInput!): Modifier
+  addTicketItem(input: AddTicketItemInput!): TicketItem
+  applyLineDiscount(input: ApplyLineDiscountInput!): Discount
+  applyTicketDiscount(input: ApplyTicketDiscountInput!): Discount
   archiveCategory(input: ArchiveCategoryInput!): Category
   archiveMenu(input: ArchiveMenuInput!): Menu
   archiveMenuItem(input: ArchiveMenuItemInput!): MenuItem
@@ -333,6 +417,7 @@ type Mutation {
   archiveModifier(input: ArchiveModifierInput!): Modifier
   archiveModifierGroup(input: ArchiveModifierGroupInput!): ModifierGroup
   attachModifierGroupToItem(input: AttachModifierGroupInput!): AttachModifierGroupResult
+  closeTicket(input: CloseTicketInput!): Ticket
   createCategory(input: CreateCategoryInput!): Category
   createLocation(input: CreateLocationInput!): Location
   createMenu(input: CreateMenuInput!): Menu
@@ -341,8 +426,14 @@ type Mutation {
   createModifierGroup(input: CreateModifierGroupInput!): ModifierGroup
   createTaxCategory(input: CreateTaxCategoryInput!): TaxCategory
   detachModifierGroupFromItem(input: DetachModifierGroupInput!): DetachModifierGroupResult
+  fireTicket(input: FireTicketInput!): Ticket
+  fireTicketItem(input: FireTicketItemInput!): TicketItem
   inviteStaff(input: InviteStaffInput!): Invitation
+  markTicketItemReady(input: MarkTicketItemReadyInput!): TicketItem
+  markTicketItemServed(input: MarkTicketItemServedInput!): TicketItem
+  openTicket(input: OpenTicketInput!): Ticket
   removeItemFromMenuSection(input: RemoveItemFromMenuSectionInput!): RemoveItemFromMenuSectionResult
+  reopenTicket(input: ReopenTicketInput!): Ticket
   reorderCategories(input: ReorderCategoriesInput!): ReorderCategoriesResult
   reorderMenuSectionItems(input: ReorderMenuSectionItemsInput!): ReorderMenuSectionItemsResult
   reorderMenuSections(input: ReorderMenuSectionsInput!): ReorderMenuSectionsResult
@@ -352,6 +443,7 @@ type Mutation {
   revokeMembership(input: RevokeMembershipInput!): Membership
   setItem86(input: SetItem86Input!): LocationItem
   setTaxRate(input: SetTaxRateInput!): TaxRate
+  setTicketItemModifiers(input: SetTicketItemModifiersInput!): TicketItem
   unarchiveMenuItem(input: UnarchiveMenuItemInput!): MenuItem
   updateCategory(input: UpdateCategoryInput!): Category
   updateMembershipRole(input: UpdateMembershipRoleInput!): Membership
@@ -361,8 +453,24 @@ type Mutation {
   updateMenuSectionItem(input: UpdateMenuSectionItemInput!): MenuSectionItem
   updateModifier(input: UpdateModifierInput!): Modifier
   updateModifierGroup(input: UpdateModifierGroupInput!): ModifierGroup
+  updateTicketItem(input: UpdateTicketItemInput!): TicketItem
+  updateTicketLabel(input: UpdateTicketLabelInput!): Ticket
+  updateTicketOrderType(input: UpdateTicketOrderTypeInput!): Ticket
   upsertLocationItem(input: UpsertLocationItemInput!): LocationItem
   upsertLocationModifier(input: UpsertLocationModifierInput!): LocationModifier
+  voidDiscount(input: VoidDiscountInput!): Discount
+  voidTicket(input: VoidTicketInput!): Ticket
+  voidTicketItem(input: VoidTicketItemInput!): TicketItem
+}
+
+input OpenTicketInput {
+  customerLabel: String
+  orderType: OrderType
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEOUT
 }
 
 type PageInfo {
@@ -399,6 +507,11 @@ type Query {
   """Look up an invitation by its single-use token. Anonymous-allowed."""
   invitationByToken(token: String!): InvitationLookup
 
+  """
+  Tickets with at least one FIRED-or-READY item, ordered by oldest unready item.
+  """
+  kitchenTickets: [Ticket!]
+
   """Menus that are active and live at the given moment. Defaults to now."""
   locationActiveMenus(at: DateTime): [Menu!]
 
@@ -418,6 +531,9 @@ type Query {
   """Tenants the current viewer has at least one ACTIVE membership in."""
   myTenants: [Tenant!]
 
+  """All OPEN tickets at the viewer's location, ordered by openedAt asc."""
+  openTickets: [Ticket!]
+
   """Pending (unaccepted, unexpired) invitations within the current tenant."""
   tenantInvitations: [Invitation!]
 
@@ -428,6 +544,17 @@ type Query {
 
   """Memberships within the current tenant. Requires admin role."""
   tenantMembers(after: String, before: String, first: Int, last: Int): QueryTenantMembersConnection
+
+  """Single ticket by id, scoped to the viewer's location."""
+  ticket(id: UUID!): Ticket
+
+  """
+  Lookup a ticket by its day-scoped short number at the viewer's location.
+  """
+  ticketByShortNumber(businessDay: DateTime!, shortNumber: Int!): Ticket
+
+  """Ticket history at the viewer's location. Requires manager role."""
+  ticketHistory(after: String, before: String, filter: TicketHistoryFilter, first: Int, last: Int): QueryTicketHistoryConnection
 
   """The currently signed-in user, regardless of tenant context."""
   viewer: Viewer
@@ -477,6 +604,17 @@ type QueryTenantMembersConnectionEdge {
   node: Membership
 }
 
+type QueryTicketHistoryConnection {
+  edges: [QueryTicketHistoryConnectionEdge]
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+type QueryTicketHistoryConnectionEdge {
+  cursor: String!
+  node: Ticket
+}
+
 input RemoveItemFromMenuSectionInput {
   id: UUID!
 }
@@ -484,6 +622,10 @@ input RemoveItemFromMenuSectionInput {
 """Result of removing an item from a menu section."""
 type RemoveItemFromMenuSectionResult {
   id: ID
+}
+
+input ReopenTicketInput {
+  ticketId: UUID!
 }
 
 input ReorderCategoriesInput {
@@ -573,6 +715,18 @@ input SetTaxRateInput {
   taxCategoryId: UUID!
 }
 
+input SetTicketItemModifiersInput {
+  modifierIds: [UUID!]!
+  ticketItemId: UUID!
+}
+
+type Subscription {
+  """
+  Stream of ticket / item / discount events at the viewer's location. Backed by Postgres LISTEN/NOTIFY for cross-instance fan-out, served over GraphQL-over-SSE by graphql-yoga.
+  """
+  ticketUpdates: TicketUpdateEvent
+}
+
 type TaxCategory {
   archivedAt: DateTime
   createdAt: DateTime
@@ -613,6 +767,102 @@ enum TenantStatus {
   DELETED
   SUSPENDED
 }
+
+type Ticket {
+  businessDay: DateTime
+  closeNote: String
+  closedAt: DateTime
+  closedBy: User
+  customerLabel: String
+  discountCents: Int
+  discounts: [Discount!]
+  id: ID
+  isLive: Boolean
+  itemSummary: String
+  items: [TicketItem!]
+  openedAt: DateTime
+  openedBy: User
+  orderType: OrderType
+  shortNumber: Int
+  status: TicketStatus
+  subtotalCents: Int
+  taxCents: Int
+  totalCents: Int
+  voidReason: String
+  voidedAt: DateTime
+  voidedBy: User
+}
+
+type TicketChanged {
+  ticket: Ticket
+}
+
+input TicketHistoryFilter {
+  fromDate: DateTime
+  serverId: UUID
+  status: TicketStatus
+  toDate: DateTime
+}
+
+type TicketItem {
+  course: ItemCourse
+  createdAt: DateTime
+  discounts: [Discount!]
+  effectivePriceAfterDiscountsCents: Int
+  firedAt: DateTime
+  firedBy: User
+  id: ID
+  lineSubtotalCents: Int
+  menuItem: MenuItem
+  modifiers: [TicketItemModifier!]
+  modifiersTotalCents: Int
+  nameSnapshot: String
+  notes: String
+  quantity: Int
+  readyAt: DateTime
+  servedAt: DateTime
+  servedBy: User
+  status: TicketItemStatus
+  unitPriceCents: Int
+  updatedAt: DateTime
+  voidReason: String
+  voidedAt: DateTime
+  voidedBy: User
+}
+
+type TicketItemChanged {
+  ticketId: UUID
+  ticketItem: TicketItem
+}
+
+type TicketItemModifier {
+  id: ID
+  modifier: Modifier
+  modifierGroupName: String
+  nameSnapshot: String
+  priceDeltaCents: Int
+}
+
+enum TicketItemStatus {
+  FIRED
+  NEW
+  READY
+  SERVED
+  VOIDED
+}
+
+"""Discount scope marker — discount applies to the entire ticket."""
+type TicketScope {
+  ticket: Ticket
+}
+
+enum TicketStatus {
+  CLOSED
+  OPEN
+  VOIDED
+}
+
+union TicketUpdateEvent = DiscountChanged | TicketChanged | TicketItemChanged
 
 scalar UUID
 
@@ -678,6 +928,22 @@ input UpdateModifierInput {
   priceDeltaCents: Int
 }
 
+input UpdateTicketItemInput {
+  notes: String
+  quantity: Int
+  ticketItemId: UUID!
+}
+
+input UpdateTicketLabelInput {
+  customerLabel: String
+  ticketId: UUID!
+}
+
+input UpdateTicketOrderTypeInput {
+  orderType: OrderType!
+  ticketId: UUID!
+}
+
 input UpsertLocationItemInput {
   available: Boolean
   hidden: Boolean
@@ -715,4 +981,19 @@ type Viewer {
 
   """Tenants this viewer has at least one ACTIVE membership in."""
   tenants: [Tenant!]
+}
+
+input VoidDiscountInput {
+  discountId: UUID!
+  voidReason: String!
+}
+
+input VoidTicketInput {
+  ticketId: UUID!
+  voidReason: String!
+}
+
+input VoidTicketItemInput {
+  ticketItemId: UUID!
+  voidReason: String!
 }
