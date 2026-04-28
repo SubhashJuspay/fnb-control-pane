@@ -2,3 +2,4 @@
 import './ticket-updates.js';
 import './floor-updates.js';
 import './schedule-updates.js';
+import './online-order-requests.js';
