@@ -61,6 +61,9 @@ model Location {
   locationItems     LocationItem[]
   locationModifiers LocationModifier[]
 
+  tickets   Ticket[]
+  discounts Discount[]
+
   @@unique([tenantId, slug])
   @@index([tenantId])
   @@map("locations")
@@ -84,6 +87,15 @@ model User {
   sessions    Session[]
   memberships Membership[]
   invitations Invitation[] @relation("InvitedByUser")
+
+  ticketsOpened     Ticket[]     @relation("TicketOpenedBy")
+  ticketsClosed     Ticket[]     @relation("TicketClosedBy")
+  ticketsVoided     Ticket[]     @relation("TicketVoidedBy")
+  ticketItemsFired  TicketItem[] @relation("TicketItemFiredBy")
+  ticketItemsServed TicketItem[] @relation("TicketItemServedBy")
+  ticketItemsVoided TicketItem[] @relation("TicketItemVoidedBy")
+  discountsApplied  Discount[]   @relation("DiscountAppliedBy")
+  discountsVoided   Discount[]   @relation("DiscountVoidedBy")
 
   @@map("users")
 }
@@ -295,6 +307,7 @@ model MenuItem {
   modifierGroups    MenuItemModifierGroup[]
   sectionItems      MenuSectionItem[]
   locationOverrides LocationItem[]
+  ticketItems       TicketItem[]
 
   @@index([tenantId, archivedAt])
   @@index([tenantId, categoryId])
@@ -328,8 +341,9 @@ model Modifier {
   sortOrder       Int       @default(0) @map("sort_order")
   archivedAt      DateTime? @map("archived_at")
 
-  modifierGroup     ModifierGroup      @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
-  locationOverrides LocationModifier[]
+  modifierGroup       ModifierGroup        @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+  locationOverrides   LocationModifier[]
+  ticketItemModifiers TicketItemModifier[]
 
   @@index([modifierGroupId])
   @@map("modifiers")
@@ -447,4 +461,155 @@ enum ItemCourse {
   SIDE
   BEVERAGE
   OTHER
+}
+
+// ─── POS / Order Management ───────────────────────────────────
+model Ticket {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId  String   @map("location_id") @db.Uuid
+  shortNumber Int      @map("short_number")
+  businessDay DateTime @map("business_day") @db.Date
+
+  customerLabel String?      @map("customer_label")
+  orderType     OrderType    @default(DINE_IN) @map("order_type")
+  status        TicketStatus @default(OPEN)
+
+  openedById String    @map("opened_by_id") @db.Uuid
+  openedAt   DateTime  @default(now()) @map("opened_at")
+  closedById String?   @map("closed_by_id") @db.Uuid
+  closedAt   DateTime? @map("closed_at")
+  voidedById String?   @map("voided_by_id") @db.Uuid
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
+  closeNote  String?   @map("close_note")
+
+  subtotalCents Int @default(0) @map("subtotal_cents")
+  discountCents Int @default(0) @map("discount_cents")
+  taxCents      Int @default(0) @map("tax_cents")
+  totalCents    Int @default(0) @map("total_cents")
+
+  location  Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  openedBy  User         @relation("TicketOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy  User?        @relation("TicketClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  voidedBy  User?        @relation("TicketVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  items     TicketItem[]
+  discounts Discount[]   @relation("TicketLevelDiscounts")
+
+  @@unique([locationId, businessDay, shortNumber])
+  @@index([locationId, status])
+  @@index([locationId, openedAt])
+  @@map("tickets")
+}
+
+model TicketItem {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId   String           @map("ticket_id") @db.Uuid
+  menuItemId String           @map("menu_item_id") @db.Uuid
+  status     TicketItemStatus @default(NEW)
+
+  nameSnapshot   String @map("name_snapshot")
+  unitPriceCents Int    @map("unit_price_cents")
+  quantity       Int    @default(1)
+
+  modifiersTotalCents Int @default(0) @map("modifiers_total_cents")
+  lineSubtotalCents   Int @default(0) @map("line_subtotal_cents")
+
+  notes  String?
+  course ItemCourse
+
+  firedById  String?   @map("fired_by_id") @db.Uuid
+  firedAt    DateTime? @map("fired_at")
+  readyAt    DateTime? @map("ready_at")
+  servedById String?   @map("served_by_id") @db.Uuid
+  servedAt   DateTime? @map("served_at")
+  voidedById String?   @map("voided_by_id") @db.Uuid
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticket    Ticket               @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  menuItem  MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  modifiers TicketItemModifier[]
+  discounts Discount[]           @relation("LineLevelDiscounts")
+  firedBy   User?                @relation("TicketItemFiredBy", fields: [firedById], references: [id], onDelete: Restrict)
+  servedBy  User?                @relation("TicketItemServedBy", fields: [servedById], references: [id], onDelete: Restrict)
+  voidedBy  User?                @relation("TicketItemVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@index([ticketId, status])
+  @@map("ticket_items")
+}
+
+model TicketItemModifier {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketItemId String @map("ticket_item_id") @db.Uuid
+  modifierId   String @map("modifier_id") @db.Uuid
+
+  nameSnapshot      String @map("name_snapshot")
+  priceDeltaCents   Int    @map("price_delta_cents")
+  modifierGroupName String @map("modifier_group_name")
+
+  ticketItem TicketItem @relation(fields: [ticketItemId], references: [id], onDelete: Cascade)
+  modifier   Modifier   @relation(fields: [modifierId], references: [id], onDelete: Restrict)
+
+  @@index([ticketItemId])
+  @@map("ticket_item_modifiers")
+}
+
+model Discount {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId String @map("location_id") @db.Uuid
+
+  ticketId     String? @map("ticket_id") @db.Uuid
+  ticketItemId String? @map("ticket_item_id") @db.Uuid
+
+  kind          DiscountKind
+  amountCents   Int?         @map("amount_cents")
+  percentBp     Int?         @map("percent_bp")
+  computedCents Int          @map("computed_cents")
+
+  reason      String
+  appliedById String   @map("applied_by_id") @db.Uuid
+  appliedAt   DateTime @default(now()) @map("applied_at")
+
+  voidedById String?   @map("voided_by_id") @db.Uuid
+  voidedAt   DateTime? @map("voided_at")
+  voidReason String?   @map("void_reason")
+
+  location   Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  ticket     Ticket?     @relation("TicketLevelDiscounts", fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketItem TicketItem? @relation("LineLevelDiscounts", fields: [ticketItemId], references: [id], onDelete: Cascade)
+  appliedBy  User        @relation("DiscountAppliedBy", fields: [appliedById], references: [id], onDelete: Restrict)
+  voidedBy   User?       @relation("DiscountVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+
+  @@index([ticketId])
+  @@index([ticketItemId])
+  @@index([locationId, appliedAt])
+  @@map("discounts")
+}
+
+enum TicketStatus {
+  OPEN
+  CLOSED
+  VOIDED
+}
+
+enum TicketItemStatus {
+  NEW
+  FIRED
+  READY
+  SERVED
+  VOIDED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEOUT
+}
+
+enum DiscountKind {
+  FLAT
+  PERCENT
 }
