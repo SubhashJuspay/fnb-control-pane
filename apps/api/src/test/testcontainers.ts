@@ -7,6 +7,7 @@ let prismaInstance: PrismaClient | null = null;
 
 export interface TestDb {
   prisma: PrismaClient;
+  container: StartedPostgreSqlContainer;
   cleanup: () => Promise<void>;
 }
 
@@ -45,8 +46,10 @@ export async function setupTestDb(): Promise<TestDb> {
   // Force connection eagerly so the first test isn't penalized.
   await prismaInstance.$connect();
 
+  const startedContainer = container;
   return {
     prisma: prismaInstance,
+    container: startedContainer,
     cleanup: async () => {
       try {
         await prismaInstance?.$disconnect();
