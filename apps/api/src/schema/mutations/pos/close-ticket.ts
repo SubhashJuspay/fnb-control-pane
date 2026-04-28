@@ -4,6 +4,7 @@ import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
 import { completeReservationAfterClose } from '../../../floor/post-close.js';
+import { updateGuestLastSeenAfterClose } from '../../../guest/post-close.js';
 import { canCloseTicket, canTransitionTicket } from '../../../order/state.js';
 import { resolveTaxRateAt } from '../../../order/tax.js';
 import { pubsub, ticketChannelName } from '../../../pubsub.js';
@@ -163,6 +164,14 @@ export async function resolveCloseTicket(
   // the close. Run before the audit + publish so failures here cannot affect
   // ticket telemetry, but do not await blocking the resolver path either.
   await completeReservationAfterClose({
+    prisma: ctx.prisma,
+    ticketId: updated.id,
+    locationId,
+  });
+  // Best-effort guest CRM bookkeeping: when a guest is linked to the closed
+  // ticket, refresh their `lastSeenAt`. Wrapped in try/catch inside the helper
+  // so a guest-side failure never blocks the close.
+  await updateGuestLastSeenAfterClose({
     prisma: ctx.prisma,
     ticketId: updated.id,
     locationId,

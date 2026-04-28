@@ -31,6 +31,7 @@ import './employment-profile.js';
 import './availability.js';
 import './shift.js';
 import './time-entry.js';
+import './guest.js';
 import './mutations/create-location.js';
 import './mutations/invite-staff.js';
 import './mutations/accept-invitation.js';
@@ -46,6 +47,7 @@ import './mutations/reservations/index.js';
 import './mutations/staff/index.js';
 import './mutations/scheduling/index.js';
 import './mutations/time-clock/index.js';
+import './mutations/guest/index.js';
 import './subscriptions/index.js';
 
 export { builder };
