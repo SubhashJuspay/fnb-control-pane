@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from 'urql';
@@ -17,6 +18,7 @@ import {
   Label,
 } from '@repo/ui';
 import { CreateReservationDocument } from '@/lib/graphql/generated/graphql';
+import { GuestPicker } from '@/components/guests/guest-picker';
 
 // Form-level Zod schema. We coerce partySize/durationMinutes from <input
 // type="number"> string values, and parse requestedTime from the datetime-
@@ -44,11 +46,18 @@ export function NewReservationDialog({
   onCreated,
 }: NewReservationDialogProps): React.JSX.Element {
   const [, createReservation] = useMutation(CreateReservationDocument);
+  const [pickedGuest, setPickedGuest] = useState<{
+    id: string;
+    name: string;
+    phone: string | null;
+  } | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     reset,
+    setValue,
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: { durationMinutes: 90, partySize: 2 },
@@ -62,6 +71,7 @@ export function NewReservationDialog({
         partySize: values.partySize,
         requestedTime: new Date(values.requestedTime).toISOString(),
         durationMinutes: values.durationMinutes,
+        guestId: pickedGuest?.id ?? null,
         notes: values.notes || null,
       },
     });
@@ -70,6 +80,7 @@ export function NewReservationDialog({
       return;
     }
     reset();
+    setPickedGuest(null);
     onCreated();
   });
 
@@ -83,6 +94,45 @@ export function NewReservationDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1">
+            <Label>Guest (optional)</Label>
+            <div
+              className="flex items-center gap-2"
+              data-testid="reservation-guest-row"
+            >
+              {pickedGuest ? (
+                <>
+                  <span className="text-sm font-medium">
+                    {pickedGuest.name}
+                  </span>
+                  {pickedGuest.phone ? (
+                    <span className="text-xs text-muted-foreground">
+                      {pickedGuest.phone}
+                    </span>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setPickedGuest(null)}
+                  >
+                    Clear
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPickerOpen(true)}
+                  data-action="pick-guest"
+                >
+                  Pick guest
+                </Button>
+              )}
+            </div>
+          </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="guestName">Guest name</Label>
             <Input
@@ -169,6 +219,18 @@ export function NewReservationDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <GuestPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(g) => {
+          setPickedGuest(g);
+          setPickerOpen(false);
+          // Pre-fill the (still-required) name + phone fields so the form
+          // submits cleanly. The user may still override either.
+          setValue('guestName', g.name);
+          if (g.phone) setValue('guestPhone', g.phone);
+        }}
+      />
     </Dialog>
   );
 }

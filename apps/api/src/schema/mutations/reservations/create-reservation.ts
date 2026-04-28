@@ -14,6 +14,7 @@ export interface CreateReservationArgs {
   requestedTime: Date;
   durationMinutes?: number | null;
   tableId?: string | null;
+  guestId?: string | null;
   notes?: string | null;
 }
 
@@ -39,6 +40,15 @@ export async function resolveCreateReservation(
     if (!table) throw new NotFoundError('Table not found');
   }
 
+  // Verify the linked guest, if provided, belongs to the viewer's tenant.
+  if (input.guestId) {
+    const guest = await ctx.prisma.guest.findFirst({
+      where: { id: input.guestId, tenantId: ctx.auth.tenant.id },
+      select: { id: true },
+    });
+    if (!guest) throw new NotFoundError('Guest not found');
+  }
+
   const created = (await ctx.prisma.reservation.create({
     ...query,
     data: {
@@ -51,6 +61,7 @@ export async function resolveCreateReservation(
       requestedTime: input.requestedTime,
       durationMinutes: input.durationMinutes ?? 90,
       tableId: input.tableId ?? null,
+      guestId: input.guestId ?? null,
       notes: input.notes ?? null,
       createdById: ctx.auth.user.id,
     },

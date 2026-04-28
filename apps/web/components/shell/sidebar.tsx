@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
-import { LayoutDashboard, Settings, Users } from 'lucide-react';
+import { BarChart3, LayoutDashboard, Settings, Users, UserCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@repo/ui';
 import type { AppShellTenant } from '@/lib/viewer';
@@ -31,12 +31,22 @@ export function Sidebar({ tenants }: SidebarProps) {
   const items: NavItem[] = [];
   if (tenantSlug && locationSlug) {
     items.push({
-      href: `/${tenantSlug}/${locationSlug}`,
+      href: `/${tenantSlug}/${locationSlug}/dashboard`,
       label: 'Dashboard',
       icon: LayoutDashboard,
-      matches: (path) =>
-        path === `/${tenantSlug}/${locationSlug}` ||
-        path.startsWith(`/${tenantSlug}/${locationSlug}?`),
+      matches: (path) => path.startsWith(`/${tenantSlug}/${locationSlug}/dashboard`),
+    });
+    items.push({
+      href: `/${tenantSlug}/${locationSlug}/insights`,
+      label: 'Insights',
+      icon: BarChart3,
+      matches: (path) => path.startsWith(`/${tenantSlug}/${locationSlug}/insights`),
+    });
+    items.push({
+      href: `/${tenantSlug}/${locationSlug}/guests`,
+      label: 'Guests',
+      icon: UserCircle,
+      matches: (path) => path.startsWith(`/${tenantSlug}/${locationSlug}/guests`),
     });
     items.push({
       href: `/${tenantSlug}/${locationSlug}/settings`,

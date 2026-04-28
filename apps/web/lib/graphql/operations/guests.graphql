@@ -1,0 +1,125 @@
+query Guests($filter: GuestsFilter) {
+  guests(filter: $filter) {
+    id
+    name
+    phone
+    email
+    notes
+    lastSeenAt
+    archivedAt
+    createdAt
+    updatedAt
+    visitCount
+    totalSpentCents
+    averageTicketCents
+    firstVisitAt
+  }
+}
+
+query Guest($id: UUID!) {
+  guest(id: $id) {
+    id
+    name
+    phone
+    email
+    notes
+    lastSeenAt
+    archivedAt
+    createdAt
+    updatedAt
+    visitCount
+    totalSpentCents
+    averageTicketCents
+    firstVisitAt
+    upcomingReservation {
+      id
+      status
+      requestedTime
+      partySize
+      table {
+        id
+        label
+      }
+    }
+    recentTickets(limit: 20) {
+      id
+      shortNumber
+      status
+      totalCents
+      closedAt
+      openedAt
+      customerLabel
+    }
+  }
+}
+
+query SearchGuests($query: String!, $limit: Int) {
+  searchGuests(query: $query, limit: $limit) {
+    id
+    name
+    phone
+    email
+    visitCount
+    totalSpentCents
+  }
+}
+
+mutation CreateGuest($input: CreateGuestInput!) {
+  createGuest(input: $input) {
+    id
+    name
+    phone
+    email
+    notes
+  }
+}
+
+mutation UpdateGuest($input: UpdateGuestInput!) {
+  updateGuest(input: $input) {
+    id
+    name
+    phone
+    email
+    notes
+  }
+}
+
+mutation ArchiveGuest($input: ArchiveGuestInput!) {
+  archiveGuest(input: $input) {
+    id
+    archivedAt
+  }
+}
+
+mutation LinkTicketGuest($input: LinkTicketGuestInput!) {
+  linkTicketGuest(input: $input) {
+    id
+    guest {
+      id
+      name
+      phone
+    }
+  }
+}
+
+mutation LinkReservationGuest($input: LinkReservationGuestInput!) {
+  linkReservationGuest(input: $input) {
+    id
+    guest {
+      id
+      name
+      phone
+    }
+  }
+}
+
+query TicketGuest($id: UUID!) {
+  ticket(id: $id) {
+    id
+    guest {
+      id
+      name
+      phone
+    }
+  }
+}

@@ -15,6 +15,7 @@ export const createReservationSchema = z.object({
   requestedTime: z.coerce.date(),
   durationMinutes: z.number().int().min(15).max(720).default(90),
   tableId: z.string().uuid().optional().nullable(),
+  guestId: z.string().uuid().optional().nullable(),
   notes: z.string().trim().max(500).optional().nullable(),
 });
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;

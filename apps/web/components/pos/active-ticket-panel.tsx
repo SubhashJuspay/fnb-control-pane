@@ -14,6 +14,7 @@ import { ChevronDown, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   FireTicketDocument,
+  LinkTicketGuestDocument,
   OrderType,
   ReopenTicketDocument,
   TicketDocument,
@@ -23,6 +24,7 @@ import {
   UpdateTicketOrderTypeDocument,
   type TicketQuery,
 } from '@/lib/graphql/generated/graphql';
+import { GuestPicker } from '@/components/guests/guest-picker';
 import { CloseTicketDialog } from './close-ticket-dialog';
 import { DiscountDialog } from './discount-dialog';
 import { LineRow } from './line-row';
@@ -83,6 +85,7 @@ export function ActiveTicketPanel({
   const [, updateOrderType] = useMutation(UpdateTicketOrderTypeDocument);
   const [, fireAll] = useMutation(FireTicketDocument);
   const [, reopenTicket] = useMutation(ReopenTicketDocument);
+  const [, linkGuest] = useMutation(LinkTicketGuestDocument);
 
   const ticket = data?.ticket ?? null;
   const items: Line[] = (ticket?.items ?? []).filter((i): i is Line => i != null && Boolean(i.id));
@@ -101,6 +104,7 @@ export function ActiveTicketPanel({
   >(null);
   const [closeOpen, setCloseOpen] = useState(false);
   const [voidTicketOpen, setVoidTicketOpen] = useState(false);
+  const [guestPickerOpen, setGuestPickerOpen] = useState(false);
 
   useEffect(() => {
     if (ticket?.customerLabel !== undefined && !labelEditing) {
@@ -182,6 +186,34 @@ export function ActiveTicketPanel({
     refresh();
   };
 
+  const onPickGuest = async (guest: {
+    id: string;
+    name: string;
+  }): Promise<void> => {
+    const result = await linkGuest({
+      input: { ticketId, guestId: guest.id },
+    });
+    if (result.error) {
+      toast.error(result.error.message);
+      return;
+    }
+    setGuestPickerOpen(false);
+    toast.success(`Linked ${guest.name}`);
+    refresh();
+  };
+
+  const onUnlinkGuest = async (): Promise<void> => {
+    const result = await linkGuest({
+      input: { ticketId, guestId: null },
+    });
+    if (result.error) {
+      toast.error(result.error.message);
+      return;
+    }
+    toast.success('Guest unlinked');
+    refresh();
+  };
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-col gap-2 border-b bg-surface px-3 py-3">
@@ -231,6 +263,50 @@ export function ActiveTicketPanel({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs" data-testid="guest-row">
+          <span className="text-muted-foreground">Guest:</span>
+          {ticket.guest && ticket.guest.id ? (
+            <>
+              <span className="font-medium" data-testid="linked-guest-name">
+                {ticket.guest.name ?? '—'}
+              </span>
+              {isOpen ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => setGuestPickerOpen(true)}
+                >
+                  Change
+                </Button>
+              ) : null}
+              {isOpen ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs text-destructive hover:bg-destructive/10"
+                  onClick={onUnlinkGuest}
+                >
+                  Unlink
+                </Button>
+              ) : null}
+            </>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              onClick={() => setGuestPickerOpen(true)}
+              disabled={!isOpen}
+              data-action="pick-guest"
+            >
+              Pick guest
+            </Button>
+          )}
         </div>
         {isClosed ? (
           <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
@@ -403,6 +479,11 @@ export function ActiveTicketPanel({
           refresh();
           onTicketClosed?.();
         }}
+      />
+      <GuestPicker
+        open={guestPickerOpen}
+        onClose={() => setGuestPickerOpen(false)}
+        onPick={onPickGuest}
       />
     </div>
   );

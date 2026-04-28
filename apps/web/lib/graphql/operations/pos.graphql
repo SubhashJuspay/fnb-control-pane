@@ -38,6 +38,11 @@ query Ticket($id: UUID!) {
     voidedAt
     voidReason
     closeNote
+    guest {
+      id
+      name
+      phone
+    }
     items {
       id
       status

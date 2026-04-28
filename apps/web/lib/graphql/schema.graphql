@@ -61,6 +61,10 @@ input ArchiveCategoryInput {
   id: UUID!
 }
 
+input ArchiveGuestInput {
+  id: UUID!
+}
+
 input ArchiveJobRoleInput {
   id: UUID!
 }
@@ -189,6 +193,13 @@ input CreateCategoryInput {
   sortOrder: Int
 }
 
+input CreateGuestInput {
+  email: String
+  name: String!
+  notes: String
+  phone: String
+}
+
 input CreateJobRoleInput {
   color: String
   name: String!
@@ -237,6 +248,7 @@ input CreateModifierGroupInput {
 
 input CreateReservationInput {
   durationMinutes: Int
+  guestId: UUID
   guestName: String!
   guestPhone: String
   notes: String
@@ -275,6 +287,11 @@ input CreateTaxCategoryInput {
   name: String!
 }
 
+input DateRangeInput {
+  from: DateTime!
+  to: DateTime!
+}
+
 """
 A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
 """
@@ -288,6 +305,13 @@ enum DayOfWeek {
   THU
   TUE
   WED
+}
+
+"""Aggregated revenue and ticket count for a single day-of-week bucket."""
+type DayOfWeekBucket {
+  dayOfWeek: DayOfWeek
+  revenueCents: Int
+  ticketCount: Int
 }
 
 input DetachModifierGroupInput {
@@ -380,6 +404,45 @@ input FireTicketItemInput {
 
 union FloorUpdateEvent = ReservationChangedEvent | SectionChangedEvent | TableChangedEvent
 
+type Guest {
+  archivedAt: DateTime
+  averageTicketCents: Int
+  createdAt: DateTime
+  email: String
+  firstVisitAt: DateTime
+  id: ID
+  lastSeenAt: DateTime
+  name: String
+  notes: String
+  phone: String
+  recentTickets(limit: Int = 10): [Ticket!]
+  totalSpentCents: Int
+  upcomingReservation: [Reservation!]
+  updatedAt: DateTime
+  visitCount: Int
+}
+
+"""New vs returning guest counts over a date range."""
+type GuestCohort {
+  fromDate: DateTime
+  newGuestCount: Int
+  repeatRate: Float
+  returningGuestCount: Int
+  toDate: DateTime
+}
+
+input GuestsFilter {
+  archivedOnly: Boolean
+  search: String
+}
+
+"""Aggregated revenue and ticket count for a single hour-of-day bucket."""
+type HourlyBucket {
+  hour: Int
+  revenueCents: Int
+  ticketCount: Int
+}
+
 type Invitation {
   acceptedAt: DateTime
   createdAt: DateTime
@@ -434,6 +497,16 @@ type JobRole {
 """Discount scope marker — discount applies to a single ticket line."""
 type LineScope {
   ticketItem: TicketItem
+}
+
+input LinkReservationGuestInput {
+  guestId: UUID
+  reservationId: UUID!
+}
+
+input LinkTicketGuestInput {
+  guestId: UUID
+  ticketId: UUID!
 }
 
 type Location {
@@ -582,6 +655,7 @@ type Mutation {
   applyLineDiscount(input: ApplyLineDiscountInput!): Discount
   applyTicketDiscount(input: ApplyTicketDiscountInput!): Discount
   archiveCategory(input: ArchiveCategoryInput!): Category
+  archiveGuest(input: ArchiveGuestInput!): Guest
   archiveJobRole(input: ArchiveJobRoleInput!): JobRole
   archiveMenu(input: ArchiveMenuInput!): Menu
   archiveMenuItem(input: ArchiveMenuItemInput!): MenuItem
@@ -598,6 +672,7 @@ type Mutation {
   completeReservation(input: CompleteReservationInput!): Reservation
   confirmReservation(input: ConfirmReservationInput!): Reservation
   createCategory(input: CreateCategoryInput!): Category
+  createGuest(input: CreateGuestInput!): Guest
   createJobRole(input: CreateJobRoleInput!): JobRole
   createLocation(input: CreateLocationInput!): Location
   createMenu(input: CreateMenuInput!): Menu
@@ -617,6 +692,8 @@ type Mutation {
   fireTicket(input: FireTicketInput!): Ticket
   fireTicketItem(input: FireTicketItemInput!): TicketItem
   inviteStaff(input: InviteStaffInput!): Invitation
+  linkReservationGuest(input: LinkReservationGuestInput!): Reservation
+  linkTicketGuest(input: LinkTicketGuestInput!): Ticket
   markReservationNoShow(input: MarkNoShowInput!): Reservation
   markTicketItemReady(input: MarkTicketItemReadyInput!): TicketItem
   markTicketItemServed(input: MarkTicketItemServedInput!): TicketItem
@@ -646,6 +723,7 @@ type Mutation {
   startBreak(input: StartBreakInput!): Break
   unarchiveMenuItem(input: UnarchiveMenuItemInput!): MenuItem
   updateCategory(input: UpdateCategoryInput!): Category
+  updateGuest(input: UpdateGuestInput!): Guest
   updateJobRole(input: UpdateJobRoleInput!): JobRole
   updateMembershipRole(input: UpdateMembershipRoleInput!): Membership
   updateMenu(input: UpdateMenuInput!): Menu
@@ -734,6 +812,9 @@ type Query {
   """
   catalogTaxCategories: [TaxCategory!]
 
+  """7-bucket day-of-week mix (MON..SUN) for closed tickets."""
+  dayOfWeekMix(dateRange: DateRangeInput!): [DayOfWeekBucket!]
+
   """
   Single employment profile for a user at the viewer's location. Admin or self.
   """
@@ -746,6 +827,18 @@ type Query {
 
   """Non-archived tables at the viewer's location, ordered by label asc."""
   floorTables: [Table!]
+
+  """Single guest by id, scoped to the current tenant."""
+  guest(id: UUID!): Guest
+
+  """New vs returning guest cohort over the date range."""
+  guestCohort(dateRange: DateRangeInput!): GuestCohort
+
+  """Guests in the current tenant. Manager scope."""
+  guests(filter: GuestsFilter): [Guest!]
+
+  """24-bucket hour-of-day mix (in location timezone) for closed tickets."""
+  hourlyMix(dateRange: DateRangeInput!): [HourlyBucket!]
 
   """Look up an invitation by its single-use token. Anonymous-allowed."""
   invitationByToken(token: String!): InvitationLookup
@@ -806,10 +899,19 @@ type Query {
   """
   reservationsForDay(date: DateTime!): [Reservation!]
 
+  """Aggregated sales summary across closed/voided tickets in range."""
+  salesSummary(dateRange: DateRangeInput!): SalesSummary
+
   """
   Shifts at the viewer's location whose startsAt falls in the 7-day window beginning at local midnight on weekStart. Manager scope.
   """
   scheduleForWeek(weekStart: DateTime!): [Shift!]
+
+  """Typeahead search by name/phone (case-insensitive). Staff scope."""
+  searchGuests(limit: Int = 10, query: String!): [Guest!]
+
+  """Per-server performance leaderboard."""
+  serverPerformance(dateRange: DateRangeInput!): [ServerPerformance!]
 
   """
   Single shift by id, scoped to the viewer's location. Manager, or self if assigned.
@@ -847,6 +949,9 @@ type Query {
   Time entries at the viewer's location, ordered by clockedInAt desc. Manager scope.
   """
   timeEntries(filter: TimeEntriesFilter): [TimeEntry!]
+
+  """Top-selling menu items in range, sorted by `by`."""
+  topItems(by: TopItemsSort = QUANTITY, dateRange: DateRangeInput!, limit: Int = 10): [TopItem!]
 
   """Availability windows for a given user. Manager scope."""
   userAvailability(userId: UUID!): [AvailabilityWindow!]
@@ -987,6 +1092,7 @@ type Reservation {
   createdAt: DateTime
   createdBy: User
   durationMinutes: Int
+  guest: Guest
   guestName: String
   guestPhone: String
   id: ID
@@ -1042,6 +1148,21 @@ enum Role {
   VIEWER
 }
 
+"""Aggregated sales summary over a date range."""
+type SalesSummary {
+  averageTicketCents: Int
+  closedTicketCount: Int
+  discountCents: Int
+  fromDate: DateTime
+  grossSalesCents: Int
+  netSalesCents: Int
+  taxCents: Int
+  ticketCount: Int
+  toDate: DateTime
+  uniqueGuests: Int
+  voidedTicketCount: Int
+}
+
 union ScheduleUpdateEvent = ShiftChangedEvent | TimeEntryChangedEvent
 
 """A concrete time window with absolute UTC bounds."""
@@ -1075,6 +1196,17 @@ type Section {
 
 type SectionChangedEvent {
   section: Section
+}
+
+"""Per-server performance summary over a date range."""
+type ServerPerformance {
+  averageTicketCents: Int
+  itemsServed: Int
+  openedById: ID
+  openedByName: String
+  revenueCents: Int
+  ticketCount: Int
+  voidRate: Float
 }
 
 input SetAvailabilityInput {
@@ -1247,6 +1379,7 @@ type Ticket {
   customerLabel: String
   discountCents: Int
   discounts: [Discount!]
+  guest: Guest
   id: ID
   isLive: Boolean
   itemSummary: String
@@ -1364,6 +1497,21 @@ type TimeEntryChangedEvent {
   userId: UUID
 }
 
+"""Top-selling item over a date range."""
+type TopItem {
+  menuItemId: ID
+  menuItemName: String
+  quantitySold: Int
+  revenueCents: Int
+  ticketCount: Int
+}
+
+enum TopItemsSort {
+  QUANTITY
+  REVENUE
+  TICKETS
+}
+
 scalar UUID
 
 input UnarchiveMenuItemInput {
@@ -1374,6 +1522,14 @@ input UpdateCategoryInput {
   id: UUID!
   name: String
   slug: String
+}
+
+input UpdateGuestInput {
+  email: String
+  id: UUID!
+  name: String
+  notes: String
+  phone: String
 }
 
 input UpdateJobRoleInput {

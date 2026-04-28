@@ -8,6 +8,7 @@ export const CreateReservationInput = builder.inputType('CreateReservationInput'
     requestedTime: t.field({ type: 'DateTime', required: true }),
     durationMinutes: t.int({ required: false }),
     tableId: t.field({ type: 'UUID', required: false }),
+    guestId: t.field({ type: 'UUID', required: false }),
     notes: t.string({ required: false }),
   }),
 });
