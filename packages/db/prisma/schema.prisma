@@ -39,6 +39,9 @@ model Tenant {
 
   guests Guest[]
 
+  systemUserId String? @unique @map("system_user_id") @db.Uuid
+  systemUser   User?   @relation("TenantSystemUser", fields: [systemUserId], references: [id], onDelete: SetNull)
+
   @@map("tenants")
 }
 
@@ -75,6 +78,8 @@ model Location {
   employmentProfiles EmploymentProfile[]
   shifts             Shift[]
   timeEntries        TimeEntry[]
+
+  onlineOrderRequests OnlineOrderRequest[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -118,6 +123,10 @@ model User {
   shiftsCreated       Shift[]              @relation("ShiftCreatedBy")
   timeEntries         TimeEntry[]          @relation("UserTimeEntry")
   timeEntryEdits      TimeEntry[]          @relation("TimeEntryEditBy")
+
+  tenantsAsSystem       Tenant[]             @relation("TenantSystemUser")
+  onlineOrdersConfirmed OnlineOrderRequest[] @relation("OnlineOrderConfirmedBy")
+  onlineOrdersRejected  OnlineOrderRequest[] @relation("OnlineOrderRejectedBy")
 
   @@map("users")
 }
@@ -492,9 +501,10 @@ model Ticket {
   shortNumber Int      @map("short_number")
   businessDay DateTime @map("business_day") @db.Date
 
-  customerLabel String?      @map("customer_label")
-  orderType     OrderType    @default(DINE_IN) @map("order_type")
-  status        TicketStatus @default(OPEN)
+  customerLabel String?            @map("customer_label")
+  orderType     OrderType          @default(DINE_IN) @map("order_type")
+  originChannel OrderOriginChannel @default(IN_PERSON) @map("origin_channel")
+  status        TicketStatus       @default(OPEN)
 
   openedById String    @map("opened_by_id") @db.Uuid
   openedAt   DateTime  @default(now()) @map("opened_at")
@@ -519,9 +529,10 @@ model Ticket {
   voidedBy    User?        @relation("TicketVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
   items       TicketItem[]
   discounts   Discount[]   @relation("TicketLevelDiscounts")
-  table       Table?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
-  reservation Reservation? @relation("ReservationTicket")
-  guest       Guest?       @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  table         Table?              @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  reservation   Reservation?        @relation("ReservationTicket")
+  guest         Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  onlineRequest OnlineOrderRequest? @relation("TicketOnlineRequest")
 
   @@unique([locationId, businessDay, shortNumber])
   @@index([locationId, status])
@@ -638,6 +649,11 @@ enum TicketItemStatus {
 enum OrderType {
   DINE_IN
   TAKEOUT
+}
+
+enum OrderOriginChannel {
+  IN_PERSON
+  ONLINE
 }
 
 enum DiscountKind {
@@ -917,4 +933,51 @@ model Guest {
   @@index([tenantId, phone])
   @@index([tenantId, archivedAt])
   @@map("guests")
+}
+
+// ─── Online Orders ────────────────────────────────────
+model OnlineOrderRequest {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticketId   String @unique @map("ticket_id") @db.Uuid
+  locationId String @map("location_id") @db.Uuid
+
+  customerName  String           @map("customer_name")
+  customerPhone String           @map("customer_phone")
+  customerEmail String?          @map("customer_email")
+  pickupAt      DateTime         @map("pickup_at")
+  pickupKind    OnlinePickupKind @map("pickup_kind")
+  notes         String?
+
+  confirmStatus OnlineOrderConfirmStatus @default(PENDING) @map("confirm_status")
+  confirmedAt   DateTime?                @map("confirmed_at")
+  confirmedById String?                  @map("confirmed_by_id") @db.Uuid
+  rejectedAt    DateTime?                @map("rejected_at")
+  rejectedById  String?                  @map("rejected_by_id") @db.Uuid
+  rejectReason  String?                  @map("reject_reason")
+
+  trackingTokenHash String  @unique @map("tracking_token_hash")
+  submittedFromIp   String? @map("submitted_from_ip")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ticket      Ticket   @relation("TicketOnlineRequest", fields: [ticketId], references: [id], onDelete: Cascade)
+  location    Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  confirmedBy User?    @relation("OnlineOrderConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+  rejectedBy  User?    @relation("OnlineOrderRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+
+  @@index([locationId, confirmStatus])
+  @@index([locationId, createdAt])
+  @@map("online_order_requests")
+}
+
+enum OnlinePickupKind {
+  ASAP
+  SCHEDULED
+}
+
+enum OnlineOrderConfirmStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
 }
