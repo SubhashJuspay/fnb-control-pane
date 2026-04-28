@@ -13,3 +13,5 @@ export * from './floor.js';
 export * from './reservation.js';
 export * from './staff.js';
 export * from './time-clock.js';
+export * from './guest.js';
+export * from './analytics.js';

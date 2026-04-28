@@ -21,7 +21,9 @@
     "./floor": "./src/floor.ts",
     "./reservation": "./src/reservation.ts",
     "./staff": "./src/staff.ts",
-    "./time-clock": "./src/time-clock.ts"
+    "./time-clock": "./src/time-clock.ts",
+    "./guest": "./src/guest.ts",
+    "./analytics": "./src/analytics.ts"
   },
   "scripts": {
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src",
