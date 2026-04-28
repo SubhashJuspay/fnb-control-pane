@@ -95,3 +95,7 @@ export function floorChannelName(locationId: string): string {
 export function scheduleChannelName(locationId: string): string {
   return `schedule_updates_${locationId}`;
 }
+
+export function onlineOrdersChannelName(locationId: string): string {
+  return `online_orders_${locationId}`;
+}

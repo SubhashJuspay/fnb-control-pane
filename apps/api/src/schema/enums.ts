@@ -83,3 +83,18 @@ export const ShiftStatusEnum = builder.enumType('ShiftStatus', {
 export const DayOfWeekEnum = builder.enumType('DayOfWeek', {
   values: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const,
 });
+
+export const OnlinePickupKindEnum = builder.enumType('OnlinePickupKind', {
+  values: ['ASAP', 'SCHEDULED'] as const,
+});
+
+export const OnlineOrderConfirmStatusEnum = builder.enumType(
+  'OnlineOrderConfirmStatus',
+  {
+    values: ['PENDING', 'CONFIRMED', 'REJECTED'] as const,
+  },
+);
+
+export const OrderOriginChannelEnum = builder.enumType('OrderOriginChannel', {
+  values: ['IN_PERSON', 'ONLINE'] as const,
+});

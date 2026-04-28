@@ -33,6 +33,8 @@ import './shift.js';
 import './time-entry.js';
 import './guest.js';
 import './analytics.js';
+import './online-order-request.js';
+import './public-location.js';
 import './mutations/create-location.js';
 import './mutations/invite-staff.js';
 import './mutations/accept-invitation.js';
@@ -49,6 +51,7 @@ import './mutations/staff/index.js';
 import './mutations/scheduling/index.js';
 import './mutations/time-clock/index.js';
 import './mutations/guest/index.js';
+import './mutations/online-orders/index.js';
 import './subscriptions/index.js';
 
 export { builder };

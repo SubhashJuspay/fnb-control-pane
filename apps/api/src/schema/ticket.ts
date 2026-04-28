@@ -3,6 +3,7 @@ import { ForbiddenError } from '../errors.js';
 import { builder } from './builder.js';
 import {
   ItemCourseEnum,
+  OrderOriginChannelEnum,
   OrderTypeEnum,
   TicketItemStatusEnum,
   TicketStatusEnum,
@@ -329,6 +330,12 @@ export const TicketRef = builder.prismaObject('Ticket', {
     orderType: t.field({
       type: OrderTypeEnum,
       resolve: (parent) => parent.orderType,
+    }),
+    originChannel: t.field({
+      type: OrderOriginChannelEnum,
+      resolve: (parent) =>
+        (parent as TicketRow & { originChannel?: 'IN_PERSON' | 'ONLINE' })
+          .originChannel ?? 'IN_PERSON',
     }),
     status: t.field({
       type: TicketStatusEnum,
