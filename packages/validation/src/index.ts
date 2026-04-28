@@ -7,3 +7,5 @@ export * from './schedule.js';
 export * from './dietary-tags.js';
 export * from './catalog.js';
 export * from './menu.js';
+export * from './ticket.js';
+export * from './discount.js';
