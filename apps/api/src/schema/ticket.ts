@@ -155,7 +155,7 @@ export async function resolveKitchenTickets(
   if (!ctx.auth.location) throw new ForbiddenError('A location context is required');
   const where = {
     locationId: ctx.auth.location.id,
-    items: { some: { status: { in: ['FIRED', 'READY'] as const } } },
+    items: { some: { status: { in: ['FIRED', 'READY'] satisfies TicketItemRow['status'][] } } },
   };
   // Sort key fetch — independent of the GraphQL selection.
   const sortInput = (await ctx.prisma.ticket.findMany({
@@ -164,7 +164,7 @@ export async function resolveKitchenTickets(
       id: true,
       items: { select: { status: true, firedAt: true } },
     },
-  })) as Array<{ id: string; items: Array<{ status: string; firedAt: Date | null }> }>;
+  })) as unknown as Array<{ id: string; items: Array<{ status: string; firedAt: Date | null }> }>;
   const sortedIds = sortKitchenTickets(
     sortInput.map((r) => ({ ...r, items: r.items })) as unknown as Array<
       TicketRow & { items: Array<{ status: string; firedAt: Date | null }> }
