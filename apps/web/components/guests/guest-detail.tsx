@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useMutation, useQuery } from 'urql';
 import { toast } from 'sonner';
 import {
-  Button,
   Card,
   CardContent,
   DataTable,

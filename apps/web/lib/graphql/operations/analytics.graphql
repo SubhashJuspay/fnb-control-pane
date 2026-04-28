@@ -1,0 +1,63 @@
+query SalesSummary($dateRange: DateRangeInput!) {
+  salesSummary(dateRange: $dateRange) {
+    fromDate
+    toDate
+    ticketCount
+    closedTicketCount
+    voidedTicketCount
+    grossSalesCents
+    discountCents
+    taxCents
+    netSalesCents
+    averageTicketCents
+    uniqueGuests
+  }
+}
+
+query TopItems($dateRange: DateRangeInput!, $limit: Int, $by: TopItemsSort) {
+  topItems(dateRange: $dateRange, limit: $limit, by: $by) {
+    menuItemId
+    menuItemName
+    quantitySold
+    revenueCents
+    ticketCount
+  }
+}
+
+query HourlyMix($dateRange: DateRangeInput!) {
+  hourlyMix(dateRange: $dateRange) {
+    hour
+    ticketCount
+    revenueCents
+  }
+}
+
+query DayOfWeekMix($dateRange: DateRangeInput!) {
+  dayOfWeekMix(dateRange: $dateRange) {
+    dayOfWeek
+    ticketCount
+    revenueCents
+  }
+}
+
+query ServerPerformance($dateRange: DateRangeInput!) {
+  serverPerformance(dateRange: $dateRange) {
+    openedById
+    openedByName
+    ticketCount
+    itemsServed
+    revenueCents
+    averageTicketCents
+    voidRate
+  }
+}
+
+query GuestCohort($dateRange: DateRangeInput!) {
+  guestCohort(dateRange: $dateRange) {
+    fromDate
+    toDate
+    newGuestCount
+    returningGuestCount
+    repeatRate
+  }
+}

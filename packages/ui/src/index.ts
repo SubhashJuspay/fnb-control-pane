@@ -23,3 +23,7 @@ export * from './patterns/table-tile.js';
 export * from './patterns/week-grid.js';
 export * from './patterns/punch-clock.js';
 export * from './components/money-input.js';
+export * from './patterns/kpi-card.js';
+export * from './patterns/chart-card.js';
+export * from './patterns/bar-chart.js';
+export * from './patterns/line-chart.js';
