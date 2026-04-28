@@ -9,3 +9,5 @@ export * from './catalog.js';
 export * from './menu.js';
 export * from './ticket.js';
 export * from './discount.js';
+export * from './floor.js';
+export * from './reservation.js';

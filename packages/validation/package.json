@@ -17,7 +17,9 @@
     "./schedule": "./src/schedule.ts",
     "./dietary-tags": "./src/dietary-tags.ts",
     "./ticket": "./src/ticket.ts",
-    "./discount": "./src/discount.ts"
+    "./discount": "./src/discount.ts",
+    "./floor": "./src/floor.ts",
+    "./reservation": "./src/reservation.ts"
   },
   "scripts": {
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint src",
