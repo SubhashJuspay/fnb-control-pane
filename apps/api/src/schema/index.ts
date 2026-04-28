@@ -32,6 +32,7 @@ import './availability.js';
 import './shift.js';
 import './time-entry.js';
 import './guest.js';
+import './analytics.js';
 import './mutations/create-location.js';
 import './mutations/invite-staff.js';
 import './mutations/accept-invitation.js';
