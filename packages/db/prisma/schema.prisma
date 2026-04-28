@@ -64,6 +64,10 @@ model Location {
   tickets   Ticket[]
   discounts Discount[]
 
+  sections     Section[]
+  tables       Table[]
+  reservations Reservation[]
+
   @@unique([tenantId, slug])
   @@index([tenantId])
   @@map("locations")
@@ -96,6 +100,9 @@ model User {
   ticketItemsVoided TicketItem[] @relation("TicketItemVoidedBy")
   discountsApplied  Discount[]   @relation("DiscountAppliedBy")
   discountsVoided   Discount[]   @relation("DiscountVoidedBy")
+
+  tablesAssigned      Table[]       @relation("TableAssignedServer")
+  reservationsCreated Reservation[] @relation("ReservationCreatedBy")
 
   @@map("users")
 }
@@ -488,16 +495,21 @@ model Ticket {
   taxCents      Int @default(0) @map("tax_cents")
   totalCents    Int @default(0) @map("total_cents")
 
-  location  Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  openedBy  User         @relation("TicketOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
-  closedBy  User?        @relation("TicketClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
-  voidedBy  User?        @relation("TicketVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
-  items     TicketItem[]
-  discounts Discount[]   @relation("TicketLevelDiscounts")
+  tableId String? @map("table_id") @db.Uuid
+
+  location    Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  openedBy    User         @relation("TicketOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy    User?        @relation("TicketClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  voidedBy    User?        @relation("TicketVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  items       TicketItem[]
+  discounts   Discount[]   @relation("TicketLevelDiscounts")
+  table       Table?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  reservation Reservation? @relation("ReservationTicket")
 
   @@unique([locationId, businessDay, shortNumber])
   @@index([locationId, status])
   @@index([locationId, openedAt])
+  @@index([locationId, tableId])
   @@map("tickets")
 }
 
@@ -612,4 +624,114 @@ enum OrderType {
 enum DiscountKind {
   FLAT
   PERCENT
+}
+
+// ─── Floor / Tables / Reservations ────────────────────
+model Section {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId String    @map("location_id") @db.Uuid
+  name       String
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  tables   Table[]
+
+  @@unique([locationId, name])
+  @@index([locationId, archivedAt])
+  @@map("sections")
+}
+
+model Table {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId       String           @map("location_id") @db.Uuid
+  sectionId        String?          @map("section_id") @db.Uuid
+  label            String
+  capacity         Int              @default(2)
+  shape            TableShape       @default(RECT)
+  positionX        Int              @map("position_x")
+  positionY        Int              @map("position_y")
+  width            Int              @default(80)
+  height           Int              @default(80)
+  rotation         Int              @default(0)
+  manualState      TableManualState @default(NONE) @map("manual_state")
+  assignedServerId String?          @map("assigned_server_id") @db.Uuid
+  archivedAt       DateTime?        @map("archived_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  location       Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  section        Section?      @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  assignedServer User?         @relation("TableAssignedServer", fields: [assignedServerId], references: [id], onDelete: SetNull)
+  tickets        Ticket[]
+  reservations   Reservation[]
+
+  @@unique([locationId, label])
+  @@index([locationId, sectionId])
+  @@index([locationId, archivedAt])
+  @@map("tables")
+}
+
+model Reservation {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId String            @map("location_id") @db.Uuid
+  kind       ReservationKind   @default(RESERVATION)
+  status     ReservationStatus @default(PENDING)
+
+  guestName  String  @map("guest_name")
+  guestPhone String? @map("guest_phone")
+  partySize  Int     @map("party_size")
+  notes      String?
+
+  requestedTime   DateTime? @map("requested_time")
+  durationMinutes Int       @default(90) @map("duration_minutes")
+  tableId         String?   @map("table_id") @db.Uuid
+  ticketId        String?   @unique @map("ticket_id") @db.Uuid
+
+  seatedAt     DateTime? @map("seated_at")
+  completedAt  DateTime? @map("completed_at")
+  noShowAt     DateTime? @map("no_show_at")
+  cancelledAt  DateTime? @map("cancelled_at")
+  cancelReason String?   @map("cancel_reason")
+
+  createdById String   @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  location  Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  table     Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  ticket    Ticket?  @relation("ReservationTicket", fields: [ticketId], references: [id], onDelete: SetNull)
+  createdBy User     @relation("ReservationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([locationId, status])
+  @@index([locationId, requestedTime])
+  @@index([tableId])
+  @@map("reservations")
+}
+
+enum TableShape {
+  RECT
+  CIRCLE
+}
+
+enum TableManualState {
+  NONE
+  CLEANING
+}
+
+enum ReservationKind {
+  RESERVATION
+  WALKIN
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  WAITING
+  SEATED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
 }
