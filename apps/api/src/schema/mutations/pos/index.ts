@@ -13,3 +13,6 @@ import './fire-ticket.js';
 import './fire-ticket-item.js';
 import './mark-ticket-item-ready.js';
 import './mark-ticket-item-served.js';
+import './apply-ticket-discount.js';
+import './apply-line-discount.js';
+import './void-discount.js';
