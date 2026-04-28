@@ -9,6 +9,7 @@ import {
   TicketUpdatesDocument,
 } from '@/lib/graphql/generated/graphql';
 import { OpenTicketsSidebar } from './open-tickets-sidebar';
+import { MenuTileGrid } from './menu-tile-grid';
 
 interface PosWorkspaceProps {
   tenantSlug: string;
@@ -83,22 +84,24 @@ export function PosWorkspace({ tenantSlug, locationSlug }: PosWorkspaceProps): R
           refetchOpenTickets({ requestPolicy: 'network-only' });
         }}
       />
-      <main className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">
-          {activeTicketId ? (
-            <p>
-              Active ticket selected. Menu tiles + ticket panel arrive in the next
-              tasks.
-            </p>
-          ) : (
-            <p>
-              Select an open ticket from the left or create a new one to get started.
-              <br />
-              <span className="text-xs">
-                Tenant: {tenantSlug} · Location: {locationSlug}
-              </span>
-            </p>
-          )}
+      <main className="flex flex-1 flex-row overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <MenuTileGrid activeTicketId={activeTicketId} />
+        </div>
+        <div className="hidden w-96 flex-col border-l bg-surface md:flex">
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
+            {activeTicketId ? (
+              <p>Active ticket panel arrives in the next task.</p>
+            ) : (
+              <p>
+                Select an open ticket or create a new one.
+                <br />
+                <span className="opacity-70">
+                  Tenant: {tenantSlug} · Location: {locationSlug}
+                </span>
+              </p>
+            )}
+          </div>
         </div>
       </main>
     </div>
