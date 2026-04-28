@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
+import { completeReservationAfterClose } from '../../../floor/post-close.js';
 import { canCloseTicket, canTransitionTicket } from '../../../order/state.js';
 import { resolveTaxRateAt } from '../../../order/tax.js';
 import { pubsub, ticketChannelName } from '../../../pubsub.js';
@@ -156,6 +157,16 @@ export async function resolveCloseTicket(
       totalCents: totals.totalCents,
     },
   })) as { id: string };
+  // Post-commit floor side-effect: if a SEATED reservation is linked to this
+  // ticket, transition it to COMPLETED and emit floor events. Wrapped in
+  // try/catch inside the helper so a reservation-side failure never blocks
+  // the close. Run before the audit + publish so failures here cannot affect
+  // ticket telemetry, but do not await blocking the resolver path either.
+  await completeReservationAfterClose({
+    prisma: ctx.prisma,
+    ticketId: updated.id,
+    locationId,
+  });
   await writeAudit(ctx, {
     action: 'ticket.closed',
     resourceType: 'ticket',
