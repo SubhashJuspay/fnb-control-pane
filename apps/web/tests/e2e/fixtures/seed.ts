@@ -40,6 +40,36 @@ export async function resetTestData(): Promise<void> {
     where: { NOT: { tenant: { slug: 'acme' } } },
   });
   await prisma.tenant.deleteMany({ where: { NOT: { slug: 'acme' } } });
+
+  // Wave 8: Acme tickets may have been opened by the tenant's system user
+  // (anonymous online-order origin). Clean Acme tickets before deleting
+  // non-owner users so the `tickets_opened_by_id_fkey` constraint doesn't
+  // fire when we wipe the system user. We re-run the same per-tenant cleanup
+  // again below for the rest of Acme's rows; deleting tickets here is
+  // idempotent.
+  const acmePre = await prisma.tenant.findUnique({ where: { slug: 'acme' } });
+  if (acmePre) {
+    // Online-order requests reference tickets — drop them first.
+    await prisma.onlineOrderRequest.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    await prisma.discount.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    await prisma.reservation.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    await prisma.ticket.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    // Detach system user so it can be deleted along with other non-owner
+    // users in the next step.
+    await prisma.tenant.update({
+      where: { id: acmePre.id },
+      data: { systemUserId: null },
+    });
+  }
+
   await prisma.user.deleteMany({ where: { email: { not: 'owner@acme.test' } } });
 
   // Also clear acme invitations and any extra non-default Acme members so
@@ -1023,5 +1053,87 @@ export async function createAnalyticsFixtures(
     guestId: guest.id,
     ticketId: ticket.ticketId,
     latteId: catalog.latte.id,
+  };
+}
+
+export interface CreateOnlineOrderFixturesOptions {
+  tenantSlug?: string;
+  locationSlug?: string;
+}
+
+/**
+ * Bootstrap the minimum rows the online-order E2E spec needs:
+ *   • Reuses `createPosFixtures` so Latte has the Size group attached.
+ *   • Adds a published Menu / Section attached to the location with Latte +
+ *     Croissant in the Drinks section, so `publicLocationBySlug` returns it.
+ *
+ * Idempotent across reruns.
+ */
+export async function createOnlineOrderFixtures(
+  opts: CreateOnlineOrderFixturesOptions = {},
+): Promise<{
+  tenantId: string;
+  locationId: string;
+  latteId: string;
+  croissantId: string;
+  sizeMediumId: string;
+  menuId: string;
+}> {
+  const tenantSlug = opts.tenantSlug ?? 'acme';
+  const locationSlug = opts.locationSlug ?? 'mission-st';
+  const pos = await createPosFixtures({ tenantSlug, locationSlug });
+
+  // Find or create the menu for this location.
+  const existingMenu = await prisma.menu.findFirst({
+    where: { locationId: pos.locationId, name: 'All Day' },
+  });
+  const menu =
+    existingMenu ??
+    (await prisma.menu.create({
+      data: {
+        locationId: pos.locationId,
+        name: 'All Day',
+        description: 'Available all day',
+        // `kind: 'always'` schedule = active 24/7. Pothos input casts this
+        // through `as never`; the create call accepts plain JSON.
+        schedule: { kind: 'always' } as never,
+        isActive: true,
+        sortOrder: 0,
+      },
+    }));
+
+  const existingSection = await prisma.menuSection.findFirst({
+    where: { menuId: menu.id, name: 'Drinks' },
+  });
+  const section =
+    existingSection ??
+    (await prisma.menuSection.create({
+      data: { menuId: menu.id, name: 'Drinks', sortOrder: 0 },
+    }));
+
+  // Attach Latte + Croissant to the section. menuSectionItem has no unique
+  // constraint we can upsert against, so use find-or-create per item.
+  for (const [idx, menuItemId] of [pos.latteId, pos.croissantId].entries()) {
+    const existing = await prisma.menuSectionItem.findFirst({
+      where: { menuSectionId: section.id, menuItemId },
+    });
+    if (!existing) {
+      await prisma.menuSectionItem.create({
+        data: {
+          menuSectionId: section.id,
+          menuItemId,
+          sortOrder: idx,
+        },
+      });
+    }
+  }
+
+  return {
+    tenantId: pos.tenantId,
+    locationId: pos.locationId,
+    latteId: pos.latteId,
+    croissantId: pos.croissantId,
+    sizeMediumId: pos.sizeMediumId,
+    menuId: menu.id,
   };
 }

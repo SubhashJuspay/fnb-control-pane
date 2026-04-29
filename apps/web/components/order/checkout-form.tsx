@@ -29,13 +29,20 @@ export interface CheckoutFormProps {
 
 // Form-level schema: matches submitOnlineOrderSchema for the user-entered
 // fields only. Items, tenantSlug, locationSlug get injected at submit time.
-const formSchema = submitOnlineOrderSchema.innerType().pick({
-  customerName: true,
-  customerPhone: true,
-  customerEmail: true,
-  pickupKind: true,
-  notes: true,
-});
+// customerEmail is overridden to allow empty string (form default) by
+// pre-processing through `''` → undefined so optional+email validates.
+const formSchema = submitOnlineOrderSchema
+  .innerType()
+  .pick({
+    customerName: true,
+    customerPhone: true,
+    pickupKind: true,
+    notes: true,
+  })
+  .extend({
+    customerEmail: z
+      .preprocess((v) => (v === '' ? undefined : v), z.string().email().max(254).optional()),
+  });
 type FormValues = z.infer<typeof formSchema>;
 
 export function CheckoutForm({

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   Button,
   Sheet,
@@ -120,16 +119,13 @@ export function CartDrawer({
           <Button
             type="button"
             disabled={items.length === 0}
-            asChild={items.length > 0}
             data-testid="cart-checkout-button"
+            onClick={() => {
+              if (items.length === 0) return;
+              window.location.href = `/order/${tenantSlug}/${locationSlug}/checkout`;
+            }}
           >
-            {items.length > 0 ? (
-              <Link href={`/order/${tenantSlug}/${locationSlug}/checkout`}>
-                Checkout
-              </Link>
-            ) : (
-              <span>Checkout</span>
-            )}
+            Checkout
           </Button>
         </SheetFooter>
       </SheetContent>
