@@ -22,7 +22,6 @@ import {
 import { useLocationCurrency } from '@/lib/location-currency';
 import {
   TicketsFilters,
-  defaultFilterValues,
   type ServerOption,
   type TicketsFilterValues,
 } from './tickets-filters';
@@ -299,5 +298,3 @@ export function TicketsTable({
     </div>
   );
 }
-
-export { defaultFilterValues };

@@ -13,18 +13,24 @@ interface DateRangePickerProps {
 }
 
 function toInputValue(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
+  // Read the date components in UTC — `fromInputValue` produces noon-UTC
+  // dates, so this round-trips correctly without slipping a day in viewers
+  // east of UTC.
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
 }
 
 function fromInputValue(s: string): Date {
-  // Construct in local time at midnight; the API converts to UTC using the
-  // location's businessDayCutoff + timezone, so what we send is interpreted
-  // as a calendar day rather than an instant.
+  // The api re-buckets the instant we send through `ymdFromUtc` to read off
+  // the calendar date in UTC, then re-anchors to the location timezone. We
+  // therefore anchor at noon-UTC of the chosen day so the UTC date components
+  // always describe the day the user picked, regardless of the viewer's
+  // browser timezone (e.g. IST is 5h30 ahead — local-midnight `2026-04-29`
+  // would otherwise be 2026-04-28T18:30Z and bucket as the prior day).
   const [y, m, d] = s.split('-').map((p) => Number.parseInt(p, 10));
-  return new Date(y ?? 1970, (m ?? 1) - 1, d ?? 1);
+  return new Date(Date.UTC(y ?? 1970, (m ?? 1) - 1, d ?? 1, 12));
 }
 
 /**
@@ -72,24 +78,40 @@ export function DateRangePicker({
   );
 }
 
+/**
+ * Anchor the calendar day we want to label at noon-UTC. The api reads the
+ * UTC date components off this instant to derive a `YYYY-MM-DD` calendar
+ * day, then re-anchors to the location's timezone + cutoff. Anchoring at
+ * noon-UTC keeps that calendar day stable for viewers anywhere in the
+ * ±12h envelope.
+ */
+function noonUtc(year: number, monthIdx: number, day: number): Date {
+  return new Date(Date.UTC(year, monthIdx, day, 12));
+}
+
+function todayUtcParts(): { y: number; m: number; d: number } {
+  const now = new Date();
+  return { y: now.getFullYear(), m: now.getMonth(), d: now.getDate() };
+}
+
 export function defaultDateRange(): DateRange {
-  const today = new Date();
-  const to = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const t = todayUtcParts();
+  const to = noonUtc(t.y, t.m, t.d);
   const from = new Date(to);
-  from.setDate(from.getDate() - 6); // last 7 calendar days inclusive
+  from.setUTCDate(from.getUTCDate() - 6); // last 7 calendar days inclusive
   return { from, to };
 }
 
 export function todayRange(): DateRange {
-  const today = new Date();
-  const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const t = todayUtcParts();
+  const day = noonUtc(t.y, t.m, t.d);
   return { from: day, to: day };
 }
 
 export function lastNDaysRange(n: number): DateRange {
-  const today = new Date();
-  const to = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const t = todayUtcParts();
+  const to = noonUtc(t.y, t.m, t.d);
   const from = new Date(to);
-  from.setDate(from.getDate() - (n - 1));
+  from.setUTCDate(from.getUTCDate() - (n - 1));
   return { from, to };
 }

@@ -161,6 +161,24 @@ export async function resetTestData(): Promise<void> {
     });
     await prisma.taxCategory.deleteMany({ where: { tenantId: acme.id } });
   }
+
+  // The api keeps an in-process TTL cache for analytics rollups (60 s). After
+  // we wipe the DB, the next `salesSummary` request would otherwise hit a
+  // stale cached `0` from the previous spec and the dashboard would render
+  // `$0.00` instead of the freshly-seeded total. Pinging the test-only
+  // `/test/reset-cache` endpoint flushes that cache so each spec sees a
+  // recomputed result.
+  try {
+    await fetch(`${apiBaseUrl()}/test/reset-cache`, { method: 'POST' });
+  } catch {
+    // The endpoint is gated on NODE_ENV !== 'production'. If it isn't
+    // mounted (e.g. running against a prod build) we silently skip — most
+    // specs don't depend on cache state.
+  }
+}
+
+function apiBaseUrl(): string {
+  return process.env.API_BASE_URL ?? 'http://localhost:4000';
 }
 
 export interface CreateTenantOptions {

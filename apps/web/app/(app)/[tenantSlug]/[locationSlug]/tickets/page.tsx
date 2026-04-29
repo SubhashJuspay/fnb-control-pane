@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { headers as nextHeaders } from 'next/headers';
 import { TicketsTable } from '@/components/tickets/tickets-table';
 import type { ServerOption } from '@/components/tickets/tickets-filters';
-import { defaultFilterValues } from '@/components/tickets/tickets-table';
+import { defaultFilterValues } from '@/components/tickets/filter-defaults';
 import { TicketStatus } from '@/lib/graphql/generated/graphql';
 import { serverFetch } from '@/lib/graphql/server';
 import { loadAppShellData } from '@/lib/viewer';

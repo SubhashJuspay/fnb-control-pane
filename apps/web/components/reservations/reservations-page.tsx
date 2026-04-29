@@ -59,11 +59,13 @@ export function ReservationsPage({
     partySize: number;
   } | null>(null);
 
-  // ReservationsForDay expects DateTime — pass midnight ISO of the chosen day.
-  const dateIso = useMemo(
-    () => new Date(`${date}T12:00:00`).toISOString(),
-    [date],
-  );
+  // ReservationsForDay expects DateTime; the api re-buckets it into the
+  // location's timezone via `formatInTimeZone`. We anchor at noon **UTC** so
+  // the resulting day is stable across viewer timezones — `new Date(`${date}
+  // T12:00:00`)` would interpret the timestamp in the browser's local zone
+  // and could land in the previous calendar day in LA when the viewer is far
+  // east of UTC (e.g. IST), which would then mis-bucket the request.
+  const dateIso = useMemo(() => `${date}T12:00:00.000Z`, [date]);
 
   const [{ data, fetching }, refetch] = useQuery({
     query: ReservationsForDayDocument,

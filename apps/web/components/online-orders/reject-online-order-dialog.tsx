@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from 'urql';
-import { z } from 'zod';
+import type { z } from 'zod';
 import { rejectOnlineOrderSchema } from '@repo/validation/online-order';
 import {
   Button,

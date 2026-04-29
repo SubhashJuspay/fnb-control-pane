@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { createYoga } from 'graphql-yoga';
+import { clearCache } from './cache.js';
 import { buildContext } from './context.js';
 import { env } from './env.js';
 import { logger } from './logger.js';
@@ -12,6 +13,18 @@ export async function buildServer(): Promise<FastifyInstance> {
     disableRequestLogging: true,
     bodyLimit: 5 * 1024 * 1024,
   });
+
+  // Test-only cache reset hook. The TTL cache used by the analytics module
+  // can hold stale values across `resetTestData()` between E2E specs, which
+  // makes the dashboard read $0 net sales right after fresh fixtures land.
+  // Disabled in production. The E2E `resetTestData()` helper calls this so
+  // each spec sees a freshly-computed analytics result.
+  if (env.NODE_ENV !== 'production') {
+    app.post('/test/reset-cache', async () => {
+      clearCache();
+      return { ok: true };
+    });
+  }
 
   app.get('/health', async () => {
     let dbOk = false;

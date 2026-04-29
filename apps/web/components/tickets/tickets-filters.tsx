@@ -13,36 +13,18 @@ import {
   SelectValue,
 } from '@repo/ui';
 import { TicketStatus } from '@/lib/graphql/generated/graphql';
+import { defaultFilterValues, type TicketsFilterValues } from './filter-defaults';
+
+export type { TicketsFilterValues } from './filter-defaults';
 
 export interface ServerOption {
   id: string;
   name: string;
 }
 
-export interface TicketsFilterValues {
-  /** ISO date (YYYY-MM-DD) — local-day boundary, sent to api as start of day. */
-  fromDate: string;
-  /** ISO date (YYYY-MM-DD) — local-day boundary, sent to api as end of day. */
-  toDate: string;
-  /** "ALL" sentinel maps to undefined; otherwise a TicketStatus value. */
-  status: 'ALL' | TicketStatus;
-  /** "ALL" sentinel maps to undefined; otherwise a server (membership user) id. */
-  serverId: 'ALL' | string;
-}
-
 interface TicketsFiltersProps {
   servers: ServerOption[];
   initialValues: TicketsFilterValues;
-}
-
-/**
- * Default filters: today, all statuses, all servers. The defaults are also
- * derived for the URL-less initial render so that the very first query
- * scopes to today's history rather than dumping every ticket ever closed.
- */
-export function defaultFilterValues(now = new Date()): TicketsFilterValues {
-  const iso = now.toISOString().slice(0, 10);
-  return { fromDate: iso, toDate: iso, status: 'ALL', serverId: 'ALL' };
 }
 
 /**

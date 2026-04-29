@@ -21,8 +21,8 @@ export interface OnlineOrdersInboxProps {
 type Request = NonNullable<OnlineOrderRequestsQuery['onlineOrderRequests']>[number];
 
 export function OnlineOrdersInbox({
-  tenantSlug,
-  locationSlug,
+  tenantSlug: _tenantSlug,
+  locationSlug: _locationSlug,
   locationName,
   canReject,
 }: OnlineOrdersInboxProps): React.JSX.Element {
