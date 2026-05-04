@@ -8,22 +8,25 @@ product. Every user below shares the same password.
 
 ## Logins
 
-| Email                          | Role    | Scope                          | Suggested URL                                              |
-| ------------------------------ | ------- | ------------------------------ | ---------------------------------------------------------- |
-| owner@acme.test                | OWNER   | tenant `acme` (all locations)  | http://localhost:3000/                                     |
-| admin@acme.test                | ADMIN   | tenant `acme` (all locations)  | http://localhost:3000/settings/team                        |
-| manager.mission@acme.test      | MANAGER | location `mission-st`          | http://localhost:3000/locations/mission-st                 |
-| manager.castro@acme.test       | MANAGER | location `castro`              | http://localhost:3000/locations/castro                     |
-| server.mission@acme.test       | STAFF   | location `mission-st`          | http://localhost:3000/locations/mission-st/pos             |
-| cook.mission@acme.test         | STAFF   | location `mission-st`          | http://localhost:3000/locations/mission-st/kitchen         |
-| server.castro@acme.test        | STAFF   | location `castro`              | http://localhost:3000/locations/castro/pos                 |
-| viewer@acme.test               | VIEWER  | tenant `acme` (read-only)      | http://localhost:3000/reports                              |
-| owner@bistro.test              | OWNER   | tenant `bistro-marais`         | http://localhost:3000/                                     |
-| serveur@bistro.test            | STAFF   | location `paris-3e`            | http://localhost:3000/locations/paris-3e/pos               |
+| Email                          | Role    | Scope                          | Suggested URL after sign-in                                                |
+| ------------------------------ | ------- | ------------------------------ | -------------------------------------------------------------------------- |
+| owner@acme.test                | OWNER   | tenant `acme` (all locations)  | http://localhost:3000/acme/mission-st/dashboard                            |
+| admin@acme.test                | ADMIN   | tenant `acme` (all locations)  | http://localhost:3000/acme/admin/members                                   |
+| manager.mission@acme.test      | MANAGER | location `mission-st`          | http://localhost:3000/acme/mission-st/dashboard                            |
+| manager.castro@acme.test       | MANAGER | location `castro`              | http://localhost:3000/acme/castro/dashboard                                |
+| server.mission@acme.test       | STAFF   | location `mission-st`          | http://localhost:3000/acme/mission-st/pos                                  |
+| cook.mission@acme.test         | STAFF   | location `mission-st`          | http://localhost:3000/acme/mission-st/kds                                  |
+| server.castro@acme.test        | STAFF   | location `castro`              | http://localhost:3000/acme/castro/pos                                      |
+| viewer@acme.test               | VIEWER  | tenant `acme` (read-only)      | http://localhost:3000/acme/mission-st/insights/sales                       |
+| owner@bistro.test              | OWNER   | tenant `bistro-marais`         | http://localhost:3000/bistro-marais/paris-3e/dashboard                     |
+| serveur@bistro.test            | STAFF   | location `paris-3e`            | http://localhost:3000/bistro-marais/paris-3e/pos                           |
 
-> The exact URL paths depend on the web app's routing — start at `/` after
-> login and the app will route based on your scope. The "Suggested URL"
-> column is a hint for the most useful first screen for that role.
+> Sign in at `http://localhost:3000/sign-in`. The app redirects to the right
+> root for your scope; the URLs above are the most useful first screen for
+> that role once you're logged in.
+>
+> The **public** customer order surface needs no auth:
+> http://localhost:3000/order/acme/mission-st
 
 ## What's seeded
 
