@@ -19,6 +19,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml}\"",
     "db:migrate": "pnpm --filter @repo/db migrate",
     "db:seed": "pnpm --filter @repo/db seed",
+    "db:seed:demo": "pnpm --filter @repo/db seed:demo",
     "db:reset": "pnpm --filter @repo/db reset",
     "clean": "turbo run clean && rm -rf node_modules"
   },

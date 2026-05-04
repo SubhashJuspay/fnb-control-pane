@@ -15,6 +15,7 @@
     "migrate:deploy": "prisma migrate deploy",
     "reset": "prisma migrate reset --force",
     "seed": "tsx src/seed.ts",
+    "seed:demo": "tsx src/seed-demo.ts",
     "studio": "prisma studio",
     "typecheck": "tsc --noEmit"
   },
