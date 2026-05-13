@@ -16,7 +16,11 @@ services:
   - type: web
     name: fnb-api
     runtime: node
-    plan: starter
+    # Free tier — no card required, but the instance sleeps after 15 min idle
+    # (~30s cold start on next request) and `preDeployCommand` is unsupported.
+    # When the prototype graduates, flip to `plan: starter` and uncomment the
+    # `preDeployCommand` below to get always-on + auto-migrations.
+    plan: free
     rootDir: .
     autoDeploy: true
     healthCheckPath: /health
@@ -26,7 +30,7 @@ services:
       pnpm install --frozen-lockfile && \
       pnpm --filter @app/api build
     startCommand: pnpm --filter @app/api start
-    preDeployCommand: pnpm --filter @repo/db migrate:deploy
+    # preDeployCommand: pnpm --filter @repo/db migrate:deploy  # requires Starter+
     envVars:
       - key: NODE_VERSION
         value: '24'
