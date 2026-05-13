@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { ChefHat, Plus } from 'lucide-react';
 import { formatMoney } from '@repo/ui';
 import { useCart } from './cart-state';
 import { PublicModifierPicker, type PublicMenuItem } from './public-modifier-picker';
@@ -80,100 +79,117 @@ export function PublicMenuItemTile({
         aria-disabled={!isAvailable}
         data-testid={`public-menu-tile-${item.name}`}
         className={[
-          'group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left shadow-sm transition-all',
+          'group flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest text-left shadow-card-soft transition-all',
           isAvailable
-            ? 'hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md'
+            ? 'hover:-translate-y-0.5 hover:shadow-md'
             : 'cursor-not-allowed opacity-60',
-          inCartCount > 0 ? 'border-primary/60 ring-1 ring-primary/30' : '',
+          inCartCount > 0 ? 'ring-2 ring-primary/60' : '',
         ].join(' ')}
       >
-        {/* Photo on top — Clover-style vertical card. */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-br from-muted via-muted to-muted/60">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface-container">
           {item.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={item.imageUrl}
               alt=""
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
               loading="lazy"
             />
           ) : (
             <span
               aria-hidden
-              className="flex h-full w-full items-center justify-center text-muted-foreground/50"
+              className="flex h-full w-full items-center justify-center text-on-surface-variant/50"
             >
-              <ChefHat className="size-10" />
+              <span className="material-symbols-outlined text-[48px]">restaurant</span>
             </span>
           )}
+
+          {dietary.length > 0 ? (
+            <div className="absolute left-3 top-3 flex gap-1">
+              {dietary.slice(0, 1).map((tag) => {
+                const meta = DIETARY_LABEL[tag] ?? { short: tag, full: tag };
+                return (
+                  <span
+                    key={`d-badge-${tag}`}
+                    title={meta.full}
+                    className="rounded bg-surface-container-lowest/90 px-2 py-0.5 font-status-pill text-[10px] uppercase tracking-wider text-on-surface backdrop-blur-sm"
+                  >
+                    {meta.short}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+
           {inCartCount > 0 ? (
             <span
-              className="absolute right-2 top-2 inline-flex min-w-7 items-center justify-center rounded-full bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground shadow"
+              className="absolute right-3 top-3 inline-flex min-w-7 items-center justify-center rounded-full bg-primary px-2 py-0.5 font-status-pill text-status-pill text-on-primary shadow"
               data-testid={`public-menu-tile-incart-${item.name}`}
             >
               ×{inCartCount}
             </span>
           ) : null}
+
           {!isAvailable ? (
-            <span className="absolute inset-0 flex items-center justify-center bg-foreground/55 text-xs font-semibold uppercase tracking-wide text-background">
+            <span className="absolute inset-0 flex items-center justify-center bg-on-surface/55 font-label-caps text-label-caps uppercase text-surface-container-lowest">
               Sold out
             </span>
           ) : (
             <span
               aria-hidden
-              className="pointer-events-none absolute bottom-2 right-2 inline-flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110"
+              className="pointer-events-none absolute bottom-3 right-3 inline-flex size-10 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg transition-transform group-active:scale-95"
             >
-              <Plus className="size-4" strokeWidth={2.5} />
+              <span className="material-symbols-outlined">add</span>
             </span>
           )}
         </div>
 
-        {/* Body below the photo. */}
-        <div className="flex flex-1 flex-col gap-1.5 p-3">
-          <span className="line-clamp-2 text-sm font-semibold leading-tight">
-            {item.name}
-          </span>
-          {description ? (
-            <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">
-              {description}
-            </span>
-          ) : null}
-          <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
-            <span className="text-base font-bold tabular-nums">
+        <div className="flex flex-1 flex-col gap-2 p-card-padding">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-body-customer font-bold leading-tight text-on-surface">
+              {item.name}
+            </h3>
+            <span className="shrink-0 text-body-customer font-bold tabular-nums text-primary">
               {formatMoney(item.effectivePriceCents ?? 0, currency)}
             </span>
-            {dietary.length + allergens.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1">
-                {dietary.map((tag) => {
-                  const meta = DIETARY_LABEL[tag] ?? { short: tag, full: tag };
-                  return (
-                    <span
-                      key={`d-${tag}`}
-                      title={meta.full}
-                      aria-label={meta.full}
-                      data-testid={`dietary-tag-${tag}`}
-                      className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-1.5 text-[10px] font-semibold text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200"
-                    >
-                      {meta.short}
-                    </span>
-                  );
-                })}
-                {allergens.map((tag) => {
-                  const meta = ALLERGEN_LABEL[tag] ?? { short: tag, full: tag };
-                  return (
-                    <span
-                      key={`a-${tag}`}
-                      title={meta.full}
-                      aria-label={meta.full}
-                      data-testid={`allergen-tag-${tag}`}
-                      className="inline-flex h-5 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-1.5 text-[10px] font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
-                    >
-                      {meta.short}
-                    </span>
-                  );
-                })}
-              </div>
-            ) : null}
           </div>
+          {description ? (
+            <p className="line-clamp-2 text-body-staff text-on-surface-variant">
+              {description}
+            </p>
+          ) : null}
+          {dietary.length + allergens.length > 0 ? (
+            <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+              {dietary.map((tag) => {
+                const meta = DIETARY_LABEL[tag] ?? { short: tag, full: tag };
+                return (
+                  <span
+                    key={`d-${tag}`}
+                    title={meta.full}
+                    aria-label={meta.full}
+                    data-testid={`dietary-tag-${tag}`}
+                    className="rounded-md bg-secondary-container px-2 py-1 font-status-pill text-status-pill text-secondary-on-container"
+                  >
+                    {meta.short}
+                  </span>
+                );
+              })}
+              {allergens.map((tag) => {
+                const meta = ALLERGEN_LABEL[tag] ?? { short: tag, full: tag };
+                return (
+                  <span
+                    key={`a-${tag}`}
+                    title={meta.full}
+                    aria-label={meta.full}
+                    data-testid={`allergen-tag-${tag}`}
+                    className="rounded-md bg-error-container px-2 py-1 font-status-pill text-status-pill text-error-on-container"
+                  >
+                    {meta.short}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       </button>
       {hasModifiers ? (

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, MapPin, Phone, ShoppingBag } from 'lucide-react';
 import {
   computeOpenStatus,
   formatDayIntervals,
@@ -31,8 +30,9 @@ interface AddressShape {
 function formatAddress(addr: unknown): { display: string; mapsQuery: string } | null {
   if (!addr || typeof addr !== 'object') return null;
   const a = addr as AddressShape;
-  const parts = [a.line1, a.line2, a.city, a.region, a.postalCode, a.country]
-    .filter((p): p is string => Boolean(p));
+  const parts = [a.line1, a.line2, a.city, a.region, a.postalCode, a.country].filter(
+    (p): p is string => Boolean(p),
+  );
   if (parts.length === 0) return null;
   return {
     display: parts.join(', '),
@@ -41,122 +41,165 @@ function formatAddress(addr: unknown): { display: string; mapsQuery: string } | 
 }
 
 export function LocationHero(props: LocationHeroProps): React.JSX.Element {
-  const { tenantName, locationName, currency, timezone, phone, address, openingHours } =
-    props;
+  const { tenantName, locationName, timezone, phone, address, openingHours } = props;
   const hours = parseOpeningHours(openingHours);
   const formattedAddress = formatAddress(address);
 
-  // Recompute open/closed every minute so the badge stays honest.
   const [now, setNow] = useState<Date>(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(id);
   }, []);
-  const status = hours
-    ? computeOpenStatus(hours, timezone, now)
-    : null;
+  const status = hours ? computeOpenStatus(hours, timezone, now) : null;
 
   return (
-    <section
-      aria-label="Welcome"
-      className="mb-5 flex flex-col gap-3 rounded-xl border bg-gradient-to-br from-primary/5 via-background to-background p-5"
-      data-testid="location-hero"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-semibold leading-tight">{tenantName}</h1>
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="size-3.5" aria-hidden />
+    <section aria-label="Welcome" data-testid="location-hero" className="mb-stack-loose">
+      <div className="relative h-[280px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary via-primary-container to-secondary shadow-card-soft sm:h-[320px]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/banner.jpg"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
+        <div className="absolute inset-x-0 bottom-0 flex flex-col gap-3 p-stack-loose">
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-primary-container px-3 py-1 font-status-pill text-status-pill text-on-primary">
+              Pickup
+            </span>
+            <span className="rounded-full bg-surface-container-lowest px-3 py-1 font-status-pill text-status-pill text-on-surface">
+              Pay on pickup
+            </span>
+            {status ? (
+              <span
+                data-testid="location-open-status"
+                data-open={status.isOpen ? 'true' : 'false'}
+                className={[
+                  'inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-status-pill text-status-pill',
+                  status.isOpen
+                    ? 'bg-success/15 text-success-on-container backdrop-blur-sm'
+                    : 'bg-error/20 text-error-on-container backdrop-blur-sm',
+                ].join(' ')}
+                style={{
+                  backgroundColor: status.isOpen
+                    ? 'rgba(16, 185, 129, 0.25)'
+                    : 'rgba(186, 26, 26, 0.25)',
+                  color: 'white',
+                  backdropFilter: 'blur(4px)',
+                }}
+              >
+                <span
+                  aria-hidden
+                  className={[
+                    'inline-block size-1.5 rounded-full',
+                    status.isOpen ? 'bg-emerald-400' : 'bg-rose-400',
+                  ].join(' ')}
+                />
+                {status.isOpen
+                  ? status.closesAt
+                    ? `Open · closes ${formatHM(status.closesAt)}`
+                    : 'Open'
+                  : status.reopensAt
+                    ? status.reopensAt.relative === 'today'
+                      ? `Closed · opens ${formatHM(status.reopensAt.time)}`
+                      : status.reopensAt.relative === 'tomorrow'
+                        ? `Closed · opens tomorrow ${formatHM(status.reopensAt.time)}`
+                        : `Closed · opens ${formatHM(status.reopensAt.time)}`
+                    : 'Closed'}
+              </span>
+            ) : null}
+          </div>
+          <h2 className="font-display text-display-lg leading-tight text-white">
+            {tenantName}
+          </h2>
+          <p className="flex flex-wrap items-center gap-2 text-body-customer text-white/90">
+            <span className="material-symbols-outlined text-[18px]">storefront</span>
             {locationName}
+            {status && status.closesAt ? (
+              <>
+                <span aria-hidden>•</span>
+                <span>
+                  {status.isOpen
+                    ? `Open until ${formatHM(status.closesAt)}`
+                    : status.reopensAt
+                      ? `Opens ${formatHM(status.reopensAt.time)}`
+                      : 'Closed'}
+                </span>
+              </>
+            ) : null}
           </p>
         </div>
-        <span className="shrink-0 rounded-full border bg-background px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          {currency}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap gap-2 text-xs">
-        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 font-medium text-primary">
-          <ShoppingBag className="size-3" aria-hidden />
-          Pickup
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 font-medium text-muted-foreground">
-          <Clock className="size-3" aria-hidden />
-          Pay on pickup
-        </span>
-        {status ? (
-          <span
-            data-testid="location-open-status"
-            data-open={status.isOpen ? 'true' : 'false'}
-            className={[
-              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium',
-              status.isOpen
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
-                : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200',
-            ].join(' ')}
-          >
-            <span
-              aria-hidden
-              className={[
-                'inline-block size-1.5 rounded-full',
-                status.isOpen ? 'bg-emerald-500' : 'bg-rose-500',
-              ].join(' ')}
-            />
-            {status.isOpen
-              ? status.closesAt
-                ? `Open • closes ${formatHM(status.closesAt)}`
-                : 'Open'
-              : status.reopensAt
-                ? status.reopensAt.relative === 'today'
-                  ? `Closed • opens ${formatHM(status.reopensAt.time)}`
-                  : status.reopensAt.relative === 'tomorrow'
-                    ? `Closed • opens tomorrow ${formatHM(status.reopensAt.time)}`
-                    : `Closed • opens ${formatHM(status.reopensAt.time)}`
-                : 'Closed'}
-          </span>
-        ) : null}
       </div>
 
       {(formattedAddress || phone || (status && status.todayIntervals.length > 0)) && (
-        <dl className="grid gap-1.5 text-xs sm:grid-cols-[auto_1fr] sm:gap-x-3">
+        <dl className="mt-gutter grid gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest p-card-padding text-body-staff shadow-card-soft sm:grid-cols-3">
           {formattedAddress ? (
-            <>
-              <dt className="text-muted-foreground">Address</dt>
-              <dd>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${formattedAddress.mapsQuery}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-foreground underline-offset-2 hover:underline"
-                  data-testid="location-address-link"
-                >
-                  {formattedAddress.display}
-                </a>
-              </dd>
-            </>
+            <div className="flex items-start gap-2">
+              <span
+                aria-hidden
+                className="material-symbols-outlined mt-0.5 text-[18px] text-primary"
+              >
+                map
+              </span>
+              <div className="flex flex-col">
+                <dt className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+                  Address
+                </dt>
+                <dd>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${formattedAddress.mapsQuery}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-on-surface hover:text-primary hover:underline"
+                    data-testid="location-address-link"
+                  >
+                    {formattedAddress.display}
+                  </a>
+                </dd>
+              </div>
+            </div>
           ) : null}
           {phone ? (
-            <>
-              <dt className="text-muted-foreground">Phone</dt>
-              <dd>
-                <a
-                  href={`tel:${phone.replace(/\s+/g, '')}`}
-                  className="inline-flex items-center gap-1 text-foreground underline-offset-2 hover:underline"
-                  data-testid="location-phone-link"
-                >
-                  <Phone className="size-3" aria-hidden />
-                  {phone}
-                </a>
-              </dd>
-            </>
+            <div className="flex items-start gap-2">
+              <span
+                aria-hidden
+                className="material-symbols-outlined mt-0.5 text-[18px] text-primary"
+              >
+                call
+              </span>
+              <div className="flex flex-col">
+                <dt className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+                  Phone
+                </dt>
+                <dd>
+                  <a
+                    href={`tel:${phone.replace(/\s+/g, '')}`}
+                    className="text-on-surface hover:text-primary hover:underline"
+                    data-testid="location-phone-link"
+                  >
+                    {phone}
+                  </a>
+                </dd>
+              </div>
+            </div>
           ) : null}
           {status && status.todayIntervals.length > 0 ? (
-            <>
-              <dt className="text-muted-foreground">Today</dt>
-              <dd className="text-foreground" data-testid="location-today-hours">
-                {formatDayIntervals(status.todayIntervals)}
-              </dd>
-            </>
+            <div className="flex items-start gap-2">
+              <span
+                aria-hidden
+                className="material-symbols-outlined mt-0.5 text-[18px] text-primary"
+              >
+                schedule
+              </span>
+              <div className="flex flex-col">
+                <dt className="font-label-caps text-label-caps uppercase text-on-surface-variant">
+                  Today
+                </dt>
+                <dd className="text-on-surface" data-testid="location-today-hours">
+                  {formatDayIntervals(status.todayIntervals)}
+                </dd>
+              </div>
+            </div>
           ) : null}
         </dl>
       )}

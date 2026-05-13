@@ -35,7 +35,6 @@ export default async function CheckoutPage({ params }: PageProps) {
       currency={currency}
       acceptingOrders={acceptingOrders}
     >
-      <h1 className="mb-4 text-lg font-semibold">Checkout</h1>
       <CheckoutForm
         tenantSlug={tenantSlug}
         locationSlug={locationSlug}

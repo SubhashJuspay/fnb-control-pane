@@ -5,6 +5,8 @@
 @layer base {
   :root {
     --radius: 0.5rem;
+
+    /* Legacy OKLCH tokens — kept so older shadcn-style classes keep working. */
     --color-bg-canvas: 0.99 0 0;
     --color-bg-surface: 1 0 0;
     --color-bg-muted: 0.97 0 0;
@@ -20,6 +22,70 @@
     --color-danger-fg: 0.99 0 0;
     --color-success-default: 0.62 0.16 145;
     --color-success-fg: 0.99 0 0;
+
+    /* M3 "Modern Tech Indigo" palette from design-ref/stitch_table_ticket_management_system. */
+    --m3-surface: #fcf8ff;
+    --m3-surface-dim: #dcd8e5;
+    --m3-surface-bright: #fcf8ff;
+    --m3-surface-container-lowest: #ffffff;
+    --m3-surface-container-low: #f5f2ff;
+    --m3-surface-container: #f0ecf9;
+    --m3-surface-container-high: #eae6f4;
+    --m3-surface-container-highest: #e4e1ee;
+    --m3-on-surface: #1b1b24;
+    --m3-on-surface-variant: #464555;
+    --m3-inverse-surface: #302f39;
+    --m3-inverse-on-surface: #f3effc;
+    --m3-outline: #777587;
+    --m3-outline-variant: #c7c4d8;
+
+    --m3-primary: #3525cd;
+    --m3-on-primary: #ffffff;
+    --m3-primary-container: #4f46e5;
+    --m3-on-primary-container: #dad7ff;
+    --m3-inverse-primary: #c3c0ff;
+    --m3-primary-fixed: #e2dfff;
+    --m3-primary-fixed-dim: #c3c0ff;
+    --m3-on-primary-fixed: #0f0069;
+    --m3-on-primary-fixed-variant: #3323cc;
+
+    --m3-secondary: #565e74;
+    --m3-on-secondary: #ffffff;
+    --m3-secondary-container: #dae2fd;
+    --m3-on-secondary-container: #5c647a;
+    --m3-secondary-fixed: #dae2fd;
+    --m3-secondary-fixed-dim: #bec6e0;
+    --m3-on-secondary-fixed: #131b2e;
+    --m3-on-secondary-fixed-variant: #3f465c;
+
+    --m3-tertiary: #7e3000;
+    --m3-on-tertiary: #ffffff;
+    --m3-tertiary-container: #a44100;
+    --m3-on-tertiary-container: #ffd2be;
+    --m3-tertiary-fixed: #ffdbcc;
+    --m3-tertiary-fixed-dim: #ffb695;
+    --m3-on-tertiary-fixed: #351000;
+    --m3-on-tertiary-fixed-variant: #7b2f00;
+
+    --m3-error: #ba1a1a;
+    --m3-on-error: #ffffff;
+    --m3-error-container: #ffdad6;
+    --m3-on-error-container: #93000a;
+
+    --m3-background: #fcf8ff;
+    --m3-on-background: #1b1b24;
+    --m3-surface-variant: #e4e1ee;
+    --m3-surface-tint: #4d44e3;
+
+    /* Semantic state colors (emerald / amber / rose) used for KDS / ticket states. */
+    --m3-success: #059669;
+    --m3-on-success: #ffffff;
+    --m3-success-container: #d1fae5;
+    --m3-on-success-container: #065f46;
+    --m3-warning: #d97706;
+    --m3-on-warning: #ffffff;
+    --m3-warning-container: #fef3c7;
+    --m3-on-warning-container: #78350f;
   }
 
   .dark {
@@ -38,6 +104,60 @@
     --color-danger-fg: 0.99 0 0;
     --color-success-default: 0.70 0.16 145;
     --color-success-fg: 0.14 0.005 285;
+
+    /* M3 dark mode — inverted surface ramp, lighter primary. */
+    --m3-surface: #131318;
+    --m3-surface-dim: #131318;
+    --m3-surface-bright: #3a3942;
+    --m3-surface-container-lowest: #0e0e13;
+    --m3-surface-container-low: #1b1b24;
+    --m3-surface-container: #1f1f28;
+    --m3-surface-container-high: #2a2932;
+    --m3-surface-container-highest: #35343d;
+    --m3-on-surface: #e4e1ee;
+    --m3-on-surface-variant: #c7c4d8;
+    --m3-inverse-surface: #e4e1ee;
+    --m3-inverse-on-surface: #302f39;
+    --m3-outline: #918fa1;
+    --m3-outline-variant: #464555;
+
+    /* Keep brand indigo in dark mode too — the screenshots and design ref
+       use #3525cd / #4f46e5 across both themes rather than inverting to
+       lavender. White text on indigo stays legible on dark surfaces. */
+    --m3-primary: #4f46e5;
+    --m3-on-primary: #ffffff;
+    --m3-primary-container: #3525cd;
+    --m3-on-primary-container: #e2dfff;
+    --m3-inverse-primary: #c3c0ff;
+
+    --m3-secondary: #bec6e0;
+    --m3-on-secondary: #283044;
+    --m3-secondary-container: #3f465c;
+    --m3-on-secondary-container: #dae2fd;
+
+    --m3-tertiary: #ffb695;
+    --m3-on-tertiary: #4d1a00;
+    --m3-tertiary-container: #7b2f00;
+    --m3-on-tertiary-container: #ffdbcc;
+
+    --m3-error: #ffb4ab;
+    --m3-on-error: #690005;
+    --m3-error-container: #93000a;
+    --m3-on-error-container: #ffdad6;
+
+    --m3-background: #131318;
+    --m3-on-background: #e4e1ee;
+    --m3-surface-variant: #464555;
+    --m3-surface-tint: #c3c0ff;
+
+    --m3-success: #34d399;
+    --m3-on-success: #064e3b;
+    --m3-success-container: #065f46;
+    --m3-on-success-container: #d1fae5;
+    --m3-warning: #fbbf24;
+    --m3-on-warning: #78350f;
+    --m3-warning-container: #92400e;
+    --m3-on-warning-container: #fef3c7;
   }
 
   * {
@@ -51,5 +171,17 @@
 
   .tabular-nums {
     font-variant-numeric: tabular-nums;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }

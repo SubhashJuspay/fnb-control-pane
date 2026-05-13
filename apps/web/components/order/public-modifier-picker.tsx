@@ -1,13 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Check } from 'lucide-react';
 import {
-  Button,
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   formatMoney,
@@ -57,11 +54,10 @@ export function summarizeGroup(min: number, max: number): string {
   return `Required, ${min}–${max}`;
 }
 
-/**
- * Customer-facing modifier picker. Mirrors the POS picker but consumes the
- * sanitized `PublicModifierGroup` shape (no internal cost/availability data),
- * and adds the chosen line to the cart instead of a ticket.
- */
+function isRequired(group: PublicModifierGroup): boolean {
+  return (group.minSelections ?? 0) > 0;
+}
+
 export function PublicModifierPicker({
   item,
   open,
@@ -124,7 +120,10 @@ export function PublicModifierPicker({
     if (!isValid || !item.id || !item.name) return;
     const snapshots = groups.flatMap((g) =>
       (g.modifiers ?? [])
-        .filter((m): m is PublicModifier => m != null && Boolean(m.id) && selectedIds.has(m.id ?? ''))
+        .filter(
+          (m): m is PublicModifier =>
+            m != null && Boolean(m.id) && selectedIds.has(m.id ?? ''),
+        )
         .map((m) => ({
           id: m.id ?? '',
           name: m.name ?? '',
@@ -143,77 +142,106 @@ export function PublicModifierPicker({
     onOpenChange(false);
   };
 
+  const totalCents = (item.effectivePriceCents ?? 0) + modifiersTotalCents;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" data-testid="public-modifier-dialog">
-        <DialogHeader>
-          <DialogTitle>{item.name ?? 'Choose options'}</DialogTitle>
-          {item.effectivePriceCents != null ? (
-            <DialogDescription>
-              {formatMoney(item.effectivePriceCents, currency)}
-            </DialogDescription>
-          ) : null}
+      <DialogContent
+        className="max-h-[90vh] gap-0 overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest p-0 shadow-overlay-soft sm:max-w-xl"
+        data-testid="public-modifier-dialog"
+      >
+        <DialogHeader className="space-y-0 border-b border-outline-variant px-card-padding py-4 text-left">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col">
+              <DialogTitle className="font-display text-headline-md font-semibold text-on-surface">
+                {item.name ?? 'Choose options'}
+              </DialogTitle>
+              {item.effectivePriceCents != null ? (
+                <DialogDescription className="text-body-customer font-bold text-primary">
+                  {formatMoney(item.effectivePriceCents, currency)}
+                </DialogDescription>
+              ) : null}
+            </div>
+          </div>
         </DialogHeader>
-        <div className="flex flex-col gap-5">
+
+        <div className="max-h-[60vh] space-y-stack-loose overflow-y-auto p-card-padding">
           {groups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No options. Confirm to add.</p>
+            <p className="text-body-staff text-on-surface-variant">
+              No options. Confirm to add.
+            </p>
           ) : (
             groups.map((group) => {
               const min = group.minSelections ?? 0;
               const max = group.maxSelections ?? 0;
+              const required = isRequired(group);
               const mods = (group.modifiers ?? []).filter(
                 (m): m is PublicModifier => m != null && Boolean(m.id),
               );
               return (
-                <section key={group.id ?? ''} className="flex flex-col gap-2">
-                  <header className="flex items-baseline justify-between gap-2">
-                    <h3 className="text-sm font-semibold">{group.name}</h3>
-                    <span className="text-xs text-muted-foreground">
+                <section key={group.id ?? ''} className="flex flex-col gap-stack-tight">
+                  <header className="mb-1 flex items-center justify-between gap-2">
+                    <h3 className="text-body-customer font-bold text-on-surface">
+                      {required ? 'Required: ' : 'Optional: '}
+                      {group.name}
+                    </h3>
+                    <span
+                      className={[
+                        'rounded-full px-2 py-1 font-status-pill text-status-pill uppercase tracking-wider',
+                        required
+                          ? 'bg-primary-container text-on-primary-container'
+                          : 'bg-surface-container text-on-surface-variant',
+                      ].join(' ')}
+                    >
                       {summarizeGroup(min, max)}
                     </span>
                   </header>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-stack-tight">
                     {mods.map((m) => {
                       const checked = selectedIds.has(m.id ?? '');
                       const delta = m.priceDeltaCents ?? 0;
                       return (
-                        <button
+                        <label
                           key={m.id ?? ''}
-                          type="button"
-                          role="checkbox"
-                          aria-checked={checked}
                           data-testid={`public-modifier-${m.name}`}
                           data-checked={checked ? 'true' : 'false'}
-                          onClick={() => toggle(group, m)}
                           className={[
-                            'group/mod relative flex flex-col items-start gap-1 rounded-lg border-2 px-3 py-2.5 text-left text-sm transition-all',
+                            'group flex cursor-pointer items-center justify-between gap-3 rounded-lg p-4 transition-all',
                             checked
-                              ? 'border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
-                              : 'border-border bg-background hover:border-primary/40 hover:bg-primary/5',
+                              ? 'border-2 border-primary bg-primary/5'
+                              : 'border border-outline-variant hover:border-primary',
                           ].join(' ')}
                         >
-                          {checked ? (
+                          <div className="flex flex-col">
                             <span
-                              aria-hidden
-                              className="absolute right-2 top-2 inline-flex size-4 items-center justify-center rounded-full bg-primary-foreground/20"
+                              className={[
+                                'text-body-staff',
+                                checked
+                                  ? 'font-bold text-primary'
+                                  : 'font-medium text-on-surface',
+                              ].join(' ')}
                             >
-                              <Check className="size-3" strokeWidth={3} />
+                              {m.name}
                             </span>
-                          ) : null}
-                          <span className="pr-5 font-semibold">{m.name}</span>
-                          <span
-                            className={[
-                              'text-xs tabular-nums',
-                              checked
-                                ? 'text-primary-foreground/85'
-                                : 'text-muted-foreground',
-                            ].join(' ')}
-                          >
-                            {delta === 0
-                              ? 'No charge'
-                              : `${delta > 0 ? '+' : ''}${formatMoney(delta, currency)}`}
-                          </span>
-                        </button>
+                            {delta !== 0 ? (
+                              <span
+                                className={[
+                                  'text-status-pill tabular-nums',
+                                  checked ? 'text-primary/80' : 'text-on-surface-variant',
+                                ].join(' ')}
+                              >
+                                {`${delta > 0 ? '+' : ''}${formatMoney(delta, currency)}`}
+                              </span>
+                            ) : null}
+                          </div>
+                          <input
+                            type={max === 1 ? 'radio' : 'checkbox'}
+                            name={group.id ?? ''}
+                            checked={checked}
+                            onChange={() => toggle(group, m)}
+                            className="h-5 w-5 cursor-pointer accent-primary focus:ring-primary"
+                          />
+                        </label>
                       );
                     })}
                   </div>
@@ -222,19 +250,25 @@ export function PublicModifierPicker({
             })
           )}
         </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+
+        <div className="flex flex-col gap-3 border-t border-outline-variant bg-surface-container-low p-card-padding sm:flex-row">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="flex-1 rounded-lg border border-primary px-6 py-3 font-bold text-primary transition-colors hover:bg-primary/5"
+          >
             Cancel
-          </Button>
-          <Button
+          </button>
+          <button
             type="button"
             onClick={onSubmit}
             disabled={!isValid}
             data-testid="public-modifier-submit"
+            className="flex-[2] rounded-lg bg-primary px-6 py-3 font-bold text-on-primary shadow-card-soft transition-all hover:opacity-90 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Add to cart
-          </Button>
-        </DialogFooter>
+            Add to cart — {formatMoney(totalCents, currency)}
+          </button>
+        </div>
       </DialogContent>
     </Dialog>
   );

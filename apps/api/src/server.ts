@@ -105,7 +105,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
 async function main(): Promise<void> {
   const app = await buildServer();
-  const port = Number(env.API_PORT);
+  // Render (and most PaaS) inject the listening port as $PORT. Fall back to
+  // API_PORT for local dev / Docker compose where we set it explicitly.
+  const port = Number(process.env.PORT ?? env.API_PORT);
   await app.listen({ port, host: '0.0.0.0' });
   logger.info({ port }, 'api listening');
 

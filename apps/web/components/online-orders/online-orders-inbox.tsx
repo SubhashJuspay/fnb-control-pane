@@ -60,28 +60,40 @@ export function OnlineOrdersInbox({
   const decided = requests.filter((r) => r.confirmStatus !== OnlineOrderConfirmStatus.Pending);
 
   return (
-    <div className="flex flex-col gap-4 p-4" data-testid="online-orders-inbox">
+    <div
+      className="flex flex-col gap-stack-loose p-container-margin"
+      data-testid="online-orders-inbox"
+    >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold">Online Orders</h1>
-          <p className="text-xs text-muted-foreground">
-            {locationName} • {pending.length} pending
+          <h1 className="font-display text-headline-md font-bold text-on-surface">
+            Online orders
+          </h1>
+          <p className="text-body-staff text-on-surface-variant">
+            {locationName} ·{' '}
+            <span className="font-semibold text-primary">
+              {pending.length} pending
+            </span>
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span
-            className={[
-              'inline-flex size-2 rounded-full',
-              subscriptionHealthy ? 'bg-emerald-500' : 'bg-amber-500',
-            ].join(' ')}
-            aria-hidden
-            title={
-              subscriptionHealthy
-                ? 'Live — new orders appear automatically'
-                : 'Reconnecting to live updates…'
-            }
-          />
-          <span>{subscriptionHealthy ? 'Live' : 'Reconnecting…'}</span>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-2 rounded-full bg-surface-container px-3 py-1.5">
+            <span
+              className={[
+                'inline-flex size-2 rounded-full',
+                subscriptionHealthy ? 'animate-pulse bg-success' : 'bg-warning',
+              ].join(' ')}
+              aria-hidden
+              title={
+                subscriptionHealthy
+                  ? 'Live — new orders appear automatically'
+                  : 'Reconnecting to live updates…'
+              }
+            />
+            <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+              {subscriptionHealthy ? 'Live' : 'Reconnecting…'}
+            </span>
+          </span>
           <Button
             type="button"
             variant="outline"
@@ -89,6 +101,7 @@ export function OnlineOrdersInbox({
             onClick={onManualRefresh}
             disabled={fetching}
             data-testid="online-orders-refresh"
+            className="border-primary text-primary hover:bg-primary/5"
           >
             <RefreshCw
               className={`mr-1.5 size-3.5 ${fetching ? 'animate-spin' : ''}`}
@@ -99,18 +112,21 @@ export function OnlineOrdersInbox({
         </div>
       </header>
       {error ? (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+        <p className="rounded-xl border border-error/30 bg-error-container p-3 text-body-staff text-error-on-container">
           {error.message}
         </p>
       ) : null}
-      <section className="flex flex-col gap-3" data-testid="online-orders-pending">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <section
+        className="flex flex-col gap-gutter"
+        data-testid="online-orders-pending"
+      >
+        <h2 className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
           Pending
         </h2>
         {fetching && pending.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Loading…</p>
+          <p className="text-body-staff text-on-surface-variant">Loading…</p>
         ) : pending.length === 0 ? (
-          <p className="rounded-md border bg-muted/30 p-4 text-sm text-muted-foreground">
+          <p className="rounded-xl border border-outline-variant bg-surface-container-low p-card-padding text-center text-body-staff text-on-surface-variant">
             No pending requests.
           </p>
         ) : (
@@ -125,8 +141,11 @@ export function OnlineOrdersInbox({
         )}
       </section>
       {decided.length > 0 ? (
-        <section className="flex flex-col gap-3" data-testid="online-orders-decided">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <section
+          className="flex flex-col gap-gutter"
+          data-testid="online-orders-decided"
+        >
+          <h2 className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
             Confirmed / rejected
           </h2>
           {decided.map((r) => (

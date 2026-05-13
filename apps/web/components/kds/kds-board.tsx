@@ -64,24 +64,31 @@ export function KdsBoard({ locationName }: KdsBoardProps): React.JSX.Element {
 
   return (
     <div className="flex h-full w-full flex-col bg-background">
-      <header className="flex items-center justify-between gap-3 border-b bg-surface px-4 py-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">KDS · {locationName}</h1>
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {tickets.length} active
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          Live
+      <header className="flex items-center justify-between gap-3 border-b border-outline-variant bg-surface px-container-margin py-3">
+        <div className="flex items-center gap-stack-loose">
+          <h1 className="font-display text-headline-md font-bold text-primary">
+            KDS · {locationName}
+          </h1>
+          <div className="flex items-center gap-stack-tight">
+            <span className="inline-flex size-2.5 animate-pulse rounded-full bg-error" />
+            <span className="font-label-caps text-label-caps uppercase tracking-wider text-error">
+              Live
+            </span>
+            <span className="ml-4 rounded-full bg-surface-container-high px-3 py-1 font-status-pill text-status-pill text-on-surface-variant">
+              {tickets.length} active {tickets.length === 1 ? 'order' : 'orders'}
+            </span>
+          </div>
         </div>
       </header>
       {error ? (
-        <p className="px-4 py-2 text-sm text-destructive" role="alert">
+        <p
+          className="border-b border-error/30 bg-error-container px-4 py-2 text-body-staff text-error-on-container"
+          role="alert"
+        >
           {error.message}
         </p>
       ) : null}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto px-container-margin py-container-margin">
         {data === undefined ? (
           // First fetch in progress — show skeleton cards instead of an
           // "All clear" message that's misleading until we know the actual count.
@@ -118,10 +125,7 @@ export function KdsBoard({ locationName }: KdsBoardProps): React.JSX.Element {
             />
           </div>
         ) : (
-          <div
-            className="grid gap-4"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
-          >
+          <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
             {tickets.map((ticket) => (
               <KdsTicketCard key={ticket.id ?? ''} ticket={ticket} />
             ))}

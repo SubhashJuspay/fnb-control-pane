@@ -3,16 +3,13 @@
 import { useEffect, useRef, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Button,
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
   formatMoney,
 } from '@repo/ui';
-import { Loader2, Trash2 } from 'lucide-react';
 import { useCart } from './cart-state';
 
 export interface CartDrawerProps {
@@ -21,7 +18,6 @@ export interface CartDrawerProps {
   currency: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** When false, the checkout button is disabled. */
   acceptingOrders?: boolean;
   closedReason?: string | null;
 }
@@ -37,15 +33,7 @@ export function CartDrawer({
 }: CartDrawerProps): React.JSX.Element {
   const router = useRouter();
   const pathname = usePathname();
-  // useTransition lets us mark the router.push as pending so the Checkout
-  // button can show a spinner until the next page's server-rendered HTML
-  // arrives — without that, the drawer just closes and the customer stares
-  // at nothing for the network round-trip, often clicking twice.
   const [navigating, startNavigation] = useTransition();
-  // Track the path the drawer was opened on; once pathname changes after a
-  // Checkout / Continue-shopping click, close the drawer. Without this the
-  // drawer stays open under the new route (since the button keeps it open
-  // through the transition).
   const openedOnPath = useRef<string | null>(null);
   useEffect(() => {
     if (!open) {
@@ -62,87 +50,120 @@ export function CartDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-md" data-testid="cart-drawer">
-        <SheetHeader>
-          <SheetTitle>
-            Your cart
-            {itemCount > 0 ? (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({itemCount} {itemCount === 1 ? 'item' : 'items'})
-              </span>
-            ) : null}
-          </SheetTitle>
-          <SheetDescription>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 border-0 bg-surface p-0 shadow-overlay-soft sm:max-w-[420px]"
+        data-testid="cart-drawer"
+      >
+        <SheetHeader className="space-y-0 border-b border-outline-variant px-container-margin py-stack-loose text-left">
+          <div className="flex items-center gap-3">
+            <SheetTitle className="font-display text-headline-md font-bold text-on-surface">
+              Your cart{' '}
+              {itemCount > 0 ? (
+                <span className="font-body-customer text-body-customer font-normal text-on-surface-variant">
+                  ({itemCount} {itemCount === 1 ? 'item' : 'items'})
+                </span>
+              ) : null}
+            </SheetTitle>
+          </div>
+          <SheetDescription className="sr-only">
             Review your items, then place a pickup order. Pay when you collect.
           </SheetDescription>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto py-3">
+
+        <div className="flex-1 overflow-y-auto px-container-margin py-gutter">
           {!hydrated ? (
-            <p className="text-sm text-muted-foreground">Loading cart…</p>
+            <p className="text-body-staff text-on-surface-variant">Loading cart…</p>
           ) : items.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-md border border-dashed px-4 py-10 text-center">
-              <p className="text-sm font-medium">Your cart is empty</p>
-              <p className="text-xs text-muted-foreground">
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-outline-variant bg-surface-container-lowest px-4 py-10 text-center">
+              <span
+                aria-hidden
+                className="material-symbols-outlined text-[40px] text-on-surface-variant/60"
+              >
+                shopping_cart
+              </span>
+              <p className="text-body-customer font-semibold text-on-surface">
+                Your cart is empty
+              </p>
+              <p className="text-body-staff text-on-surface-variant">
                 Tap any menu item to add it to your order.
               </p>
             </div>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-gutter">
               {items.map((item) => {
                 const lineTotal =
                   (item.unitPriceCents + item.modifiersTotalCents) * item.quantity;
                 return (
                   <li
                     key={item.lineId}
-                    className="flex flex-col gap-1 rounded-md border p-3"
+                    className="flex gap-4 rounded-xl border border-outline-variant bg-surface-container-lowest p-card-padding shadow-sm"
                     data-testid={`cart-line-${item.name}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">{item.name}</p>
+                    <div className="flex flex-1 flex-col justify-between gap-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="text-body-customer font-bold text-on-surface">
+                            {item.name}
+                          </h3>
+                          <span className="shrink-0 text-body-customer font-bold tabular-nums text-primary">
+                            {formatMoney(lineTotal, currency)}
+                          </span>
+                        </div>
                         {item.modifiers.length > 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            {item.modifiers.map((m) => m.name).join(', ')}
+                          <ul className="space-y-1">
+                            {item.modifiers.map((m) => (
+                              <li
+                                key={m.id}
+                                className="flex items-center gap-1.5 text-body-staff text-on-surface-variant"
+                              >
+                                <span
+                                  aria-hidden
+                                  className="size-1.5 rounded-full bg-outline-variant"
+                                />
+                                {m.name}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-body-staff italic text-on-surface-variant">
+                            No modifications
                           </p>
-                        ) : null}
+                        )}
                       </div>
-                      <span className="shrink-0 text-sm font-semibold tabular-nums">
-                        {formatMoney(lineTotal, currency)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1">
-                        <Button
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center rounded-lg bg-surface-container-high p-1">
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(item.lineId, item.quantity - 1)}
+                            aria-label="Decrease quantity"
+                            className="flex size-8 items-center justify-center text-on-surface-variant transition-colors hover:text-primary"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">
+                              remove
+                            </span>
+                          </button>
+                          <span className="px-3 text-body-staff font-bold tabular-nums text-on-surface">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(item.lineId, item.quantity + 1)}
+                            aria-label="Increase quantity"
+                            className="flex size-8 items-center justify-center text-on-surface-variant transition-colors hover:text-primary"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">add</span>
+                          </button>
+                        </div>
+                        <button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setQuantity(item.lineId, item.quantity - 1)}
-                          aria-label="Decrease quantity"
+                          onClick={() => removeItem(item.lineId)}
+                          aria-label="Remove item"
+                          className="rounded-lg p-2 text-error transition-colors hover:bg-error-container"
                         >
-                          −
-                        </Button>
-                        <span className="w-8 text-center text-sm tabular-nums">
-                          {item.quantity}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setQuantity(item.lineId, item.quantity + 1)}
-                          aria-label="Increase quantity"
-                        >
-                          +
-                        </Button>
+                          <span className="material-symbols-outlined">delete</span>
+                        </button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(item.lineId)}
-                        aria-label="Remove item"
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
                     </div>
                   </li>
                 );
@@ -150,25 +171,32 @@ export function CartDrawer({
             </ul>
           )}
         </div>
-        <SheetFooter className="flex flex-col gap-2 sm:flex-col">
-          <div className="flex items-center justify-between text-sm">
-            <span>Subtotal</span>
-            <span className="font-semibold tabular-nums">
-              {formatMoney(totalCents, currency)}
-            </span>
+
+        <div className="border-t border-outline-variant bg-surface-container-low p-container-margin">
+          <div className="mb-6 space-y-2">
+            <div className="flex justify-between text-body-staff text-on-surface-variant">
+              <span>Subtotal</span>
+              <span className="tabular-nums">{formatMoney(totalCents, currency)}</span>
+            </div>
+            <p className="text-status-pill text-on-surface-variant">
+              Tax and final total are confirmed at pickup.
+            </p>
+            <div className="flex justify-between border-t border-outline-variant pt-3 font-display text-headline-md font-bold text-on-surface">
+              <span>Total</span>
+              <span className="tabular-nums">{formatMoney(totalCents, currency)}</span>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Tax and final total are confirmed at pickup.
-          </p>
+
           {!acceptingOrders ? (
             <p
-              className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+              className="mb-3 rounded-lg border border-error/30 bg-error-container px-3 py-2 text-body-staff font-medium text-error-on-container"
               data-testid="cart-closed-banner"
             >
               {closedReason ?? 'This location is currently closed for online orders.'}
             </p>
           ) : null}
-          <Button
+
+          <button
             type="button"
             disabled={items.length === 0 || !acceptingOrders || navigating}
             data-testid="cart-checkout-button"
@@ -178,37 +206,43 @@ export function CartDrawer({
                 router.push(`/order/${tenantSlug}/${locationSlug}/checkout`);
               });
             }}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {navigating ? (
               <>
-                <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
-                Processing...
+                <span
+                  aria-hidden
+                  className="material-symbols-outlined animate-spin text-[20px]"
+                >
+                  progress_activity
+                </span>
+                Processing…
               </>
             ) : (
-              'Checkout'
+              <>
+                <span>Checkout</span>
+                <span className="material-symbols-outlined">arrow_forward</span>
+              </>
             )}
-          </Button>
+          </button>
+
           {items.length > 0 ? (
-            <Button
+            <button
               type="button"
-              variant="ghost"
               onClick={() => {
                 onOpenChange(false);
-                // "Continue shopping" should always land on the menu
-                // storefront. Without this, clicking the button from
-                // /checkout (or any other subroute) just closes the drawer
-                // and leaves the user on the same non-menu page.
                 const menuPath = `/order/${tenantSlug}/${locationSlug}`;
                 if (pathname !== menuPath) {
                   router.push(menuPath);
                 }
               }}
               data-testid="cart-continue-button"
+              className="mt-3 w-full rounded-xl px-4 py-3 text-body-staff font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
             >
               Continue shopping
-            </Button>
+            </button>
           ) : null}
-        </SheetFooter>
+        </div>
       </SheetContent>
     </Sheet>
   );

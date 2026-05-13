@@ -1,6 +1,5 @@
 import { print } from 'graphql';
 import { notFound } from 'next/navigation';
-import { Lock } from 'lucide-react';
 import { computeOpenStatus, parseOpeningHours } from '@repo/types';
 import { serverFetch } from '@/lib/graphql/server';
 import {
@@ -71,18 +70,19 @@ export default async function PublicOrderPage({ params }: PageProps) {
       />
       {!acceptingOrders ? (
         <div
-          className="mb-4 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900/60 dark:bg-rose-950/40"
+          className="mb-gutter flex items-start gap-3 rounded-xl border border-error/30 bg-error-container p-4 text-error-on-container"
           data-testid="closed-banner"
           role="status"
         >
-          <Lock className="size-4 shrink-0 text-rose-700 dark:text-rose-300" aria-hidden />
-          <div className="flex flex-col gap-0.5 text-sm">
-            <p className="font-semibold text-rose-900 dark:text-rose-100">
-              We&apos;re not taking orders right now
-            </p>
-            <p className="text-rose-800 dark:text-rose-200">
-              {closedReason ?? 'Please check back during opening hours.'}
-            </p>
+          <span
+            aria-hidden
+            className="material-symbols-outlined shrink-0 text-[20px]"
+          >
+            lock
+          </span>
+          <div className="flex flex-col gap-0.5 text-body-staff">
+            <p className="font-semibold">We&apos;re not taking orders right now</p>
+            <p>{closedReason ?? 'Please check back during opening hours.'}</p>
           </div>
         </div>
       ) : null}

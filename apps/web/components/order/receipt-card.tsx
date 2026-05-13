@@ -2,8 +2,7 @@
 
 import { useEffect } from 'react';
 import { useQuery } from 'urql';
-import { Printer } from 'lucide-react';
-import { Button, formatMoney } from '@repo/ui';
+import { formatMoney } from '@repo/ui';
 import { ReceiptOnlineOrderDocument } from '@/lib/graphql/generated/graphql';
 
 export interface ReceiptCardProps {
@@ -19,13 +18,14 @@ interface AddressShape {
   country?: string;
 }
 
-function formatAddressOneLine(addr: unknown): string | null {
+function formatAddressBlock(addr: unknown): string[] | null {
   if (!addr || typeof addr !== 'object') return null;
   const a = addr as AddressShape;
-  const parts = [a.line1, a.city, a.region, a.postalCode, a.country].filter(
-    (p): p is string => Boolean(p),
-  );
-  return parts.length > 0 ? parts.join(', ') : null;
+  const line1 = a.line1 ?? null;
+  const line2 = [a.city, a.region, a.postalCode].filter(Boolean).join(', ') || null;
+  const line3 = a.country ?? null;
+  const lines = [line1, line2, line3].filter((p): p is string => Boolean(p));
+  return lines.length > 0 ? lines : null;
 }
 
 function formatDateTime(d: Date | string | null | undefined): string {
@@ -47,13 +47,10 @@ export function ReceiptCard({ token, currency }: ReceiptCardProps): React.JSX.El
     requestPolicy: 'cache-and-network',
   });
 
-  // Auto-trigger print when ?print=1 is in the URL — handy for "Print receipt"
-  // links that go straight to a print dialog.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
     if (sp.get('print') === '1' && data?.trackOnlineOrder) {
-      // Allow the page to lay out before triggering print.
       const id = window.setTimeout(() => window.print(), 300);
       return () => window.clearTimeout(id);
     }
@@ -61,11 +58,11 @@ export function ReceiptCard({ token, currency }: ReceiptCardProps): React.JSX.El
   }, [data]);
 
   if (fetching && !data) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <p className="text-body-staff text-on-surface-variant">Loading…</p>;
   }
   if (error) {
     return (
-      <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+      <p className="rounded-xl border border-error/30 bg-error-container p-3 text-body-staff text-error-on-container">
         {error.message}
       </p>
     );
@@ -73,145 +70,183 @@ export function ReceiptCard({ token, currency }: ReceiptCardProps): React.JSX.El
   const r = data?.trackOnlineOrder ?? null;
   if (!r) {
     return (
-      <p className="rounded-md border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+      <p className="rounded-xl border border-outline-variant bg-surface-container-low p-6 text-center text-body-staff text-on-surface-variant">
         We couldn&apos;t find that order. The link may have expired.
       </p>
     );
   }
 
   const liveItems = (r.items ?? []).filter((i) => i.status !== 'VOIDED');
-  const addr = formatAddressOneLine(r.locationAddress);
+  const addressLines = formatAddressBlock(r.locationAddress);
 
   return (
-    <div className="flex flex-col gap-4" data-testid="receipt-card">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6" data-testid="receipt-card">
       <div className="flex items-center justify-between gap-2 print:hidden">
-        <h1 className="text-lg font-semibold">Receipt</h1>
-        <Button
+        <h1 className="font-display text-headline-md font-bold text-on-surface">Receipt</h1>
+        <button
           type="button"
-          size="sm"
           onClick={() => window.print()}
           data-testid="receipt-print-button"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-2 font-label-caps text-label-caps uppercase tracking-wider text-on-primary transition-all hover:opacity-90 active:scale-95"
         >
-          <Printer className="mr-2 size-4" />
-          Print
-        </Button>
+          <span className="material-symbols-outlined text-[18px]">print</span>
+          Print receipt
+        </button>
       </div>
 
       <article
-        className="flex flex-col gap-4 rounded-xl border bg-card p-6 text-sm print:rounded-none print:border-0 print:p-0"
+        className="flex flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-overlay-soft print:rounded-none print:border-0 print:shadow-none"
         data-testid="receipt-content"
       >
-        <header className="flex flex-col gap-1 border-b pb-3">
-          <p className="text-base font-semibold">{r.tenantName}</p>
-          <p className="text-muted-foreground">{r.locationName}</p>
-          {addr ? <p className="text-xs text-muted-foreground">{addr}</p> : null}
-          {r.locationPhone ? (
-            <p className="text-xs text-muted-foreground">{r.locationPhone}</p>
-          ) : null}
-        </header>
+        <section className="flex flex-col items-center border-b border-dashed border-outline-variant p-12 text-center">
+          <div className="mb-6 flex size-20 items-center justify-center rounded-full bg-primary-container">
+            <span
+              aria-hidden
+              className="material-symbols-outlined text-[36px] text-on-primary"
+            >
+              restaurant
+            </span>
+          </div>
+          <h2 className="mb-2 font-display text-display-lg text-primary">{r.tenantName}</h2>
+          <p className="max-w-[280px] text-body-staff text-on-surface-variant">
+            <span className="block font-semibold text-on-surface">{r.locationName}</span>
+            {addressLines?.map((line) => (
+              <span key={line} className="block">
+                {line}
+              </span>
+            ))}
+            {r.locationPhone ? <span className="block">{r.locationPhone}</span> : null}
+          </p>
+        </section>
 
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
-          <dt className="text-muted-foreground">Order</dt>
-          <dd className="font-semibold tabular-nums">#{r.shortNumber}</dd>
-          <dt className="text-muted-foreground">Customer</dt>
-          <dd>{r.customerName}</dd>
-          <dt className="text-muted-foreground">Status</dt>
-          <dd>
-            {STATUS_LABEL[r.confirmStatus ?? ''] ?? r.confirmStatus}
-            {r.ticketStatus === 'CLOSED' ? ' • picked up' : ''}
-            {r.ticketStatus === 'VOIDED' ? ' • voided' : ''}
-          </dd>
-          {r.closedAt ? (
-            <>
-              <dt className="text-muted-foreground">Closed</dt>
-              <dd>{formatDateTime(r.closedAt)}</dd>
-            </>
-          ) : (
-            <>
-              <dt className="text-muted-foreground">Pickup</dt>
-              <dd>{formatDateTime(r.pickupAt)}</dd>
-            </>
-          )}
-        </dl>
+        <section className="grid grid-cols-2 gap-y-4 border-b border-outline-variant px-12 py-8 text-body-staff">
+          <div>
+            <span className="mb-1 block font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+              Order number
+            </span>
+            <span className="text-lg font-bold tabular-nums text-on-surface">
+              #{r.shortNumber}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="mb-1 block font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+              Date &amp; time
+            </span>
+            <span className="font-medium text-on-surface">
+              {formatDateTime(r.closedAt ?? r.pickupAt)}
+            </span>
+          </div>
+          <div>
+            <span className="mb-1 block font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+              Customer
+            </span>
+            <span className="font-medium text-on-surface">{r.customerName}</span>
+          </div>
+          <div className="text-right">
+            <span className="mb-1 block font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+              Status
+            </span>
+            <span className="font-medium text-on-surface">
+              {STATUS_LABEL[r.confirmStatus ?? ''] ?? r.confirmStatus}
+              {r.ticketStatus === 'CLOSED' ? ' · picked up' : ''}
+              {r.ticketStatus === 'VOIDED' ? ' · voided' : ''}
+            </span>
+          </div>
+        </section>
 
-        <div>
-          <table className="w-full text-xs">
-            <thead className="border-b">
-              <tr>
-                <th className="py-1 text-left font-medium">Item</th>
-                <th className="py-1 text-right font-medium">Qty</th>
-                <th className="py-1 text-right font-medium">Price</th>
-                <th className="py-1 text-right font-medium">Total</th>
+        <section className="flex-grow px-12 py-10">
+          <table className="w-full text-left text-body-customer">
+            <thead>
+              <tr className="border-b border-outline-variant text-on-surface-variant">
+                <th className="pb-4 font-label-caps text-label-caps uppercase tracking-wider">
+                  Item
+                </th>
+                <th className="pb-4 text-center font-label-caps text-label-caps uppercase tracking-wider">
+                  Qty
+                </th>
+                <th className="pb-4 text-right font-label-caps text-label-caps uppercase tracking-wider">
+                  Price
+                </th>
+                <th className="pb-4 text-right font-label-caps text-label-caps uppercase tracking-wider">
+                  Total
+                </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-outline-variant/30">
               {liveItems.map((i, idx) => (
                 <tr key={`${i.nameSnapshot}-${idx}`} className="align-top">
-                  <td className="py-1">
-                    <div className="font-medium">{i.nameSnapshot}</div>
+                  <td className="py-6">
+                    <div className="font-bold text-on-surface">{i.nameSnapshot}</div>
                     {i.modifiers && i.modifiers.length > 0 ? (
-                      <ul className="text-muted-foreground">
+                      <div className="mt-1 text-body-staff leading-relaxed text-on-surface-variant">
                         {i.modifiers.map((m, j) => (
-                          <li key={j}>
+                          <div key={j}>
                             + {m.nameSnapshot}
                             {(m.priceDeltaCents ?? 0) > 0
                               ? ` (${formatMoney(m.priceDeltaCents ?? 0, currency)})`
                               : ''}
-                          </li>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     ) : null}
                   </td>
-                  <td className="py-1 text-right tabular-nums">{i.quantity}</td>
-                  <td className="py-1 text-right tabular-nums">
+                  <td className="py-6 text-center font-medium tabular-nums text-on-surface">
+                    {i.quantity}
+                  </td>
+                  <td className="py-6 text-right font-medium tabular-nums text-on-surface">
                     {formatMoney(
                       (i.unitPriceCents ?? 0) + (i.modifiersTotalCents ?? 0),
                       currency,
                     )}
                   </td>
-                  <td className="py-1 text-right tabular-nums">
+                  <td className="py-6 text-right font-medium tabular-nums text-on-surface">
                     {formatMoney(i.lineSubtotalCents ?? 0, currency)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </section>
 
-        <dl className="ml-auto grid grid-cols-[auto_auto] gap-x-3 gap-y-0.5 text-xs">
-          <dt className="text-muted-foreground">Subtotal</dt>
-          <dd className="text-right tabular-nums">
-            {formatMoney(r.subtotalCents ?? 0, currency)}
-          </dd>
-          {r.taxCents != null && r.taxCents > 0 ? (
-            <>
-              <dt className="text-muted-foreground">Tax</dt>
-              <dd className="text-right tabular-nums">
-                {formatMoney(r.taxCents, currency)}
-              </dd>
-            </>
-          ) : null}
-          <dt className="border-t pt-1 font-semibold">Total</dt>
-          <dd className="border-t pt-1 text-right font-semibold tabular-nums">
-            {formatMoney(r.totalCents ?? 0, currency)}
-          </dd>
-          {r.tipCents != null && r.tipCents > 0 ? (
-            <>
-              <dt className="text-muted-foreground">Tip</dt>
-              <dd className="text-right tabular-nums">
-                {formatMoney(r.tipCents, currency)}
-              </dd>
-              <dt className="border-t pt-1 font-semibold">Grand total</dt>
-              <dd className="border-t pt-1 text-right font-semibold tabular-nums">
-                {formatMoney((r.totalCents ?? 0) + r.tipCents, currency)}
-              </dd>
-            </>
-          ) : null}
-        </dl>
+        <section className="mt-auto bg-surface-container-low px-12 py-10">
+          <div className="mb-6 space-y-3 text-body-staff">
+            <div className="flex items-center justify-between text-on-surface-variant">
+              <span>Subtotal</span>
+              <span className="tabular-nums">
+                {formatMoney(r.subtotalCents ?? 0, currency)}
+              </span>
+            </div>
+            {r.taxCents != null && r.taxCents > 0 ? (
+              <div className="flex items-center justify-between text-on-surface-variant">
+                <span>Tax</span>
+                <span className="tabular-nums">{formatMoney(r.taxCents, currency)}</span>
+              </div>
+            ) : null}
+            {r.tipCents != null && r.tipCents > 0 ? (
+              <div className="flex items-center justify-between text-on-surface-variant">
+                <span>Tip</span>
+                <span className="tabular-nums">{formatMoney(r.tipCents, currency)}</span>
+              </div>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between border-t-2 border-dashed border-primary pt-6">
+            <span className="font-display text-display-lg text-primary">Total</span>
+            <span className="font-display text-display-lg tabular-nums text-primary">
+              {formatMoney(
+                (r.totalCents ?? 0) + (r.tipCents ?? 0),
+                currency,
+              )}
+            </span>
+          </div>
+        </section>
 
-        <p className="text-center text-[10px] text-muted-foreground">
-          Thank you for ordering with {r.tenantName}.
-        </p>
+        <footer className="border-t border-outline-variant px-12 py-10 text-center">
+          <p className="text-body-staff text-on-surface-variant">
+            Thank you for ordering with {r.tenantName}.
+            <br />
+            We hope to see you again soon!
+          </p>
+        </footer>
       </article>
     </div>
   );

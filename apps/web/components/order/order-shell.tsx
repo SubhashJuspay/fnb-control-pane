@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Provider as UrqlProvider } from 'urql';
-import { ShoppingCart } from 'lucide-react';
-import { Button, formatMoney } from '@repo/ui';
+import { formatMoney } from '@repo/ui';
 import { createPublicUrqlClient } from './public-graphql-client';
 import { CartProvider, useCart } from './cart-state';
 import { CartDrawer } from './cart-drawer';
@@ -16,20 +15,11 @@ export interface OrderShellProps {
   locationName: string;
   currency: string;
   showCart?: boolean;
-  /** When false, cart checkout is disabled. SSR-snapshot only. */
   acceptingOrders?: boolean;
-  /** Optional copy for the disabled state (e.g. "Opens at 7am"). */
   closedReason?: string | null;
   children: ReactNode;
 }
 
-/**
- * Wraps the public order surface with anonymous urql client + cart provider.
- * Header shows tenant + location, plus a cart icon (toggles `<CartDrawer>`).
- *
- * `showCart` defaults to true; pass false on confirmation/tracking pages
- * where the cart is no longer the primary action.
- */
 export function OrderShell({
   tenantSlug,
   locationSlug,
@@ -79,84 +69,107 @@ function OrderShellInner({
 }): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { itemCount, totalCents } = useCart();
-
   const hasItems = itemCount > 0;
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <Link
-            href={`/order/${tenantSlug}/${locationSlug}`}
-            className="flex flex-col"
-            data-testid="order-shell-home-link"
+    <div className="flex min-h-screen flex-col bg-background text-on-surface">
+      <header
+        className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-container-margin shadow-sm"
+        data-testid="order-shell-header"
+      >
+        <Link
+          href={`/order/${tenantSlug}/${locationSlug}`}
+          className="flex items-center gap-3"
+          data-testid="order-shell-home-link"
+        >
+          <h1
+            className="font-display text-headline-md font-bold text-primary"
+            data-testid="order-shell-tenant"
           >
-            <span className="text-sm font-semibold leading-tight" data-testid="order-shell-tenant">
-              {tenantName}
+            {tenantName}
+          </h1>
+          <span className="hidden items-center gap-2 rounded-full bg-surface-container px-3 py-1 md:inline-flex">
+            <span
+              className="material-symbols-outlined text-primary"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              location_on
             </span>
-            <span className="text-xs text-muted-foreground" data-testid="order-shell-location">
+            <span
+              className="text-body-staff font-semibold text-on-surface"
+              data-testid="order-shell-location"
+            >
               {locationName}
             </span>
-          </Link>
-          {showCart ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setDrawerOpen(true)}
-              data-testid="order-cart-button"
-              className="relative"
-            >
-              <ShoppingCart className="mr-2 size-4" />
-              <span data-testid="order-cart-summary">
-                {hasItems ? `${itemCount} • ${formatMoney(totalCents, currency)}` : 'Cart'}
-              </span>
-              {hasItems ? (
-                <span
-                  aria-hidden
-                  className="ml-1 inline-flex h-2 w-2 rounded-full bg-primary"
-                />
-              ) : null}
-            </Button>
-          ) : null}
-        </div>
+          </span>
+        </Link>
+        {showCart ? (
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            data-testid="order-cart-button"
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 font-label-caps text-label-caps text-on-primary transition-transform active:scale-95"
+          >
+            <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
+            <span data-testid="order-cart-summary">
+              {hasItems
+                ? `Cart (${itemCount}) · ${formatMoney(totalCents, currency)}`
+                : 'Cart'}
+            </span>
+          </button>
+        ) : null}
       </header>
+
       <main
         className={[
-          'mx-auto w-full max-w-6xl flex-1 px-4 py-4',
-          showCart && hasItems ? 'pb-24' : '',
+          'mx-auto w-full max-w-6xl flex-1 px-container-margin py-stack-loose',
+          showCart && hasItems ? 'pb-28' : '',
         ].join(' ')}
       >
         {children}
       </main>
+
       {showCart && hasItems ? (
-        <div
-          className="sticky bottom-0 z-30 border-t bg-background/95 backdrop-blur"
+        <footer
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-outline-variant bg-surface-container-lowest px-container-margin py-3 shadow-bottom-bar"
           data-testid="order-review-bar"
         >
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">
-                {itemCount === 1 ? '1 item' : `${itemCount} items`}
+              <span className="text-status-pill font-status-pill uppercase tracking-tight text-on-surface-variant">
+                Current order
               </span>
-              <span
-                className="text-lg font-bold tabular-nums"
-                data-testid="order-review-bar-total"
-              >
-                {formatMoney(totalCents, currency)}
-              </span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-body-staff font-bold text-on-surface">
+                  {itemCount === 1 ? '1 item' : `${itemCount} items`}
+                </span>
+                <span
+                  className="text-lg font-bold tabular-nums text-primary"
+                  data-testid="order-review-bar-total"
+                >
+                  {formatMoney(totalCents, currency)}
+                </span>
+              </div>
             </div>
-            <Button
+            <button
               type="button"
-              size="lg"
               onClick={() => setDrawerOpen(true)}
               data-testid="order-review-bar-cta"
-              className="min-w-[180px]"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-95"
             >
               Review order ({itemCount})
-            </Button>
+              <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+            </button>
           </div>
+        </footer>
+      ) : null}
+
+      {!acceptingOrders && closedReason ? (
+        <div className="sr-only" role="status">
+          {closedReason}
         </div>
       ) : null}
+
       {showCart ? (
         <CartDrawer
           tenantSlug={tenantSlug}

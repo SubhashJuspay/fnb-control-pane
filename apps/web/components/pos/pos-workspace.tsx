@@ -108,7 +108,7 @@ export function PosWorkspace({
             }}
           />
         </div>
-        <div className="hidden w-96 flex-col border-l bg-surface md:flex">
+        <div className="hidden w-[360px] flex-col border-l border-outline-variant bg-surface-container-lowest shadow-2xl md:flex">
           {activeTicketId ? (
             <ActiveTicketPanel
               ticketId={activeTicketId}
@@ -116,13 +116,18 @@ export function PosWorkspace({
               onTicketClosed={() => refetchOpenTickets({ requestPolicy: 'network-only' })}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center p-6 text-center text-xs text-muted-foreground">
-              <p>
-                Select an open ticket or create a new one.
-                <br />
-                <span className="opacity-70">
-                  Tenant: {tenantSlug} · Location: {locationSlug}
-                </span>
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <span
+                aria-hidden
+                className="material-symbols-outlined text-[40px] text-on-surface-variant/50"
+              >
+                receipt_long
+              </span>
+              <p className="text-body-customer font-semibold text-on-surface">
+                Select an open ticket or create a new one
+              </p>
+              <p className="text-body-staff text-on-surface-variant">
+                {tenantSlug} · {locationSlug}
               </p>
             </div>
           )}

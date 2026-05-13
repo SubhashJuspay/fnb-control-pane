@@ -2,32 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useParams } from 'next/navigation';
-import {
-  BarChart3,
-  CalendarClock,
-  CalendarDays,
-  CalendarRange,
-  ChefHat,
-  Clock,
-  ClipboardList,
-  FileText,
-  History,
-  LayoutDashboard,
-  MapPin,
-  Receipt,
-  Settings,
-  ShoppingBag,
-  Users,
-  UserCircle,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { cn } from '@repo/ui';
 import type { AppShellTenant } from '@/lib/viewer';
 
 /**
  * Role hierarchy used for nav visibility. Members in this app:
  *   OWNER > ADMIN > MANAGER > STAFF > VIEWER
- * `roleAtLeast(actual, min)` returns true if `actual` ≥ `min` in this rank.
  */
 const ROLE_RANK: Record<string, number> = {
   VIEWER: 0,
@@ -43,7 +23,7 @@ function roleAtLeast(actual: string | null | undefined, min: string): boolean {
 interface NavItem {
   href: string;
   label: string;
-  icon: LucideIcon;
+  icon: string;
   matches: (pathname: string) => boolean;
 }
 
@@ -68,34 +48,32 @@ export function Sidebar({ tenants }: SidebarProps) {
 
   if (tenantSlug && locationSlug) {
     const base = `/${tenantSlug}/${locationSlug}`;
-    const startsWith = (sub: string) => (path: string) => path.startsWith(`${base}/${sub}`);
+    const startsWith = (sub: string) => (path: string) =>
+      path.startsWith(`${base}/${sub}`);
 
-    // Operations — STAFF+ visible. Day-to-day surfaces servers and cooks use.
     if (roleAtLeast(role, 'STAFF')) {
       groups.push({
         label: 'Operations',
         items: [
-          { href: `${base}/pos`, label: 'POS', icon: Receipt, matches: startsWith('pos') },
-          { href: `${base}/kds`, label: 'Kitchen', icon: ChefHat, matches: startsWith('kds') },
-          { href: `${base}/floor`, label: 'Floor', icon: MapPin, matches: startsWith('floor') },
+          { href: `${base}/pos`, label: 'POS', icon: 'point_of_sale', matches: startsWith('pos') },
+          { href: `${base}/kds`, label: 'Kitchen', icon: 'restaurant', matches: startsWith('kds') },
+          { href: `${base}/floor`, label: 'Floor', icon: 'table_bar', matches: startsWith('floor') },
           {
             href: `${base}/reservations`,
             label: 'Reservations',
-            icon: CalendarDays,
+            icon: 'event',
             matches: startsWith('reservations'),
           },
           {
             href: `${base}/online-orders`,
             label: 'Online orders',
-            icon: ShoppingBag,
+            icon: 'shopping_bag',
             matches: startsWith('online-orders'),
           },
         ],
       });
     }
 
-    // Insights — MANAGER+ (the resolvers reject STAFF). VIEWER also gets
-    // Dashboard + Insights as a read-only courtesy.
     {
       const isViewer = role === 'VIEWER';
       const isManagerPlus = roleAtLeast(role, 'MANAGER');
@@ -104,13 +82,13 @@ export function Sidebar({ tenants }: SidebarProps) {
         insights.push({
           href: `${base}/dashboard`,
           label: 'Dashboard',
-          icon: LayoutDashboard,
+          icon: 'dashboard',
           matches: startsWith('dashboard'),
         });
         insights.push({
           href: `${base}/insights`,
           label: 'Insights',
-          icon: BarChart3,
+          icon: 'analytics',
           matches: startsWith('insights'),
         });
       }
@@ -118,19 +96,19 @@ export function Sidebar({ tenants }: SidebarProps) {
         insights.push({
           href: `${base}/tickets`,
           label: 'Ticket history',
-          icon: History,
+          icon: 'history',
           matches: startsWith('tickets'),
         });
         insights.push({
           href: `${base}/end-of-day`,
           label: 'End of day',
-          icon: FileText,
+          icon: 'description',
           matches: startsWith('end-of-day'),
         });
         insights.push({
           href: `${base}/guests`,
           label: 'Guests',
-          icon: UserCircle,
+          icon: 'group',
           matches: startsWith('guests'),
         });
       }
@@ -139,26 +117,24 @@ export function Sidebar({ tenants }: SidebarProps) {
       }
     }
 
-    // Personal — every authenticated location user gets these.
     groups.push({
       label: 'My day',
       items: [
         {
           href: `${base}/time-clock`,
           label: 'Time clock',
-          icon: Clock,
+          icon: 'schedule',
           matches: startsWith('time-clock'),
         },
         {
           href: `${base}/my-schedule`,
           label: 'My schedule',
-          icon: CalendarClock,
+          icon: 'event_available',
           matches: startsWith('my-schedule'),
         },
       ],
     });
 
-    // Setup — MANAGER+. Editorial surfaces.
     if (roleAtLeast(role, 'MANAGER')) {
       groups.push({
         label: 'Setup',
@@ -166,19 +142,19 @@ export function Sidebar({ tenants }: SidebarProps) {
           {
             href: `${base}/schedule`,
             label: 'Schedule',
-            icon: CalendarRange,
+            icon: 'calendar_month',
             matches: startsWith('schedule'),
           },
           {
             href: `${base}/time-entries`,
             label: 'Time entries',
-            icon: ClipboardList,
+            icon: 'list_alt',
             matches: startsWith('time-entries'),
           },
           {
             href: `${base}/settings`,
             label: 'Settings',
-            icon: Settings,
+            icon: 'settings',
             matches: startsWith('settings'),
           },
         ],
@@ -191,14 +167,13 @@ export function Sidebar({ tenants }: SidebarProps) {
         {
           href: `/${tenantSlug}/overview`,
           label: 'Overview',
-          icon: LayoutDashboard,
+          icon: 'dashboard',
           matches: (p) => p.startsWith(`/${tenantSlug}/overview`),
         },
       ],
     });
   }
 
-  // Admin — tenant-wide, ADMIN+. Visible whether or not a location is selected.
   if (tenantSlug && roleAtLeast(role, 'ADMIN')) {
     groups.push({
       label: 'Admin',
@@ -206,25 +181,25 @@ export function Sidebar({ tenants }: SidebarProps) {
         {
           href: `/${tenantSlug}/admin/members`,
           label: 'Members',
-          icon: Users,
+          icon: 'group',
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/members`),
         },
         {
           href: `/${tenantSlug}/admin/catalog`,
           label: 'Catalog',
-          icon: Receipt,
+          icon: 'menu_book',
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/catalog`),
         },
         {
           href: `/${tenantSlug}/admin/locations`,
           label: 'Locations',
-          icon: MapPin,
+          icon: 'location_on',
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/locations`),
         },
         {
           href: `/${tenantSlug}/admin/audit-log`,
           label: 'Audit log',
-          icon: History,
+          icon: 'fact_check',
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/audit-log`),
         },
       ],
@@ -232,45 +207,80 @@ export function Sidebar({ tenants }: SidebarProps) {
   }
 
   return (
-    <aside className="hidden w-60 shrink-0 border-r bg-muted/30 lg:flex lg:flex-col">
-      <div className="flex h-14 items-center border-b px-4">
-        <Link href="/" className="text-sm font-semibold tracking-tight">
+    // Sidebar is a "fixed-tone" surface — always navy regardless of light/dark
+    // mode. Uses --m3-on-secondary-fixed (#131b2e) which is the same value in
+    // both palettes, matching the "persistent Navy sidebar" guidance from the
+    // design ref.
+    <aside
+      className="hidden w-60 shrink-0 flex-col lg:flex"
+      style={{ backgroundColor: '#131b2e', color: '#e4e1ee' }}
+    >
+      <div
+        className="flex h-16 items-center gap-2 px-card-padding"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+      >
+        <span
+          aria-hidden
+          className="material-symbols-outlined"
+          style={{ fontVariationSettings: "'FILL' 1", color: '#c3c0ff' }}
+        >
+          restaurant_menu
+        </span>
+        <Link
+          href="/"
+          className="font-display text-body-customer font-bold tracking-tight"
+          style={{ color: '#ffffff' }}
+        >
           F&amp;B Control Pane
         </Link>
       </div>
-      <nav className="flex flex-col gap-4 overflow-y-auto p-2" aria-label="Primary">
+      <nav
+        className="flex flex-1 flex-col gap-stack-loose overflow-y-auto px-3 py-gutter"
+        aria-label="Primary"
+      >
         {groups.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-muted-foreground">
+          <p className="px-3 py-2 text-body-staff" style={{ color: 'rgba(228,225,238,0.6)' }}>
             Choose a workspace from the location switcher to begin.
           </p>
         ) : null}
         {groups.map((group) => (
-          <div key={group.label} className="flex flex-col gap-0.5">
-            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div key={group.label} className="flex flex-col gap-1">
+            <p
+              className="px-3 pb-1 font-label-caps text-label-caps uppercase tracking-wider"
+              style={{ color: 'rgba(228,225,238,0.5)' }}
+            >
               {group.label}
             </p>
             {group.items.map((item) => {
               const isActive = item.matches(pathname);
-              const Icon = item.icon;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                    'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-body-staff font-medium transition-colors',
                     isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                      ? 'shadow-sm'
+                      : 'hover:bg-white/10',
                   )}
+                  style={
+                    isActive
+                      ? { backgroundColor: '#4f46e5', color: '#ffffff' }
+                      : { color: 'rgba(228,225,238,0.8)' }
+                  }
                   data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                 >
-                  <Icon
-                    className={cn(
-                      'size-4',
-                      isActive ? 'text-primary' : 'text-muted-foreground',
-                    )}
-                  />
+                  <span
+                    aria-hidden
+                    className="material-symbols-outlined text-[20px]"
+                    style={{
+                      color: isActive ? '#ffffff' : 'rgba(228,225,238,0.7)',
+                      fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0",
+                    }}
+                  >
+                    {item.icon}
+                  </span>
                   {item.label}
                 </Link>
               );

@@ -73,17 +73,19 @@ function StatusPill({ status }: { status: TicketStatus | null | undefined }): Re
   const cls = (() => {
     switch (status) {
       case TicketStatus.Open:
-        return 'bg-emerald-100 text-emerald-800';
+        return 'bg-success-container text-success-on-container';
       case TicketStatus.Closed:
-        return 'bg-secondary text-secondary-foreground';
+        return 'bg-secondary-container text-secondary-on-container';
       case TicketStatus.Voided:
-        return 'bg-red-100 text-red-800';
+        return 'bg-error-container text-error-on-container';
       default:
-        return 'bg-muted text-muted-foreground';
+        return 'bg-surface-container text-on-surface-variant';
     }
   })();
   return (
-    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${cls}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 font-status-pill text-status-pill uppercase tracking-wider ${cls}`}
+    >
       {status ? STATUS_LABEL[status] : '—'}
     </span>
   );
@@ -255,10 +257,10 @@ export function TicketsTable({
   const showInitialEmpty = !fetching && accumulated.length === 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-gutter">
       <TicketsFilters servers={servers} initialValues={initialFilters} />
       {error ? (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="rounded-xl border border-error/30 bg-error-container p-3 text-body-staff text-error-on-container" role="alert">
           {error.message}
         </p>
       ) : null}
@@ -270,14 +272,14 @@ export function TicketsTable({
           description="Try widening the date range or clearing filters."
         />
       ) : (
-        <>
+        <div className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container-lowest shadow-card-soft">
           <DataTable
             columns={columnsClickable}
             rows={rowsWithClick}
             rowKey={(r) => r.id ?? ''}
             emptyTitle="No tickets"
           />
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center justify-between gap-2 border-t border-outline-variant bg-surface-container-low px-4 py-3 text-body-staff text-on-surface-variant">
             <span>
               {fetching ? 'Loading…' : `${accumulated.length} tickets shown`}
             </span>
@@ -288,12 +290,13 @@ export function TicketsTable({
                 size="sm"
                 onClick={() => setCursor(pageInfo?.endCursor ?? null)}
                 disabled={fetching}
+                className="border-primary text-primary hover:bg-primary/5"
               >
                 Load more
               </Button>
             ) : null}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

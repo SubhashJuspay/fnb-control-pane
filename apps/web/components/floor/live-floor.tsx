@@ -16,10 +16,26 @@ import {
 import { TableActionSheet, type LiveFloorTable } from './table-action-sheet';
 
 const STATE_LEGEND: Array<{ key: GqlTableState; label: string; className: string }> = [
-  { key: 'AVAILABLE' as GqlTableState, label: 'Available', className: 'bg-emerald-100 text-emerald-900 border-emerald-500' },
-  { key: 'OCCUPIED' as GqlTableState, label: 'Occupied', className: 'bg-red-100 text-red-900 border-red-500' },
-  { key: 'RESERVED' as GqlTableState, label: 'Reserved', className: 'bg-amber-100 text-amber-900 border-amber-500' },
-  { key: 'CLEANING' as GqlTableState, label: 'Cleaning', className: 'bg-gray-200 text-gray-700 border-gray-500' },
+  {
+    key: 'AVAILABLE' as GqlTableState,
+    label: 'Available',
+    className: 'bg-success-container text-success-on-container border-success/40',
+  },
+  {
+    key: 'OCCUPIED' as GqlTableState,
+    label: 'Occupied',
+    className: 'bg-error-container text-error-on-container border-error/40',
+  },
+  {
+    key: 'RESERVED' as GqlTableState,
+    label: 'Reserved',
+    className: 'bg-warning-container text-warning-on-container border-warning/40',
+  },
+  {
+    key: 'CLEANING' as GqlTableState,
+    label: 'Cleaning',
+    className: 'bg-surface-container-high text-on-surface-variant border-outline-variant',
+  },
 ];
 
 type FloorTableNode = NonNullable<NonNullable<FloorTablesQuery['floorTables']>[number]>;
@@ -154,18 +170,20 @@ export function LiveFloor({
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-surface px-4 py-3">
+    <div className="flex h-full flex-col bg-background">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-outline-variant bg-surface px-container-margin py-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">{locationName} · Floor</h1>
+          <h1 className="font-display text-headline-md font-bold text-on-surface">
+            {locationName} · Floor
+          </h1>
           {fetching ? (
-            <span className="text-xs text-muted-foreground">Refreshing…</span>
+            <span className="text-status-pill text-on-surface-variant">Refreshing…</span>
           ) : null}
         </div>
         <div className="flex items-center gap-2">
           <select
             data-section-filter
-            className="rounded-md border bg-background px-2 py-1 text-sm"
+            className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-staff text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30"
             value={sectionFilter}
             onChange={(e) => setSectionFilter(e.target.value as string | 'ALL')}
           >
@@ -176,37 +194,39 @@ export function LiveFloor({
               </option>
             ))}
           </select>
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-staff text-on-surface">
             <input
               type="checkbox"
               checked={myTablesOnly}
               onChange={(e) => setMyTablesOnly(e.target.checked)}
+              className="accent-primary"
             />
             My tables
           </label>
           {canManagerActions ? (
             <Link
               href={`/${tenantSlug}/${locationSlug}/floor/edit`}
-              className="rounded-md border bg-background px-2 py-1 text-xs hover:bg-muted"
+              className="rounded-lg border border-primary bg-surface-container-lowest px-3 py-1.5 text-body-staff font-semibold text-primary transition-colors hover:bg-primary/5"
             >
               Edit floor
             </Link>
           ) : null}
         </div>
       </header>
-      <div className="flex flex-wrap items-center gap-3 border-b bg-muted/30 px-4 py-2 text-xs">
+      <div className="flex flex-wrap items-center gap-3 border-b border-outline-variant bg-surface-container-low px-container-margin py-3">
         {STATE_LEGEND.map((s) => (
           <span
             key={s.key}
-            className={`rounded-md border px-2 py-1 ${s.className}`}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 font-status-pill text-status-pill uppercase tracking-wider ${s.className}`}
             data-legend-state={s.key}
           >
-            {s.label}: {counts[s.key] ?? 0}
+            <span aria-hidden className="size-1.5 rounded-full bg-current opacity-70" />
+            {s.label}: <span className="tabular-nums">{counts[s.key] ?? 0}</span>
           </span>
         ))}
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
+      <div className="flex-1 overflow-auto p-container-margin">
         {filteredTables.length === 0 ? (
           <EmptyState
             title="No tables on this floor"

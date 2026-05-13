@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { useQuery } from 'urql';
-import { Button, EmptyState, formatMoney } from '@repo/ui';
-import { ClipboardList, Plus } from 'lucide-react';
+import { EmptyState, formatMoney } from '@repo/ui';
+import { ClipboardList } from 'lucide-react';
 import {
   OpenTicketsDocument,
   OrderType,
@@ -34,12 +34,19 @@ function formatOpenedAt(iso: string | null | undefined): string {
   }
 }
 
-/**
- * Left rail of the POS workspace. Lists every open ticket at the current
- * location and lets staff flip between them by setting `?ticket=<id>` in the
- * URL. Refetches whenever the parent workspace receives a `TicketUpdates`
- * subscription event.
- */
+function elapsedMinutes(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const diff = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+    const m = Math.floor(diff / 60);
+    const s = diff % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}m`;
+  } catch {
+    return '';
+  }
+}
+
 export function OpenTicketsSidebar({
   activeTicketId,
   onSelectTicket,
@@ -58,38 +65,50 @@ export function OpenTicketsSidebar({
     onSelectTicket(ticketId);
   };
 
+  const activeCount = tickets.length;
+
   return (
-    <aside className="flex h-full w-72 flex-col border-r bg-surface">
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+    <aside className="flex h-full w-[280px] flex-col border-r border-outline-variant bg-surface-container-low">
+      <div className="flex items-center justify-between gap-2 border-b border-outline-variant px-4 py-3">
+        <h2 className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
           Open tickets
         </h2>
-        <Button type="button" size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-1 h-4 w-4" aria-hidden />
+        <span className="rounded-full bg-secondary-container px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase text-secondary-on-container">
+          {activeCount} active
+        </span>
+      </div>
+      <div className="border-b border-outline-variant px-3 py-3">
+        <button
+          type="button"
+          onClick={() => setDialogOpen(true)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-bold text-on-primary shadow-card-soft transition-all hover:opacity-90 active:scale-[0.98]"
+        >
+          <span aria-hidden className="material-symbols-outlined text-[18px]">
+            add
+          </span>
           New ticket
-        </Button>
+        </button>
       </div>
       {error ? (
-        <p className="px-3 py-2 text-sm text-destructive" role="alert">
+        <p className="px-3 py-2 text-body-staff text-error" role="alert">
           {error.message}
         </p>
       ) : null}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-3">
         {fetching && tickets.length === 0 ? (
-          <p className="px-3 py-3 text-sm text-muted-foreground">Loading…</p>
+          <p className="text-body-staff text-on-surface-variant">Loading…</p>
         ) : tickets.length === 0 ? (
-          <div className="p-3">
-            <EmptyState
-              icon={ClipboardList}
-              title="No open tickets"
-              description="Start by opening one."
-            />
-          </div>
+          <EmptyState
+            icon={ClipboardList}
+            title="No open tickets"
+            description="Start by opening one."
+          />
         ) : (
-          <ul className="flex flex-col gap-1 p-2">
+          <ul className="flex flex-col gap-3">
             {tickets.map((t) => {
               const isActive = activeTicketId === t.id;
-              const lineCount = t.items?.filter((i) => i?.status !== 'VOIDED').length ?? 0;
+              const lineCount =
+                t.items?.filter((i) => i?.status !== 'VOIDED').length ?? 0;
               const isDineIn = t.orderType === OrderType.DineIn;
               const isTakeout = t.orderType === OrderType.Takeout;
               const hasLabel = Boolean(t.customerLabel);
@@ -100,68 +119,62 @@ export function OpenTicketsSidebar({
                     onClick={() => t.id && onSelectTicket(t.id)}
                     aria-pressed={isActive}
                     className={[
-                      'group relative flex w-full flex-col gap-1.5 overflow-hidden rounded-lg border p-3 pl-4 text-left transition-all',
+                      'group relative flex w-full flex-col gap-2 overflow-hidden rounded-xl bg-surface-container-lowest p-4 text-left shadow-sm transition-all',
                       isActive
-                        ? 'border-primary/40 bg-primary/10 shadow-sm'
-                        : 'border-border bg-card hover:border-primary/30 hover:bg-muted/40',
+                        ? 'border-l-4 border-primary ring-1 ring-primary/10'
+                        : 'border border-outline-variant hover:border-primary/50',
                     ].join(' ')}
                   >
-                    {/* Left accent bar — full height when active, fades in on hover otherwise. */}
-                    <span
-                      aria-hidden
-                      className={[
-                        'absolute inset-y-0 left-0 w-1 transition-opacity',
-                        isActive ? 'bg-primary opacity-100' : 'bg-primary opacity-0 group-hover:opacity-40',
-                      ].join(' ')}
-                    />
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-base font-bold tabular-nums">
-                        #{t.shortNumber ?? '—'}
-                      </span>
-                      <span
-                        className={[
-                          'text-base font-semibold tabular-nums',
-                          (t.totalCents ?? 0) > 0 ? 'text-foreground' : 'text-muted-foreground',
-                        ].join(' ')}
-                      >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span
+                          className={[
+                            'text-body-customer font-bold tabular-nums',
+                            isActive ? 'text-primary' : 'text-on-surface',
+                          ].join(' ')}
+                        >
+                          #{t.shortNumber ?? '—'}
+                        </span>
+                        <span
+                          className={[
+                            'text-body-staff font-medium',
+                            hasLabel
+                              ? 'text-on-surface'
+                              : 'italic text-on-surface-variant',
+                          ].join(' ')}
+                        >
+                          {t.customerLabel ?? 'No label'}
+                        </span>
+                      </div>
+                      <span className="text-body-customer font-bold tabular-nums text-on-surface">
                         {formatMoney(t.totalCents ?? 0, currency)}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center justify-between gap-2 font-label-caps text-[10px] uppercase tracking-wider text-on-surface-variant">
+                      <span>
+                        {lineCount} {lineCount === 1 ? 'item' : 'items'}
+                      </span>
                       <span
                         className={[
-                          'truncate font-medium',
-                          hasLabel ? 'text-foreground' : 'italic text-muted-foreground',
+                          'tabular-nums',
+                          isActive ? 'text-primary' : 'text-on-surface-variant',
                         ].join(' ')}
                       >
-                        {t.customerLabel ?? 'No label'}
-                      </span>
-                      <span className="shrink-0 tabular-nums text-muted-foreground">
-                        {formatOpenedAt(t.openedAt)}
+                        {elapsedMinutes(t.openedAt) || formatOpenedAt(t.openedAt)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <span
                         className={[
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                          'rounded-full px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider',
                           isDineIn
-                            ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200'
+                            ? 'bg-secondary-container text-secondary-on-container'
                             : isTakeout
-                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200'
-                              : 'bg-muted text-muted-foreground',
+                              ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
+                              : 'bg-surface-container-high text-on-surface-variant',
                         ].join(' ')}
                       >
                         {t.orderType ? ORDER_TYPE_LABEL[t.orderType] : '—'}
-                      </span>
-                      <span
-                        className={[
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium tabular-nums',
-                          lineCount === 0
-                            ? 'bg-muted text-muted-foreground'
-                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200',
-                        ].join(' ')}
-                      >
-                        {lineCount} {lineCount === 1 ? 'item' : 'items'}
                       </span>
                     </div>
                   </button>

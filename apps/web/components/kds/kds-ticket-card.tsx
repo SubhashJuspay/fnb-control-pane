@@ -160,12 +160,33 @@ export function KdsTicketCard({
       data-testid={`kds-card-${ticket.id ?? ''}`}
       headerSlot={
         <div className="flex flex-col gap-2">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-2xl font-bold">#{ticket.shortNumber ?? '—'}</span>
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col">
+              <span
+                className={[
+                  'font-display text-display-lg leading-none',
+                  variant === 'default' ? 'text-primary' : 'text-on-tertiary-fixed',
+                ].join(' ')}
+              >
+                #{ticket.shortNumber ?? '—'}
+              </span>
+              <span
+                className={[
+                  'font-display text-headline-md font-semibold',
+                  variant === 'default'
+                    ? 'text-on-surface'
+                    : 'text-on-tertiary-fixed',
+                ].join(' ')}
+              >
+                {ticket.onlineRequest?.customerName ??
+                  ticket.customerLabel ??
+                  'No label'}
+              </span>
+            </div>
+            <div className="flex flex-col items-end gap-2">
               {ticket.originChannel === 'ONLINE' ? (
                 <span
-                  className="inline-flex items-center gap-0.5 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800"
+                  className="inline-flex items-center gap-1 rounded bg-secondary-container px-2 py-1 font-status-pill text-status-pill text-secondary-on-container"
                   title="Online order"
                 >
                   <Globe className="size-3" aria-hidden />
@@ -174,41 +195,34 @@ export function KdsTicketCard({
               ) : null}
               <span
                 className={[
-                  'rounded-full px-2 py-0.5 text-xs font-semibold',
+                  'rounded px-2 py-1 font-status-pill text-status-pill uppercase',
                   isTakeout
-                    ? 'bg-orange-100 text-orange-800'
-                    : 'bg-secondary text-secondary-foreground',
+                    ? 'bg-tertiary text-on-tertiary'
+                    : 'bg-secondary-container text-secondary-on-container',
                 ].join(' ')}
               >
                 {orderTypeLabel}
               </span>
+              {oldestFiredAt !== null ? (
+                <span
+                  data-testid="kds-age-badge"
+                  data-variant={variant}
+                  className={[
+                    'font-label-caps text-label-caps font-bold tabular-nums uppercase',
+                    variant === 'default'
+                      ? 'text-on-surface-variant'
+                      : variant === 'warning'
+                        ? 'text-on-tertiary-fixed-variant'
+                        : 'text-error',
+                  ].join(' ')}
+                >
+                  {formatDuration(ageMs)}
+                </span>
+              ) : null}
             </div>
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-medium">
-              {ticket.onlineRequest?.customerName ??
-                ticket.customerLabel ??
-                'No label'}
-            </span>
-            {oldestFiredAt !== null ? (
-              <span
-                data-testid="kds-age-badge"
-                data-variant={variant}
-                className={[
-                  'rounded-full px-2 py-0.5 text-xs font-medium tabular-nums',
-                  variant === 'default'
-                    ? 'bg-emerald-100 text-emerald-800'
-                    : variant === 'warning'
-                      ? 'bg-amber-100 text-amber-900'
-                      : 'bg-red-100 text-red-900',
-                ].join(' ')}
-              >
-                {formatDuration(ageMs)}
-              </span>
-            ) : null}
-          </div>
           {ticket.onlineRequest?.pickupAt ? (
-            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-1 text-status-pill text-on-surface-variant">
               <Clock4 className="size-3" aria-hidden />
               Pickup{' '}
               {ticket.onlineRequest.pickupKind === 'ASAP' ? 'ASAP — ' : ''}
@@ -220,26 +234,26 @@ export function KdsTicketCard({
           ) : null}
           {ticket.onlineRequest?.notes ? (
             <div
-              className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-900"
+              className="flex items-start gap-2 rounded-lg border-l-4 border-tertiary bg-tertiary-fixed p-3 text-body-staff italic text-on-tertiary-fixed"
               data-testid="kds-order-notes"
             >
-              <StickyNote className="size-3 shrink-0" aria-hidden />
-              <span>{ticket.onlineRequest.notes}</span>
+              <StickyNote className="mt-0.5 size-3 shrink-0" aria-hidden />
+              <span>&ldquo;{ticket.onlineRequest.notes}&rdquo;</span>
             </div>
           ) : null}
         </div>
       }
     >
       {grouped.length === 0 ? (
-        <p className="text-sm text-muted-foreground">All items ready.</p>
+        <p className="text-body-staff text-on-surface-variant">All items ready.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-stack-loose">
           {grouped.map(({ course, items: courseItems }) => (
-            <li key={course} className="flex flex-col gap-1.5" data-course={course}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <li key={course} className="flex flex-col gap-2" data-course={course}>
+              <p className="font-label-caps text-label-caps uppercase tracking-wider text-outline">
                 {COURSE_LABEL[course]}
               </p>
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-3">
                 {courseItems.map((item) => (
                   <KdsItemRow
                     key={item.id ?? ''}
@@ -287,70 +301,83 @@ function KdsItemRow({
   const isNew = item.status === TicketItemStatus.New;
 
   return (
-    <li
-      className="flex items-start justify-between gap-3 rounded-md border bg-background px-2.5 py-2"
-      data-status={item.status ?? ''}
-    >
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-base font-bold tabular-nums">
-            ×{item.quantity ?? 1}
-          </span>
-          <span className="text-sm font-semibold leading-tight">
-            {item.nameSnapshot ?? '—'}
-          </span>
-        </div>
-        {modifierEntries.length > 0 ? (
-          <ul className="flex flex-col gap-0.5 text-xs">
-            {modifierEntries.map(([group, names]) => (
-              <li key={group}>
-                <span className="text-muted-foreground">{group}:</span>{' '}
-                <span className="font-medium">{names.join(', ')}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {item.notes ? (
-          <p
-            className="flex items-start gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-1 text-[11px] font-medium text-amber-900"
-            data-testid="kds-item-notes"
-          >
-            <StickyNote className="mt-0.5 size-3 shrink-0" aria-hidden />
-            <span>{item.notes}</span>
-          </p>
-        ) : null}
-        {allergens.length > 0 ? (
-          <div className="flex flex-wrap items-center gap-1">
-            <AlertTriangle className="size-3 text-rose-700" aria-hidden />
-            {allergens.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-rose-800"
-                title={tag.replace(/^CONTAINS_/, 'Contains ').toLowerCase()}
-              >
-                {tag.replace(/^CONTAINS_/, '').replace('_', ' ').toLowerCase()}
-              </span>
-            ))}
+    <li className="flex flex-col gap-2" data-status={item.status ?? ''}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-baseline gap-2">
+            <span className="text-body-customer font-bold tabular-nums text-on-surface">
+              ×{item.quantity ?? 1}
+            </span>
+            <span className="text-body-customer font-bold leading-tight text-on-surface">
+              {item.nameSnapshot ?? '—'}
+            </span>
           </div>
-        ) : null}
+          {modifierEntries.length > 0 ? (
+            <ul className="ml-4 flex flex-col gap-0.5 text-body-staff text-secondary">
+              {modifierEntries.flatMap(([_group, names]) =>
+                names.map((name) => (
+                  <li key={`${_group}-${name}`}>
+                    <span>• {name}</span>
+                  </li>
+                )),
+              )}
+            </ul>
+          ) : null}
+          {item.notes ? (
+            <p
+              className="mt-1 rounded-lg border-l-4 border-tertiary bg-tertiary-fixed px-3 py-2 text-body-staff italic text-on-tertiary-fixed"
+              data-testid="kds-item-notes"
+            >
+              <StickyNote className="mr-1 inline-block size-3 align-middle" aria-hidden />
+              &ldquo;{item.notes}&rdquo;
+            </p>
+          ) : null}
+          {allergens.length > 0 ? (
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              <AlertTriangle className="size-3 text-error" aria-hidden />
+              {allergens.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center rounded-full bg-error-container px-1.5 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wide text-error-on-container"
+                  title={tag.replace(/^CONTAINS_/, 'Contains ').toLowerCase()}
+                >
+                  {tag.replace(/^CONTAINS_/, '').replace('_', ' ').toLowerCase()}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <div className="flex shrink-0 items-center">
+          {isFired ? (
+            <span className="rounded-full bg-primary px-2 py-0.5 font-status-pill text-status-pill uppercase text-on-primary">
+              Fired
+            </span>
+          ) : isReady ? (
+            <span className="rounded-full bg-success-container px-2 py-0.5 font-status-pill text-status-pill uppercase text-on-success-container">
+              ✓ Ready
+            </span>
+          ) : isNew ? (
+            <span className="rounded-full bg-surface-container-high px-2 py-0.5 font-status-pill text-status-pill uppercase text-on-surface-variant">
+              New
+            </span>
+          ) : null}
+        </div>
       </div>
-      <div className="flex shrink-0 items-center">
-        {isFired && item.id ? (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => onBump(item.id ?? '')}
-            aria-label={`Bump ${item.nameSnapshot ?? 'item'}`}
-            disabled={pending}
-          >
-            {pending ? 'Marking…' : 'Bump'}
-          </Button>
-        ) : isReady ? (
-          <span className="text-xs font-semibold text-emerald-700">✓ Ready</span>
-        ) : isNew ? (
-          <span className="text-xs text-muted-foreground">Pending fire</span>
-        ) : null}
-      </div>
+      {isFired && item.id ? (
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => onBump(item.id ?? '')}
+          aria-label={`Bump ${item.nameSnapshot ?? 'item'}`}
+          disabled={pending}
+          className="w-full justify-center gap-2 rounded-lg bg-primary-container text-on-primary-container hover:opacity-90"
+        >
+          <span aria-hidden className="material-symbols-outlined text-[18px]">
+            check_circle
+          </span>
+          {pending ? 'Marking…' : 'Bump item'}
+        </Button>
+      ) : null}
     </li>
   );
 }

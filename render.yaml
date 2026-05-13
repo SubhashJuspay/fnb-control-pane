@@ -1,0 +1,71 @@
+# Render Blueprint — deploys the GraphQL API.
+# Web stays on Vercel; this file only covers the api service.
+#
+# Setup:
+#   1. Push this file to main.
+#   2. In Render, click "New" → "Blueprint" → connect this repo → apply.
+#   3. Fill the sync:false env vars (DATABASE_URL, AUTH_URL, etc.) when prompted.
+#
+# The build runs from the repo root because this is a pnpm workspace; setting
+# rootDir: apps/api would hide @repo/db, @repo/types, @repo/validation.
+#
+# postinstall in @repo/db runs `prisma generate`, so the Pothos types are ready
+# by the time we tsup the api.
+
+services:
+  - type: web
+    name: fnb-api
+    runtime: node
+    plan: starter
+    rootDir: .
+    autoDeploy: true
+    healthCheckPath: /health
+    buildCommand: |
+      corepack enable && \
+      corepack prepare pnpm@9.15.0 --activate && \
+      pnpm install --frozen-lockfile && \
+      pnpm --filter @app/api build
+    startCommand: pnpm --filter @app/api start
+    preDeployCommand: pnpm --filter @repo/db migrate:deploy
+    envVars:
+      - key: NODE_VERSION
+        value: '24'
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      # Render injects PORT; api/src/server.ts reads process.env.PORT.
+      # Paste the Neon connection string (or attach a Render Postgres) at deploy.
+      - key: DATABASE_URL
+        sync: false
+      # Generate with: openssl rand -base64 32 — must match AUTH_SECRET on Vercel
+      # so signed cookies cross-validate between web and api.
+      - key: AUTH_SECRET
+        sync: false
+      # Public URL of the Vercel-hosted web app, e.g. https://fnb.vercel.app
+      - key: AUTH_URL
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: '587'
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Optional observability — leave blank if unused.
+      - key: SENTRY_DSN
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_SERVICE_NAME
+        value: fnb-api
+      # Optional Twilio SMS — all three required together or dispatch is a no-op.
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false

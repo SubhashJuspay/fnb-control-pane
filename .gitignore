@@ -51,3 +51,4 @@ apps/web/lib/graphql/generated/
 .vercel/
 .vercel
 .env*.local
+design-ref/

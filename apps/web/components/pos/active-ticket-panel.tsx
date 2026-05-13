@@ -121,17 +121,21 @@ export function ActiveTicketPanel({
   };
 
   if (fetching && !ticket) {
-    return <p className="p-3 text-sm text-muted-foreground">Loading ticket…</p>;
+    return (
+      <p className="p-6 text-body-staff text-on-surface-variant">Loading ticket…</p>
+    );
   }
   if (error) {
     return (
-      <p className="p-3 text-sm text-destructive" role="alert">
+      <p className="p-6 text-body-staff text-error" role="alert">
         {error.message}
       </p>
     );
   }
   if (!ticket) {
-    return <p className="p-3 text-sm text-muted-foreground">Ticket not found.</p>;
+    return (
+      <p className="p-6 text-body-staff text-on-surface-variant">Ticket not found.</p>
+    );
   }
 
   const status = ticket.status ?? TicketStatus.Open;
@@ -248,11 +252,16 @@ export function ActiveTicketPanel({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex flex-col gap-2 border-b bg-surface px-3 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">{ticketLabel}</h2>
-          <span className="text-xs text-muted-foreground">
+    <div className="flex h-full flex-col bg-surface-container-lowest">
+      <header className="flex flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest p-6">
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="font-display text-headline-md font-bold text-on-surface">
+            <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+              Ticket{' '}
+            </span>
+            <span>{ticketLabel}</span>
+          </h2>
+          <span className="text-status-pill tabular-nums text-on-surface-variant">
             Opened {formatTime(ticket.openedAt)}
           </span>
         </div>
@@ -342,24 +351,24 @@ export function ActiveTicketPanel({
           )}
         </div>
         {isClosed ? (
-          <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <div className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-body-staff text-on-surface-variant">
             Closed at {formatTime(ticket.closedAt)} by {ticket.openedBy?.name ?? '—'}
           </div>
         ) : null}
         {isVoided ? (
-          <div className="rounded-md border bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="rounded-lg border border-error/30 bg-error-container px-3 py-2 text-body-staff text-error-on-container">
             Voided at {formatTime(ticket.voidedAt)} — {ticket.voidReason ?? 'no reason'}
           </div>
         ) : null}
       </header>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto p-gutter">
         {items.length === 0 ? (
-          <p className="p-3 text-sm text-muted-foreground">
+          <p className="text-body-staff italic text-on-surface-variant">
             No lines yet. Tap a menu tile to add one.
           </p>
         ) : (
-          <ul className="flex flex-col">
+          <ul className="flex flex-col gap-4">
             {items.map((line) => (
               <LineRow
                 key={line.id ?? ''}
@@ -381,11 +390,16 @@ export function ActiveTicketPanel({
         totalCents={ticket.totalCents ?? 0}
       />
 
-      <div className="flex flex-wrap items-center gap-2 border-t bg-surface px-3 py-3">
+      <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant bg-surface-container-low p-card-padding">
         {isOpen ? (
           <>
             {hasNew ? (
-              <Button type="button" onClick={onFireAll} disabled={firingAll}>
+              <Button
+                type="button"
+                onClick={onFireAll}
+                disabled={firingAll}
+                className="bg-tertiary text-white hover:opacity-90"
+              >
                 {firingAll ? 'Firing…' : 'Fire all'}
               </Button>
             ) : null}
@@ -396,7 +410,7 @@ export function ActiveTicketPanel({
                 onClick={onServeAllReady}
                 disabled={servingAll}
                 data-testid="serve-all-ready"
-                className="border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
+                className="border-success/40 bg-success-container text-success-on-container hover:bg-success-container/80"
               >
                 {servingAll
                   ? 'Serving…'
@@ -407,6 +421,7 @@ export function ActiveTicketPanel({
               type="button"
               variant="outline"
               onClick={() => setDiscountTarget({ kind: 'ticket' })}
+              className="border-primary text-primary hover:bg-primary/5"
             >
               Apply discount
             </Button>
@@ -416,6 +431,7 @@ export function ActiveTicketPanel({
               disabled={!canClose}
               onClick={() => setCloseOpen(true)}
               title={canClose ? '' : 'All lines must be SERVED or VOIDED to close'}
+              className="bg-primary text-on-primary"
             >
               Close ticket
             </Button>
@@ -423,7 +439,7 @@ export function ActiveTicketPanel({
               type="button"
               variant="ghost"
               size="sm"
-              className="ml-auto text-destructive hover:bg-destructive/10"
+              className="ml-auto text-error hover:bg-error-container"
               onClick={() => setVoidTicketOpen(true)}
             >
               Void ticket

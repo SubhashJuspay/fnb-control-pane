@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -105,7 +104,6 @@ export function CartProvider({
 }): React.JSX.Element {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
-  const hydratedRef = useRef(false);
 
   // Hydrate from sessionStorage after mount (avoids SSR mismatch). The
   // `hydrated` state flips once we've read; consumers that show an "empty
@@ -115,14 +113,20 @@ export function CartProvider({
   // completes).
   useEffect(() => {
     setItems(readPersisted(tenantSlug, locationSlug));
-    hydratedRef.current = true;
     setHydrated(true);
   }, [tenantSlug, locationSlug]);
 
+  // Gate persistence on the `hydrated` STATE (not a ref). Using a ref here
+  // races in React strict-mode dev: a synchronous `ref = true` inside the
+  // hydration effect lets the persist effect — which runs in the same
+  // effect phase right after — fire with `items: []` (the pre-hydration
+  // value still captured in its closure), wiping sessionStorage. Gating
+  // on state means the persist effect only sees `hydrated: true` after
+  // React has committed the hydrated `items` to the next render.
   useEffect(() => {
-    if (!hydratedRef.current) return;
+    if (!hydrated) return;
     writePersisted(tenantSlug, locationSlug, items);
-  }, [tenantSlug, locationSlug, items]);
+  }, [hydrated, tenantSlug, locationSlug, items]);
 
   const addItem = useCallback((item: Omit<CartItem, 'lineId'>): void => {
     setItems((prev) => [...prev, { ...item, lineId: makeLineId() }]);
