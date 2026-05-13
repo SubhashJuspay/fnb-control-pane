@@ -24,10 +24,17 @@ services:
     rootDir: .
     autoDeploy: true
     healthCheckPath: /health
+    # Scope the install to @app/api + its workspace deps (@repo/db,
+    # @repo/types, @repo/validation). Without `--filter` pnpm pulls every
+    # workspace — including Next.js, Sharp's native binaries, Recharts, etc.
+    # — and the build agent OOMs (>8GB heap on the free runner).
+    #
+    # `--prod=false` keeps devDeps so tsup is available at build time. Render
+    # caches node_modules between deploys so this doesn't reinstall every push.
     buildCommand: |
       corepack enable && \
       corepack prepare pnpm@9.15.0 --activate && \
-      pnpm install --frozen-lockfile && \
+      pnpm install --frozen-lockfile --filter '@app/api...' --prod=false && \
       pnpm --filter @app/api build
     startCommand: pnpm --filter @app/api start
     # preDeployCommand: pnpm --filter @repo/db migrate:deploy  # requires Starter+
