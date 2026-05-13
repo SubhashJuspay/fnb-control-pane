@@ -46,3 +46,8 @@ Thumbs.db
 # Generated
 packages/graphql-schema/src/generated/
 apps/web/lib/graphql/generated/
+
+# Vercel
+.vercel/
+.vercel
+.env*.local

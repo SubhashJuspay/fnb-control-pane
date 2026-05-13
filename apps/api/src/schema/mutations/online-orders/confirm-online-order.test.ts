@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockFindFirst,
+  mockFindUnique,
   mockFindMany,
   mockUpdateMany,
   mockUpdate,
@@ -10,6 +11,7 @@ const {
   mockPublish,
 } = vi.hoisted(() => {
   const mockFindFirst = vi.fn();
+  const mockFindUnique = vi.fn().mockResolvedValue(null);
   const mockFindMany = vi.fn();
   const mockUpdateMany = vi.fn();
   const mockUpdate = vi.fn();
@@ -23,6 +25,7 @@ const {
   );
   return {
     mockFindFirst,
+    mockFindUnique,
     mockFindMany,
     mockUpdateMany,
     mockUpdate,
@@ -34,7 +37,11 @@ const {
 
 vi.mock('../../../prisma.js', () => ({
   prisma: {
-    onlineOrderRequest: { findFirst: mockFindFirst, update: mockUpdate },
+    onlineOrderRequest: {
+      findFirst: mockFindFirst,
+      findUnique: mockFindUnique,
+      update: mockUpdate,
+    },
     ticketItem: { findMany: mockFindMany, updateMany: mockUpdateMany },
     auditLog: { create: mockAuditCreate },
     $transaction: mockTx,
@@ -63,7 +70,11 @@ function ctxFor(auth: AuthContext): RequestContext {
   return {
     auth,
     prisma: {
-      onlineOrderRequest: { findFirst: mockFindFirst, update: mockUpdate },
+      onlineOrderRequest: {
+        findFirst: mockFindFirst,
+        findUnique: mockFindUnique,
+        update: mockUpdate,
+      },
       ticketItem: { findMany: mockFindMany, updateMany: mockUpdateMany },
       auditLog: { create: mockAuditCreate },
       $transaction: mockTx,
@@ -89,6 +100,11 @@ beforeEach(() => {
   mockUpdate.mockReset();
   mockAuditCreate.mockReset();
   mockPublish.mockClear();
+  // Default: no email/SMS context loaded (no customer email on the request).
+  // Suppresses the post-confirm notification side-effects so existing tests
+  // don't need to mock the entire row shape.
+  mockFindUnique.mockReset();
+  mockFindUnique.mockResolvedValue(null);
 });
 
 describe('resolveConfirmOnlineOrder', () => {

@@ -30,7 +30,12 @@ export default async function TrackPage({ params }: PageProps) {
       currency={currency}
       showCart={false}
     >
-      <TrackingPage token={token} currency={currency} />
+      <TrackingPage
+        token={token}
+        currency={currency}
+        tenantSlug={tenantSlug}
+        locationSlug={locationSlug}
+      />
     </OrderShell>
   );
 }

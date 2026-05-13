@@ -12,8 +12,19 @@ const envSchema = z.object({
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().min(1),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  SENTRY_DSN: z.string().optional(),
-  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+  SENTRY_DSN: z
+    .preprocess((v) => (typeof v === 'string' && v.trim() === '' ? undefined : v), z
+      .string()
+      .optional()),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z
+    .preprocess(
+      (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+      z.string().url().optional(),
+    ),
+  // Twilio SMS — all three required together; otherwise SMS dispatch is a no-op.
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_FROM_NUMBER: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

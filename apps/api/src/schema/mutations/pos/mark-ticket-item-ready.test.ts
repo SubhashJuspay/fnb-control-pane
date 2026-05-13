@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFindUnique, mockUpdate, mockAuditCreate, mockPublish } = vi.hoisted(() => ({
+const {
+  mockFindUnique,
+  mockUpdate,
+  mockAuditCreate,
+  mockPublish,
+  mockTicketFindUnique,
+} = vi.hoisted(() => ({
   mockFindUnique: vi.fn(),
   mockUpdate: vi.fn(),
   mockAuditCreate: vi.fn(),
   mockPublish: vi.fn().mockResolvedValue(undefined),
+  mockTicketFindUnique: vi.fn(),
 }));
 
 vi.mock('../../../prisma.js', () => ({
   prisma: {
     ticketItem: { findUnique: mockFindUnique, update: mockUpdate },
+    ticket: { findUnique: mockTicketFindUnique },
     auditLog: { create: mockAuditCreate },
   },
 }));
@@ -36,6 +44,7 @@ function ctxFor(auth: AuthContext): RequestContext {
     auth,
     prisma: {
       ticketItem: { findUnique: mockFindUnique, update: mockUpdate },
+      ticket: { findUnique: mockTicketFindUnique },
       auditLog: { create: mockAuditCreate },
     } as unknown as RequestContext['prisma'],
     requestId: 'test',
@@ -57,6 +66,15 @@ beforeEach(() => {
   mockUpdate.mockReset();
   mockAuditCreate.mockReset();
   mockPublish.mockClear();
+  // Default: an IN_PERSON ticket so the post-update notification branch is
+  // a no-op. Tests that specifically exercise the email/SMS path can
+  // override with `mockResolvedValueOnce`.
+  mockTicketFindUnique.mockReset();
+  mockTicketFindUnique.mockResolvedValue({
+    originChannel: 'IN_PERSON',
+    items: [{ status: 'READY' }],
+    onlineRequest: null,
+  });
 });
 
 describe('resolveMarkTicketItemReady', () => {

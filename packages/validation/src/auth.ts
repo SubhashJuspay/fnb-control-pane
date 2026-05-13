@@ -40,3 +40,31 @@ export const mfaChallengeSchema = z.object({
 });
 
 export type MfaChallengeInput = z.infer<typeof mfaChallengeSchema>;
+
+const slug = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(2)
+  .max(40)
+  .regex(
+    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/,
+    'Slug must be lowercase letters, digits, hyphens',
+  );
+
+/**
+ * Public, anonymous tenant signup. Creates a Tenant + first Location + Owner
+ * User in one go. Customer-facing onboarding screen feeds this.
+ */
+export const signUpTenantSchema = z.object({
+  tenantName: z.string().trim().min(1).max(120),
+  tenantSlug: slug,
+  locationName: z.string().trim().min(1).max(120),
+  locationSlug: slug,
+  timezone: z.string().trim().min(1).max(64).default('America/Los_Angeles'),
+  currency: z.string().trim().toUpperCase().length(3).default('USD'),
+  ownerName: z.string().trim().min(1).max(120),
+  ownerEmail: emailSchema,
+  password: passwordSchema,
+});
+export type SignUpTenantInput = z.infer<typeof signUpTenantSchema>;

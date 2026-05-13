@@ -14,6 +14,16 @@ import {
 
 const STAFF_ROLES: readonly string[] = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'];
 
+export interface OnlineOrderTrackingItem {
+  nameSnapshot: string;
+  quantity: number;
+  unitPriceCents: number;
+  modifiersTotalCents: number;
+  lineSubtotalCents: number;
+  status: 'NEW' | 'FIRED' | 'READY' | 'SERVED' | 'VOIDED';
+  modifiers: Array<{ nameSnapshot: string; priceDeltaCents: number }>;
+}
+
 export interface OnlineOrderTrackingProjection {
   shortNumber: number;
   customerName: string;
@@ -25,9 +35,16 @@ export interface OnlineOrderTrackingProjection {
   totalCents: number;
   taxCents: number;
   subtotalCents: number;
+  tipCents: number;
   estimatedReadyAt: Date | null;
   rejectReason: string | null;
   isReady: boolean;
+  items: OnlineOrderTrackingItem[];
+  tenantName: string;
+  locationName: string;
+  locationAddress: unknown | null;
+  locationPhone: string | null;
+  closedAt: Date | null;
 }
 
 export interface OnlineOrderFilterArgs {
@@ -72,12 +89,22 @@ export function projectOnlineOrderTracking(args: {
     subtotalCents: number;
     taxCents: number;
     totalCents: number;
+    tipCents: number;
+    closedAt: Date | null;
   };
   items: Array<{
     quantity: number;
     nameSnapshot: string;
+    unitPriceCents: number;
+    modifiersTotalCents: number;
+    lineSubtotalCents: number;
     status: 'NEW' | 'FIRED' | 'READY' | 'SERVED' | 'VOIDED';
+    modifiers?: Array<{ nameSnapshot: string; priceDeltaCents: number }>;
   }>;
+  tenantName: string;
+  locationName: string;
+  locationAddress: unknown | null;
+  locationPhone: string | null;
 }): OnlineOrderTrackingProjection {
   const live = args.items.filter((i) => i.status !== 'VOIDED');
   const itemSummary =
@@ -104,9 +131,24 @@ export function projectOnlineOrderTracking(args: {
     totalCents: args.ticket.totalCents,
     taxCents: args.ticket.taxCents,
     subtotalCents: args.ticket.subtotalCents,
+    tipCents: args.ticket.tipCents,
     estimatedReadyAt: estimated,
     rejectReason: args.request.rejectReason,
     isReady,
+    items: args.items.map((i) => ({
+      nameSnapshot: i.nameSnapshot,
+      quantity: i.quantity,
+      unitPriceCents: i.unitPriceCents,
+      modifiersTotalCents: i.modifiersTotalCents,
+      lineSubtotalCents: i.lineSubtotalCents,
+      status: i.status,
+      modifiers: i.modifiers ?? [],
+    })),
+    tenantName: args.tenantName,
+    locationName: args.locationName,
+    locationAddress: args.locationAddress,
+    locationPhone: args.locationPhone,
+    closedAt: args.ticket.closedAt,
   };
 }
 
@@ -173,6 +215,16 @@ export async function resolveTrackOnlineOrder(
       subtotalCents: true,
       taxCents: true,
       totalCents: true,
+      tipCents: true,
+      closedAt: true,
+      location: {
+        select: {
+          name: true,
+          phone: true,
+          address: true,
+          tenant: { select: { name: true } },
+        },
+      },
     },
   })) as
     | {
@@ -181,18 +233,48 @@ export async function resolveTrackOnlineOrder(
         subtotalCents: number;
         taxCents: number;
         totalCents: number;
+        tipCents: number;
+        closedAt: Date | null;
+        location: {
+          name: string;
+          phone: string | null;
+          address: unknown;
+          tenant: { name: string };
+        };
       }
     | null;
   if (!ticket) return null;
   const items = (await prisma.ticketItem.findMany({
     where: { ticketId: request.ticketId },
-    select: { quantity: true, nameSnapshot: true, status: true },
+    select: {
+      quantity: true,
+      nameSnapshot: true,
+      status: true,
+      unitPriceCents: true,
+      modifiersTotalCents: true,
+      lineSubtotalCents: true,
+      modifiers: {
+        select: { nameSnapshot: true, priceDeltaCents: true },
+      },
+    },
   })) as Array<{
     quantity: number;
     nameSnapshot: string;
+    unitPriceCents: number;
+    modifiersTotalCents: number;
+    lineSubtotalCents: number;
     status: 'NEW' | 'FIRED' | 'READY' | 'SERVED' | 'VOIDED';
+    modifiers: Array<{ nameSnapshot: string; priceDeltaCents: number }>;
   }>;
-  return projectOnlineOrderTracking({ request, ticket, items });
+  return projectOnlineOrderTracking({
+    request,
+    ticket,
+    items,
+    tenantName: ticket.location.tenant.name,
+    locationName: ticket.location.name,
+    locationAddress: ticket.location.address ?? null,
+    locationPhone: ticket.location.phone ?? null,
+  });
 }
 
 // ─── GraphQL types ────────────────────────────────────────────────
@@ -229,6 +311,43 @@ export const OnlineOrderRequestRef = builder.prismaObject('OnlineOrderRequest', 
   }),
 });
 
+const OnlineOrderTrackingItemRef = builder.objectRef<{
+  nameSnapshot: string;
+  quantity: number;
+  unitPriceCents: number;
+  modifiersTotalCents: number;
+  lineSubtotalCents: number;
+  status: 'NEW' | 'FIRED' | 'READY' | 'SERVED' | 'VOIDED';
+  modifiers: Array<{ nameSnapshot: string; priceDeltaCents: number }>;
+}>('OnlineOrderTrackingItem');
+
+const OnlineOrderTrackingItemModifierRef = builder.objectRef<{
+  nameSnapshot: string;
+  priceDeltaCents: number;
+}>('OnlineOrderTrackingItemModifier');
+
+OnlineOrderTrackingItemModifierRef.implement({
+  fields: (t) => ({
+    nameSnapshot: t.exposeString('nameSnapshot'),
+    priceDeltaCents: t.exposeInt('priceDeltaCents'),
+  }),
+});
+
+OnlineOrderTrackingItemRef.implement({
+  fields: (t) => ({
+    nameSnapshot: t.exposeString('nameSnapshot'),
+    quantity: t.exposeInt('quantity'),
+    unitPriceCents: t.exposeInt('unitPriceCents'),
+    modifiersTotalCents: t.exposeInt('modifiersTotalCents'),
+    lineSubtotalCents: t.exposeInt('lineSubtotalCents'),
+    status: t.exposeString('status'),
+    modifiers: t.field({
+      type: [OnlineOrderTrackingItemModifierRef],
+      resolve: (p) => p.modifiers,
+    }),
+  }),
+});
+
 const OnlineOrderTrackingRef = builder.objectRef<OnlineOrderTrackingProjection>(
   'OnlineOrderTracking',
 );
@@ -255,12 +374,26 @@ OnlineOrderTrackingRef.implement({
     totalCents: t.exposeInt('totalCents'),
     taxCents: t.exposeInt('taxCents'),
     subtotalCents: t.exposeInt('subtotalCents'),
+    tipCents: t.exposeInt('tipCents'),
     estimatedReadyAt: t.expose('estimatedReadyAt', {
       type: 'DateTime',
       nullable: true,
     }),
     rejectReason: t.exposeString('rejectReason', { nullable: true }),
     isReady: t.exposeBoolean('isReady'),
+    items: t.field({
+      type: [OnlineOrderTrackingItemRef],
+      resolve: (p) => p.items,
+    }),
+    tenantName: t.exposeString('tenantName'),
+    locationName: t.exposeString('locationName'),
+    locationPhone: t.exposeString('locationPhone', { nullable: true }),
+    locationAddress: t.field({
+      type: 'JSON',
+      nullable: true,
+      resolve: (p) => p.locationAddress ?? null,
+    }),
+    closedAt: t.expose('closedAt', { type: 'DateTime', nullable: true }),
   }),
 });
 

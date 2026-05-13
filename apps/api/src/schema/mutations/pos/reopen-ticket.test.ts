@@ -100,6 +100,7 @@ describe('resolveReopenTicket', () => {
       closedAt: null,
       closedById: null,
       closeNote: null,
+      tipCents: 0,
     });
     expect(mockAuditCreate.mock.calls[0]?.[0].data.action).toBe('ticket.reopened');
   });

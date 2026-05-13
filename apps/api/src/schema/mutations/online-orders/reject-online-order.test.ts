@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockFindFirst,
+  mockFindUnique,
   mockFindMany,
   mockUpdateMany,
   mockTicketUpdate,
@@ -11,6 +12,7 @@ const {
   mockPublish,
 } = vi.hoisted(() => {
   const mockFindFirst = vi.fn();
+  const mockFindUnique = vi.fn().mockResolvedValue(null);
   const mockFindMany = vi.fn();
   const mockUpdateMany = vi.fn();
   const mockTicketUpdate = vi.fn();
@@ -26,6 +28,7 @@ const {
   );
   return {
     mockFindFirst,
+    mockFindUnique,
     mockFindMany,
     mockUpdateMany,
     mockTicketUpdate,
@@ -38,7 +41,11 @@ const {
 
 vi.mock('../../../prisma.js', () => ({
   prisma: {
-    onlineOrderRequest: { findFirst: mockFindFirst, update: mockUpdate },
+    onlineOrderRequest: {
+      findFirst: mockFindFirst,
+      findUnique: mockFindUnique,
+      update: mockUpdate,
+    },
     ticketItem: { findMany: mockFindMany, updateMany: mockUpdateMany },
     ticket: { update: mockTicketUpdate },
     auditLog: { create: mockAuditCreate },
@@ -68,7 +75,11 @@ function ctxFor(auth: AuthContext): RequestContext {
   return {
     auth,
     prisma: {
-      onlineOrderRequest: { findFirst: mockFindFirst, update: mockUpdate },
+      onlineOrderRequest: {
+        findFirst: mockFindFirst,
+        findUnique: mockFindUnique,
+        update: mockUpdate,
+      },
       ticketItem: { findMany: mockFindMany, updateMany: mockUpdateMany },
       ticket: { update: mockTicketUpdate },
       auditLog: { create: mockAuditCreate },
@@ -105,6 +116,9 @@ beforeEach(() => {
   mockUpdate.mockReset();
   mockAuditCreate.mockReset();
   mockPublish.mockClear();
+  // Suppress the post-reject email/SMS notification side-effect by default.
+  mockFindUnique.mockReset();
+  mockFindUnique.mockResolvedValue(null);
 });
 
 describe('resolveRejectOnlineOrder', () => {

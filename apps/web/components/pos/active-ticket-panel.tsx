@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import {
   FireTicketDocument,
   LinkTicketGuestDocument,
+  MarkTicketItemServedDocument,
   OrderType,
   ReopenTicketDocument,
   TicketDocument,
@@ -83,9 +84,11 @@ export function ActiveTicketPanel({
   });
   const [, updateLabel] = useMutation(UpdateTicketLabelDocument);
   const [, updateOrderType] = useMutation(UpdateTicketOrderTypeDocument);
-  const [, fireAll] = useMutation(FireTicketDocument);
+  const [{ fetching: firingAll }, fireAll] = useMutation(FireTicketDocument);
   const [, reopenTicket] = useMutation(ReopenTicketDocument);
   const [, linkGuest] = useMutation(LinkTicketGuestDocument);
+  const [, markServed] = useMutation(MarkTicketItemServedDocument);
+  const [servingAll, setServingAll] = useState(false);
 
   const ticket = data?.ticket ?? null;
   const items: Line[] = (ticket?.items ?? []).filter((i): i is Line => i != null && Boolean(i.id));
@@ -137,6 +140,7 @@ export function ActiveTicketPanel({
   const isOpen = status === TicketStatus.Open;
   const canClose = canCloseTicket(items.map((i) => ({ status: i.status })));
   const hasNew = items.some((i) => i.status === TicketItemStatus.New);
+  const readyItems = items.filter((i) => i.status === TicketItemStatus.Ready);
   const ticketLabel = `#${ticket.shortNumber ?? '—'}`;
 
   const onLabelChange = (next: string): void => {
@@ -174,6 +178,35 @@ export function ActiveTicketPanel({
     }
     toast.success('All NEW lines fired');
     refresh();
+  };
+
+  const onServeAllReady = async (): Promise<void> => {
+    if (readyItems.length === 0 || servingAll) return;
+    setServingAll(true);
+    try {
+      // Serve every READY line in parallel. The api handles each
+      // markTicketItemServed transactionally; the only legitimate failure
+      // here is a status-race (someone bumped the same item out of READY
+      // while we were running), which we surface as a single toast.
+      const results = await Promise.all(
+        readyItems.map((line) =>
+          line.id ? markServed({ input: { ticketItemId: line.id } }) : Promise.resolve(null),
+        ),
+      );
+      const failed = results.filter((r) => r?.error).length;
+      const succeeded = results.length - failed;
+      if (succeeded > 0) {
+        toast.success(
+          succeeded === 1 ? '1 line marked served' : `${succeeded} lines marked served`,
+        );
+      }
+      if (failed > 0) {
+        toast.error(`${failed} line${failed === 1 ? '' : 's'} could not be served`);
+      }
+      refresh();
+    } finally {
+      setServingAll(false);
+    }
   };
 
   const onReopen = async (): Promise<void> => {
@@ -352,8 +385,22 @@ export function ActiveTicketPanel({
         {isOpen ? (
           <>
             {hasNew ? (
-              <Button type="button" onClick={onFireAll}>
-                Fire all
+              <Button type="button" onClick={onFireAll} disabled={firingAll}>
+                {firingAll ? 'Firing…' : 'Fire all'}
+              </Button>
+            ) : null}
+            {readyItems.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onServeAllReady}
+                disabled={servingAll}
+                data-testid="serve-all-ready"
+                className="border-emerald-300 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200 dark:hover:bg-emerald-950/60"
+              >
+                {servingAll
+                  ? 'Serving…'
+                  : `Mark ${readyItems.length} ready line${readyItems.length === 1 ? '' : 's'} served`}
               </Button>
             ) : null}
             <Button
@@ -463,6 +510,7 @@ export function ActiveTicketPanel({
         onOpenChange={setCloseOpen}
         ticketId={ticketId}
         ticketLabel={ticketLabel}
+        totalCents={ticket.totalCents ?? 0}
         onClosed={() => {
           setCloseOpen(false);
           refresh();

@@ -14,6 +14,7 @@ import {
   type DateRange,
 } from './date-range-picker';
 import { toDateRangeInput } from './date-range-input';
+import { DownloadCsvButton } from './download-csv';
 
 const DOW_LABEL: Record<string, string> = {
   MON: 'Mon',
@@ -60,7 +61,29 @@ export function HoursReport(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
+      <div className="flex flex-wrap items-end gap-3">
+        <DateRangePicker value={range} onChange={setRange} />
+        <div className="ml-auto flex items-center gap-2">
+          <DownloadCsvButton
+            filename="hourly-mix"
+            rows={hourlyRows}
+            columns={[
+              { header: 'Hour', value: (r) => r.hour ?? 0 },
+              { header: 'Tickets', value: (r) => r.ticketCount ?? 0 },
+              { header: 'Revenue cents', value: (r) => r.revenueCents ?? 0 },
+            ]}
+          />
+          <DownloadCsvButton
+            filename="day-of-week-mix"
+            rows={dayRows}
+            columns={[
+              { header: 'Day', value: (r) => r.dayOfWeek ?? '' },
+              { header: 'Tickets', value: (r) => r.ticketCount ?? 0 },
+              { header: 'Revenue cents', value: (r) => r.revenueCents ?? 0 },
+            ]}
+          />
+        </div>
+      </div>
       {hourlyError ? (
         <p className="text-sm text-destructive" role="alert">
           {hourlyError.message}

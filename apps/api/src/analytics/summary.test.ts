@@ -22,6 +22,8 @@ describe('computeSalesSummary', () => {
       discountCents: 0,
       taxCents: 0,
       netSalesCents: 0,
+      tipCents: 0,
+      refundCents: 0,
       averageTicketCents: 0,
       uniqueGuests: 0,
     });

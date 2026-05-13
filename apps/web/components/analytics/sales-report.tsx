@@ -14,6 +14,7 @@ import {
   type DateRange,
 } from './date-range-picker';
 import { toDateRangeInput } from './date-range-input';
+import { DownloadCsvButton } from './download-csv';
 
 /**
  * "Sales" insights tab: KPI summary across the picked range plus an hourly
@@ -44,9 +45,51 @@ export function SalesReport(): React.JSX.Element {
     value: (b.revenueCents ?? 0) / 100,
   }));
 
+  const summaryRows = summary
+    ? [
+        {
+          fromDate: summary.fromDate,
+          toDate: summary.toDate,
+          ticketCount: summary.ticketCount,
+          closedTicketCount: summary.closedTicketCount,
+          voidedTicketCount: summary.voidedTicketCount,
+          grossSalesCents: summary.grossSalesCents,
+          discountCents: summary.discountCents,
+          taxCents: summary.taxCents,
+          netSalesCents: summary.netSalesCents,
+          tipCents: summary.tipCents,
+          refundCents: summary.refundCents,
+          averageTicketCents: summary.averageTicketCents,
+          uniqueGuests: summary.uniqueGuests,
+        },
+      ]
+    : [];
+
   return (
     <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
+      <div className="flex flex-wrap items-end gap-3">
+        <DateRangePicker value={range} onChange={setRange} />
+        <div className="ml-auto">
+          <DownloadCsvButton
+            filename="sales-summary"
+            rows={summaryRows}
+            columns={[
+              { header: 'From', value: (r) => String(r.fromDate ?? '') },
+              { header: 'To', value: (r) => String(r.toDate ?? '') },
+              { header: 'Closed tickets', value: (r) => r.closedTicketCount },
+              { header: 'Voided tickets', value: (r) => r.voidedTicketCount },
+              { header: 'Gross cents', value: (r) => r.grossSalesCents },
+              { header: 'Discount cents', value: (r) => r.discountCents },
+              { header: 'Tax cents', value: (r) => r.taxCents },
+              { header: 'Net cents', value: (r) => r.netSalesCents },
+              { header: 'Tip cents', value: (r) => r.tipCents },
+              { header: 'Refund cents', value: (r) => r.refundCents },
+              { header: 'Avg ticket cents', value: (r) => r.averageTicketCents },
+              { header: 'Unique guests', value: (r) => r.uniqueGuests },
+            ]}
+          />
+        </div>
+      </div>
       {summaryError ? (
         <p className="text-sm text-destructive" role="alert">
           {summaryError.message}

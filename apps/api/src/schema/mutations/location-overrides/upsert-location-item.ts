@@ -11,6 +11,8 @@ export interface UpsertLocationItemArgs {
   hidden?: boolean | null;
   available?: boolean | null;
   priceCents?: number | null;
+  stockOnHand?: number | null;
+  lowStockThreshold?: number | null;
 }
 
 export async function resolveUpsertLocationItem(
@@ -52,6 +54,14 @@ export async function resolveUpsertLocationItem(
     createData.priceCents = input.priceCents ?? null;
     updateData.priceCents = input.priceCents ?? null;
   }
+  if (has('stockOnHand')) {
+    createData.stockOnHand = input.stockOnHand ?? null;
+    updateData.stockOnHand = input.stockOnHand ?? null;
+  }
+  if (has('lowStockThreshold')) {
+    createData.lowStockThreshold = input.lowStockThreshold ?? null;
+    updateData.lowStockThreshold = input.lowStockThreshold ?? null;
+  }
   const upserted = (await ctx.prisma.locationItem.upsert({
     ...query,
     where: { locationId_menuItemId: { locationId, menuItemId: input.menuItemId } },
@@ -67,6 +77,8 @@ export async function resolveUpsertLocationItem(
       hidden: input.hidden ?? null,
       available: input.available ?? null,
       priceCents: input.priceCents ?? null,
+      stockOnHand: input.stockOnHand ?? null,
+      lowStockThreshold: input.lowStockThreshold ?? null,
     },
   });
   return upserted;

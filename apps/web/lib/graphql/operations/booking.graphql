@@ -1,0 +1,8 @@
+mutation SubmitReservationRequest($input: SubmitReservationRequestInput!) {
+  submitReservationRequest(input: $input) {
+    reservationId
+    status
+    partySize
+    requestedTime
+  }
+}

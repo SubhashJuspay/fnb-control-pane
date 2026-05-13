@@ -1,0 +1,55 @@
+1
+00:00:02,660 --> 00:00:03,562
+A customer scans the QR code at the table and lands on Acme — Mission St.
+
+2
+00:00:03,562 --> 00:00:05,016
+The menu shows photos, dietary tags, and a category sidebar on the left.
+
+3
+00:00:05,016 --> 00:00:07,807
+They tap Italian Tiramisu — it goes straight to the cart.
+
+4
+00:00:07,807 --> 00:00:09,009
+Mango Lassi has size options — the picker opens to choose.
+
+5
+00:00:09,009 --> 00:00:09,962
+They pick Medium and add it.
+
+6
+00:00:09,962 --> 00:00:11,012
+A "Review order" bar appears at the bottom with the running total.
+
+7
+00:00:11,012 --> 00:00:11,914
+The cart drawer shows both items, modifiers, and the subtotal.
+
+8
+00:00:11,914 --> 00:00:14,690
+They tap Checkout — the button shows a spinner until the page loads.
+
+9
+00:00:14,690 --> 00:00:17,063
+On checkout: they enter a name and a Mexican phone number.
+
+10
+00:00:17,063 --> 00:00:22,487
+ASAP pickup is the default — they confirm and place the order.
+
+11
+00:00:22,487 --> 00:00:26,057
+Order placed! The page shows the order number and a tracking link.
+
+12
+00:00:26,057 --> 00:00:28,059
+The tracking page polls every 5 seconds — status starts at "Received".
+
+13
+00:00:28,059 --> 00:00:30,261
+When the kitchen accepts, fires, and bumps each item, this page advances.
+
+14
+00:00:30,261 --> 00:00:34,263
+After the cashier closes the ticket with payment, the customer sees "Picked up — Order complete!"

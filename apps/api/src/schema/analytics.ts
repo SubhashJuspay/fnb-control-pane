@@ -107,6 +107,8 @@ export async function resolveSalesSummary(
         discountCents: true,
         taxCents: true,
         totalCents: true,
+        tipCents: true,
+        refundCents: true,
         guestId: true,
       },
     });
@@ -312,6 +314,8 @@ SalesSummaryRef.implement({
     discountCents: t.exposeInt('discountCents'),
     taxCents: t.exposeInt('taxCents'),
     netSalesCents: t.exposeInt('netSalesCents'),
+    tipCents: t.exposeInt('tipCents'),
+    refundCents: t.exposeInt('refundCents'),
     averageTicketCents: t.exposeInt('averageTicketCents'),
     uniqueGuests: t.exposeInt('uniqueGuests'),
   }),

@@ -6,6 +6,8 @@ export const UpsertLocationItemInput = builder.inputType('UpsertLocationItemInpu
     hidden: t.boolean({ required: false }),
     available: t.boolean({ required: false }),
     priceCents: t.int({ required: false }),
+    stockOnHand: t.int({ required: false }),
+    lowStockThreshold: t.int({ required: false }),
   }),
 });
 

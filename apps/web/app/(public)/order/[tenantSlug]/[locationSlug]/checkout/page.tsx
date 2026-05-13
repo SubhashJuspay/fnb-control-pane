@@ -1,5 +1,6 @@
 import { print } from 'graphql';
 import { notFound } from 'next/navigation';
+import { computeOpenStatus, parseOpeningHours } from '@repo/types';
 import { serverFetch } from '@/lib/graphql/server';
 import {
   PublicLocationBySlugDocument,
@@ -21,6 +22,10 @@ export default async function CheckoutPage({ params }: PageProps) {
   const location = result.data?.publicLocationBySlug;
   if (!location) notFound();
   const currency = location.currency ?? 'USD';
+  const timezone = location.timezone ?? 'UTC';
+  const hours = parseOpeningHours(location.openingHours);
+  const status = hours ? computeOpenStatus(hours, timezone) : null;
+  const acceptingOrders = status ? status.isOpen : true;
   return (
     <OrderShell
       tenantSlug={tenantSlug}
@@ -28,12 +33,14 @@ export default async function CheckoutPage({ params }: PageProps) {
       tenantName={location.tenantName ?? ''}
       locationName={location.name ?? ''}
       currency={currency}
+      acceptingOrders={acceptingOrders}
     >
       <h1 className="mb-4 text-lg font-semibold">Checkout</h1>
       <CheckoutForm
         tenantSlug={tenantSlug}
         locationSlug={locationSlug}
         currency={currency}
+        acceptingOrders={acceptingOrders}
       />
     </OrderShell>
   );

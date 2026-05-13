@@ -7,3 +7,4 @@ import './mark-no-show.js';
 import './add-walkin.js';
 import './seat-reservation.js';
 import './complete-reservation.js';
+import './submit-reservation-request.js';

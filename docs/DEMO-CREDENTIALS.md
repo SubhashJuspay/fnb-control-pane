@@ -66,3 +66,10 @@ pnpm db:seed:demo
 - All users have `emailVerified` set so password sign-in works immediately.
 - The demo password is intentionally common; do **not** ship the demo seed in production.
 - Times are computed relative to "now" so reservations and shifts always look "today/tomorrow" no matter when you run the seed.
+
+
+Go to http://localhost:3000/sign-in. Password for every demo account is Password123!. A few good first screens:
+  - owner@acme.test → http://localhost:3000/acme/mission-st/dashboard
+  - manager.mission@acme.test → http://localhost:3000/acme/mission-st/pos
+  - cook.mission@acme.test → http://localhost:3000/acme/mission-st/kds
+  - Public ordering (no auth): http://localhost:3000/order/acme/mission-st

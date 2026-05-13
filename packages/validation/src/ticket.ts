@@ -30,11 +30,21 @@ export type UpdateTicketOrderTypeInput = z.infer<typeof updateTicketOrderTypeSch
 export const closeTicketSchema = z.object({
   ticketId: z.string().uuid(),
   closeNote: z.string().trim().max(500).optional().nullable(),
+  /** Optional tip amount in cents. Customer-paid amount = totalCents + tipCents. */
+  tipCents: z.number().int().min(0).max(100_000_000).optional(),
 });
 export type CloseTicketInput = z.infer<typeof closeTicketSchema>;
 
 export const reopenTicketSchema = z.object({ ticketId: z.string().uuid() });
 export type ReopenTicketInput = z.infer<typeof reopenTicketSchema>;
+
+export const refundTicketSchema = z.object({
+  ticketId: z.string().uuid(),
+  /** Refund amount in cents. 0 < amount ≤ totalCents (server enforces upper bound). */
+  amountCents: z.number().int().min(1).max(100_000_000),
+  reason: z.string().trim().min(2).max(500),
+});
+export type RefundTicketInput = z.infer<typeof refundTicketSchema>;
 
 export const voidTicketSchema = z.object({
   ticketId: z.string().uuid(),

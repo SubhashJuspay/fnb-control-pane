@@ -32,3 +32,37 @@ export type CreateLocationInput = z.infer<typeof createLocationSchema>;
 
 export const updateLocationSchema = createLocationSchema.partial();
 export type UpdateLocationInput = z.infer<typeof updateLocationSchema>;
+
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const openingIntervalSchema = z.object({
+  open: z.string().regex(HM, 'Use HH:MM'),
+  close: z.string().regex(HM, 'Use HH:MM'),
+});
+export const openingHoursSchema = z.object({
+  sun: z.array(openingIntervalSchema).default([]),
+  mon: z.array(openingIntervalSchema).default([]),
+  tue: z.array(openingIntervalSchema).default([]),
+  wed: z.array(openingIntervalSchema).default([]),
+  thu: z.array(openingIntervalSchema).default([]),
+  fri: z.array(openingIntervalSchema).default([]),
+  sat: z.array(openingIntervalSchema).default([]),
+});
+export type OpeningHoursInput = z.infer<typeof openingHoursSchema>;
+
+/** Manager-editable subset of Location (hours / phone / address). */
+export const updateLocationSettingsSchema = z.object({
+  phone: z.string().trim().max(40).optional().nullable(),
+  address: z
+    .object({
+      line1: z.string().trim().max(200).optional().nullable(),
+      line2: z.string().trim().max(200).optional().nullable(),
+      city: z.string().trim().max(100).optional().nullable(),
+      region: z.string().trim().max(100).optional().nullable(),
+      postalCode: z.string().trim().max(20).optional().nullable(),
+      country: z.string().trim().max(60).optional().nullable(),
+    })
+    .optional()
+    .nullable(),
+  openingHours: openingHoursSchema.optional().nullable(),
+});
+export type UpdateLocationSettingsInput = z.infer<typeof updateLocationSettingsSchema>;

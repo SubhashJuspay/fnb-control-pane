@@ -19,6 +19,7 @@ import {
   type DateRange,
 } from './date-range-picker';
 import { toDateRangeInput } from './date-range-input';
+import { DownloadCsvButton } from './download-csv';
 
 type TopItemRow = NonNullable<NonNullable<TopItemsQuery['topItems']>[number]>;
 
@@ -92,6 +93,18 @@ export function ItemsReport(): React.JSX.Element {
               </option>
             ))}
           </select>
+        </div>
+        <div className="ml-auto">
+          <DownloadCsvButton
+            filename="top-items"
+            rows={rows}
+            columns={[
+              { header: 'Item', value: (r) => r.menuItemName ?? '' },
+              { header: 'Quantity', value: (r) => r.quantitySold ?? 0 },
+              { header: 'Revenue cents', value: (r) => r.revenueCents ?? 0 },
+              { header: 'Tickets', value: (r) => r.ticketCount ?? 0 },
+            ]}
+          />
         </div>
       </div>
       {error ? (

@@ -181,6 +181,8 @@ export const LocationItemRef = builder.prismaObject('LocationItem', {
     hidden: t.exposeBoolean('hidden'),
     available: t.exposeBoolean('available'),
     priceCents: t.exposeInt('priceCents', { nullable: true }),
+    stockOnHand: t.exposeInt('stockOnHand', { nullable: true }),
+    lowStockThreshold: t.exposeInt('lowStockThreshold', { nullable: true }),
   }),
 });
 
@@ -202,10 +204,10 @@ export const MenuItemRef = builder.prismaObject('MenuItem', {
     archivedAt: t.expose('archivedAt', { type: 'DateTime', nullable: true }),
     createdAt: t.expose('createdAt', { type: 'DateTime' }),
     category: t.relation('category', {
-      authScopes: { manager: true },
+      authScopes: { staff: true },
       nullable: true,
     }),
-    taxCategory: t.relation('taxCategory', { authScopes: { manager: true } }),
+    taxCategory: t.relation('taxCategory', { authScopes: { staff: true } }),
     effectivePriceCents: t.field({
       type: 'Int',
       authScopes: { authenticated: true },
@@ -227,7 +229,7 @@ export const MenuItemRef = builder.prismaObject('MenuItem', {
     }),
     modifierGroups: t.prismaField({
       type: ['ModifierGroup'],
-      authScopes: { manager: true },
+      authScopes: { staff: true },
       resolve: (query, parent, _args, ctx) =>
         resolveItemModifierGroups(query, parent as { id: string }, ctx) as never,
     }),
@@ -302,8 +304,9 @@ builder.queryField('catalogItems', (t) =>
   t.prismaConnection({
     type: 'MenuItem',
     cursor: 'id',
-    description: 'Menu items within the current tenant. Requires manager role.',
-    authScopes: { manager: true },
+    description:
+      'Menu items within the current tenant. Read-only for STAFF (POS needs the catalog to take orders); admin mutations remain manager+.',
+    authScopes: { staff: true },
     args: { filter: t.arg({ type: CatalogItemFilter, required: false }) },
     resolve: (query, _root, args, ctx) => {
       if (ctx.auth.kind !== 'authenticated') throw new ForbiddenError();
@@ -332,8 +335,9 @@ builder.queryField('catalogItem', (t) =>
   t.prismaField({
     type: 'MenuItem',
     nullable: true,
-    description: 'Single menu item by id (tenant-scoped). Requires manager role.',
-    authScopes: { manager: true },
+    description:
+      'Single menu item by id (tenant-scoped). Readable by STAFF — the POS modifier picker needs it.',
+    authScopes: { staff: true },
     args: { id: t.arg({ type: 'UUID', required: true }) },
     resolve: (query, _root, args, ctx) =>
       resolveCatalogItem(query, ctx, args.id as string) as never,

@@ -78,6 +78,8 @@ query LocationOverrides {
     priceCents
     available
     hidden
+    stockOnHand
+    lowStockThreshold
   }
 }
 
@@ -182,6 +184,8 @@ mutation UpsertLocationItem($input: UpsertLocationItemInput!) {
     priceCents
     available
     hidden
+    stockOnHand
+    lowStockThreshold
   }
 }
 

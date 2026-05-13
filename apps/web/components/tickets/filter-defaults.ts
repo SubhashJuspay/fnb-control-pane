@@ -23,11 +23,15 @@ export interface TicketsFilterValues {
 }
 
 /**
- * Default filters: today, all statuses, all servers. The defaults are also
- * derived for the URL-less initial render so that the very first query
- * scopes to today's history rather than dumping every ticket ever closed.
+ * Default filters: last 7 days, all statuses, all servers. We could scope to
+ * "today only" to keep the initial query tight, but that produces an empty
+ * state on a fresh demo or for any location that hasn't closed a ticket yet
+ * today — a bad first impression. A 7-day window is small enough to keep the
+ * query fast and large enough that any active location shows history.
  */
 export function defaultFilterValues(now: Date = new Date()): TicketsFilterValues {
-  const iso = now.toISOString().slice(0, 10);
-  return { fromDate: iso, toDate: iso, status: 'ALL', serverId: 'ALL' };
+  const toIso = now.toISOString().slice(0, 10);
+  const fromMs = now.getTime() - 6 * 24 * 60 * 60 * 1000;
+  const fromIso = new Date(fromMs).toISOString().slice(0, 10);
+  return { fromDate: fromIso, toDate: toIso, status: 'ALL', serverId: 'ALL' };
 }

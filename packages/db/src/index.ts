@@ -16,4 +16,8 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export * from '@prisma/client';
-export type { Prisma } from '@prisma/client';
+// `Prisma` is re-exported as a namespace by `export *` above (it carries
+// both runtime values like `Prisma.DbNull` and types like `Prisma.InputJsonValue`).
+// We previously re-exported it as `export type { Prisma }` too, but with
+// `verbatimModuleSyntax` enabled that shadowed the value side and broke
+// `Prisma.DbNull` at runtime in callers.

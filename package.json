@@ -21,6 +21,12 @@
     "db:seed": "pnpm --filter @repo/db seed",
     "db:seed:demo": "pnpm --filter @repo/db seed:demo",
     "db:reset": "pnpm --filter @repo/db reset",
+    "stack:up": "bash scripts/stack.sh up",
+    "stack:rebuild": "bash scripts/stack.sh rebuild",
+    "stack:reset": "bash scripts/stack.sh reset",
+    "stack:down": "bash scripts/stack.sh down",
+    "stack:status": "bash scripts/stack.sh status",
+    "stack:logs": "bash scripts/stack.sh logs",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

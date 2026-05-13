@@ -1,7 +1,15 @@
 import type { PrismaClient } from '@repo/db';
+import { computeOpenStatus, parseOpeningHours } from '@repo/types';
 import { submitOnlineOrderSchema } from '@repo/validation/online-order';
 import { z } from 'zod';
 import { writeAnonymousAudit } from '../../../audit.js';
+import {
+  renderOrderReceived,
+  sendOrderEmailSafely,
+} from '../../../email/online-order.js';
+import { env } from '../../../env.js';
+import { sendSmsSafely } from '../../../sms/client.js';
+import { smsOrderReceived } from '../../../sms/online-order.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, NotFoundError } from '../../../errors.js';
 import { resolveItemPrice, resolveModifierPrice } from '../../../menu/pricing.js';
@@ -93,7 +101,7 @@ export async function resolveSubmitOnlineOrder(
   // 2. Resolve tenant + location.
   const tenant = await ctx.prisma.tenant.findUnique({
     where: { slug: input.tenantSlug },
-    select: { id: true, slug: true, status: true },
+    select: { id: true, slug: true, name: true, status: true },
   });
   if (!tenant || tenant.status !== 'ACTIVE') {
     throw new NotFoundError('Tenant not found');
@@ -102,11 +110,23 @@ export async function resolveSubmitOnlineOrder(
     where: { tenantId: tenant.id, slug: input.locationSlug, status: 'ACTIVE' },
     select: {
       id: true,
+      name: true,
       timezone: true,
       businessDayCutoff: true,
+      openingHours: true,
     },
   });
   if (!location) throw new NotFoundError('Location not found');
+
+  // Reject when the location is closed. If `openingHours` is unset we treat
+  // the location as always open (consistent with the public surface).
+  const hours = parseOpeningHours(location.openingHours);
+  if (hours) {
+    const status = computeOpenStatus(hours, location.timezone, deps.now());
+    if (!status.isOpen) {
+      throw new ConflictError('This location is currently closed for online orders');
+    }
+  }
 
   // 3. Pickup-time resolution.
   const now = deps.now();
@@ -483,6 +503,37 @@ export async function resolveSubmitOnlineOrder(
       `Failed to allocate a unique ticket number after retries: ${String(lastErr)}`,
     );
   }
+
+  // Fire-and-forget customer notifications. Both helpers swallow any failure
+  // so the submit mutation never fails because email/SMS infra is down.
+  const trackingUrl = `${env.AUTH_URL}/order/${input.tenantSlug}/${input.locationSlug}/track/${token}`;
+  if (input.customerEmail) {
+    void sendOrderEmailSafely(
+      input.customerEmail,
+      renderOrderReceived({
+        customerName: input.customerName,
+        customerEmail: input.customerEmail,
+        customerPhone: input.customerPhone,
+        shortNumber,
+        tenantName: tenant.name,
+        locationName: location.name,
+        trackingUrl,
+      }),
+      { kind: 'received', shortNumber },
+    );
+  }
+  void sendSmsSafely(
+    {
+      to: input.customerPhone,
+      body: smsOrderReceived({
+        customerName: input.customerName,
+        shortNumber,
+        tenantName: tenant.name,
+        trackingUrl,
+      }),
+    },
+    { kind: 'order.received' },
+  );
 
   const estimated = estimateReadyAt({
     pickupAt,

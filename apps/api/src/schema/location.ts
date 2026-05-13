@@ -12,6 +12,17 @@ export const LocationRef = builder.prismaObject('Location', {
     currency: t.exposeString('currency'),
     locale: t.exposeString('locale'),
     businessDayCutoff: t.exposeString('businessDayCutoff'),
+    phone: t.exposeString('phone', { nullable: true }),
+    address: t.field({
+      type: 'JSON',
+      nullable: true,
+      resolve: (p) => (p as { address: unknown }).address ?? null,
+    }),
+    openingHours: t.field({
+      type: 'JSON',
+      nullable: true,
+      resolve: (p) => (p as { openingHours: unknown }).openingHours ?? null,
+    }),
     status: t.field({
       type: LocationStatusEnum,
       resolve: (parent) => parent.status,
@@ -20,6 +31,26 @@ export const LocationRef = builder.prismaObject('Location', {
     tenant: t.relation('tenant', { authScopes: { authenticated: true } }),
   }),
 });
+
+/**
+ * Returns the location currently in the request scope (`x-location-id` header).
+ * Authenticated; no role gating — anyone with a session that's been routed to
+ * a location can read its public-ish settings.
+ */
+builder.queryField('currentLocation', (t) =>
+  t.prismaField({
+    type: 'Location',
+    nullable: true,
+    description: "The location bound to the current request scope. Null if the request isn't location-scoped.",
+    resolve: async (query, _root, _args, ctx) => {
+      if (ctx.auth.kind !== 'authenticated' || !ctx.auth.location) return null;
+      return (await ctx.prisma.location.findUnique({
+        ...query,
+        where: { id: ctx.auth.location.id },
+      })) as never;
+    },
+  }),
+);
 
 /** Pure resolver for tenantLocations — extracted for direct unit testing. */
 export async function resolveTenantLocationsAdmin(

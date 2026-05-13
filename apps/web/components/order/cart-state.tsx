@@ -46,6 +46,13 @@ export interface CartActions {
 interface CartContextValue extends CartState, CartActions {
   totalCents: number;
   itemCount: number;
+  /**
+   * True once we've finished reading from sessionStorage on mount. UIs that
+   * branch on `items.length === 0` should defer rendering an empty state
+   * until this flag flips, otherwise they flash the empty UI on the first
+   * paint of every navigation.
+   */
+  hydrated: boolean;
 }
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -97,12 +104,19 @@ export function CartProvider({
   children: ReactNode;
 }): React.JSX.Element {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const hydratedRef = useRef(false);
 
-  // Hydrate from sessionStorage after mount (avoids SSR mismatch).
+  // Hydrate from sessionStorage after mount (avoids SSR mismatch). The
+  // `hydrated` state flips once we've read; consumers that show an "empty
+  // cart" UI should wait for this to avoid flashing on every navigation
+  // (the SPA navigation re-mounts this provider, so each page transition
+  // would otherwise show a one-frame "Your cart is empty" before the read
+  // completes).
   useEffect(() => {
     setItems(readPersisted(tenantSlug, locationSlug));
     hydratedRef.current = true;
+    setHydrated(true);
   }, [tenantSlug, locationSlug]);
 
   useEffect(() => {
@@ -149,8 +163,20 @@ export function CartProvider({
       clear,
       totalCents,
       itemCount,
+      hydrated,
     }),
-    [tenantSlug, locationSlug, items, addItem, removeItem, setQuantity, clear, totalCents, itemCount],
+    [
+      tenantSlug,
+      locationSlug,
+      items,
+      addItem,
+      removeItem,
+      setQuantity,
+      clear,
+      totalCents,
+      itemCount,
+      hydrated,
+    ],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

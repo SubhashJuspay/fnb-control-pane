@@ -86,10 +86,13 @@ export function OpenTicketsSidebar({
             />
           </div>
         ) : (
-          <ul className="flex flex-col">
+          <ul className="flex flex-col gap-1 p-2">
             {tickets.map((t) => {
               const isActive = activeTicketId === t.id;
               const lineCount = t.items?.filter((i) => i?.status !== 'VOIDED').length ?? 0;
+              const isDineIn = t.orderType === OrderType.DineIn;
+              const isTakeout = t.orderType === OrderType.Takeout;
+              const hasLabel = Boolean(t.customerLabel);
               return (
                 <li key={t.id ?? ''}>
                   <button
@@ -97,28 +100,68 @@ export function OpenTicketsSidebar({
                     onClick={() => t.id && onSelectTicket(t.id)}
                     aria-pressed={isActive}
                     className={[
-                      'flex w-full flex-col gap-1 border-b px-3 py-2 text-left transition-colors',
-                      isActive ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50',
+                      'group relative flex w-full flex-col gap-1.5 overflow-hidden rounded-lg border p-3 pl-4 text-left transition-all',
+                      isActive
+                        ? 'border-primary/40 bg-primary/10 shadow-sm'
+                        : 'border-border bg-card hover:border-primary/30 hover:bg-muted/40',
                     ].join(' ')}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold">#{t.shortNumber ?? '—'}</span>
-                      <span className="text-sm tabular-nums">
+                    {/* Left accent bar — full height when active, fades in on hover otherwise. */}
+                    <span
+                      aria-hidden
+                      className={[
+                        'absolute inset-y-0 left-0 w-1 transition-opacity',
+                        isActive ? 'bg-primary opacity-100' : 'bg-primary opacity-0 group-hover:opacity-40',
+                      ].join(' ')}
+                    />
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-base font-bold tabular-nums">
+                        #{t.shortNumber ?? '—'}
+                      </span>
+                      <span
+                        className={[
+                          'text-base font-semibold tabular-nums',
+                          (t.totalCents ?? 0) > 0 ? 'text-foreground' : 'text-muted-foreground',
+                        ].join(' ')}
+                      >
                         {formatMoney(t.totalCents ?? 0, currency)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate text-muted-foreground">
+                      <span
+                        className={[
+                          'truncate font-medium',
+                          hasLabel ? 'text-foreground' : 'italic text-muted-foreground',
+                        ].join(' ')}
+                      >
                         {t.customerLabel ?? 'No label'}
                       </span>
-                      <span className="text-muted-foreground">{formatOpenedAt(t.openedAt)}</span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">
+                        {formatOpenedAt(t.openedAt)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 font-medium text-secondary-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={[
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                          isDineIn
+                            ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-200'
+                            : isTakeout
+                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200'
+                              : 'bg-muted text-muted-foreground',
+                        ].join(' ')}
+                      >
                         {t.orderType ? ORDER_TYPE_LABEL[t.orderType] : '—'}
                       </span>
-                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium">
-                        {lineCount} {lineCount === 1 ? 'line' : 'lines'}
+                      <span
+                        className={[
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium tabular-nums',
+                          lineCount === 0
+                            ? 'bg-muted text-muted-foreground'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200',
+                        ].join(' ')}
+                      >
+                        {lineCount} {lineCount === 1 ? 'item' : 'items'}
                       </span>
                     </div>
                   </button>

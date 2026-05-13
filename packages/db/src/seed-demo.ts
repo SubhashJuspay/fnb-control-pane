@@ -198,6 +198,24 @@ async function main() {
       timezone: 'America/Los_Angeles',
       currency: 'USD',
       locale: 'en-US',
+      phone: '+1-415-555-0142',
+      address: {
+        line1: '2050 Mission St',
+        city: 'San Francisco',
+        region: 'CA',
+        postalCode: '94110',
+        country: 'US',
+      },
+      openingHours: {
+        // 0 = Sunday … 6 = Saturday. Times are HH:MM 24h in location timezone.
+        mon: [{ open: '07:00', close: '21:00' }],
+        tue: [{ open: '07:00', close: '21:00' }],
+        wed: [{ open: '07:00', close: '21:00' }],
+        thu: [{ open: '07:00', close: '21:00' }],
+        fri: [{ open: '07:00', close: '22:00' }],
+        sat: [{ open: '08:00', close: '22:00' }],
+        sun: [{ open: '08:00', close: '20:00' }],
+      },
     },
   });
   const castro = await prisma.location.create({
@@ -208,6 +226,23 @@ async function main() {
       timezone: 'America/Los_Angeles',
       currency: 'USD',
       locale: 'en-US',
+      phone: '+1-415-555-0188',
+      address: {
+        line1: '500 Castro St',
+        city: 'San Francisco',
+        region: 'CA',
+        postalCode: '94114',
+        country: 'US',
+      },
+      openingHours: {
+        mon: [{ open: '08:00', close: '20:00' }],
+        tue: [{ open: '08:00', close: '20:00' }],
+        wed: [{ open: '08:00', close: '20:00' }],
+        thu: [{ open: '08:00', close: '20:00' }],
+        fri: [{ open: '08:00', close: '22:00' }],
+        sat: [{ open: '09:00', close: '22:00' }],
+        sun: [{ open: '09:00', close: '18:00' }],
+      },
     },
   });
   summary.locations += 2;
@@ -225,6 +260,22 @@ async function main() {
       timezone: 'Europe/Paris',
       currency: 'EUR',
       locale: 'fr-FR',
+      phone: '+33 1 42 71 00 00',
+      address: {
+        line1: '14 Rue de Bretagne',
+        city: 'Paris',
+        postalCode: '75003',
+        country: 'FR',
+      },
+      openingHours: {
+        mon: [],
+        tue: [{ open: '12:00', close: '14:30' }, { open: '19:00', close: '22:30' }],
+        wed: [{ open: '12:00', close: '14:30' }, { open: '19:00', close: '22:30' }],
+        thu: [{ open: '12:00', close: '14:30' }, { open: '19:00', close: '22:30' }],
+        fri: [{ open: '12:00', close: '14:30' }, { open: '19:00', close: '23:00' }],
+        sat: [{ open: '12:00', close: '23:00' }],
+        sun: [{ open: '12:00', close: '15:00' }],
+      },
     },
   });
   summary.locations += 1;
@@ -339,7 +390,7 @@ async function main() {
     data: { tenantId: acme.id, name: 'Drinks', slug: 'drinks', sortOrder: 1 },
   });
   const catPastries = await prisma.category.create({
-    data: { tenantId: acme.id, name: 'Pastries', slug: 'pastries', sortOrder: 2 },
+    data: { tenantId: acme.id, name: 'Starters', slug: 'starters', sortOrder: 2 },
   });
   const catMains = await prisma.category.create({
     data: { tenantId: acme.id, name: 'Mains', slug: 'mains', sortOrder: 3 },
@@ -425,172 +476,188 @@ async function main() {
     image?: string;
     description?: string;
   };
+  // Names + photos sourced from dummyjson.com/recipes so the demo menu looks
+  // like a real restaurant rather than placeholder coffee shop items. Keys
+  // remain stable (e.g. `latte`, `burger`) because downstream seed code and
+  // tests reference items by key; only the user-visible name + image change.
+  const CDN = 'https://cdn.dummyjson.com/recipe-images';
   const items: ItemSpec[] = [
     {
       key: 'latte',
-      name: 'Latte',
+      name: 'Mango Lassi',
       categoryId: catDrinks.id,
       taxCategoryId: taxFood.id,
       priceCents: 450,
       course: 'BEVERAGE',
       dietary: ['VEGETARIAN'],
-      modifierGroups: [sizeGroup.id, milkGroup.id, toppingsGroup.id],
-      image: 'https://placehold.co/600x400?text=Latte',
-      description: 'Espresso with steamed milk and a layer of foam.',
+      modifierGroups: [sizeGroup.id, toppingsGroup.id],
+      image: `${CDN}/22.webp`,
+      description: 'Yogurt blended with ripe mango — sweet, cool, and creamy.',
     },
     {
       key: 'cappuccino',
-      name: 'Cappuccino',
+      name: 'Pineapple Coconut Smoothie',
       categoryId: catDrinks.id,
       taxCategoryId: taxFood.id,
       priceCents: 425,
       course: 'BEVERAGE',
-      dietary: ['VEGETARIAN'],
-      modifierGroups: [sizeGroup.id, milkGroup.id],
-      image: 'https://placehold.co/600x400?text=Cappuccino',
+      dietary: ['VEGAN'],
+      modifierGroups: [sizeGroup.id],
+      image: `${CDN}/50.webp`,
     },
     {
       key: 'drip_coffee',
-      name: 'Drip Coffee',
+      name: 'Classic Mojito',
       categoryId: catDrinks.id,
       taxCategoryId: taxFood.id,
       priceCents: 300,
       course: 'BEVERAGE',
-      dietary: ['VEGETARIAN'],
+      dietary: ['VEGAN'],
       modifierGroups: [sizeGroup.id],
-      image: 'https://placehold.co/600x400?text=Coffee',
+      image: `${CDN}/40.webp`,
     },
     {
       key: 'mocha',
-      name: 'Mocha',
+      name: 'Blueberry Banana Smoothie',
       categoryId: catDrinks.id,
       taxCategoryId: taxFood.id,
       priceCents: 525,
       course: 'BEVERAGE',
       dietary: ['VEGETARIAN'],
-      modifierGroups: [sizeGroup.id, milkGroup.id, toppingsGroup.id],
+      modifierGroups: [sizeGroup.id, toppingsGroup.id],
+      image: `${CDN}/25.webp`,
     },
     {
       key: 'croissant',
-      name: 'Croissant',
+      name: 'Tomato Basil Bruschetta',
       categoryId: catPastries.id,
       taxCategoryId: taxFood.id,
       priceCents: 350,
-      course: 'OTHER',
+      course: 'APPETIZER',
       dietary: ['VEGETARIAN'],
-      allergens: ['CONTAINS_DAIRY', 'CONTAINS_GLUTEN'],
+      allergens: ['CONTAINS_GLUTEN'],
       modifierGroups: [],
-      image: 'https://placehold.co/600x400?text=Croissant',
+      image: `${CDN}/7.webp`,
     },
     {
       key: 'pain_au_chocolat',
-      name: 'Pain au Chocolat',
+      name: 'Greek Spanakopita',
       categoryId: catPastries.id,
       taxCategoryId: taxFood.id,
       priceCents: 400,
-      course: 'OTHER',
+      course: 'APPETIZER',
       dietary: ['VEGETARIAN'],
-      allergens: ['CONTAINS_DAIRY', 'CONTAINS_GLUTEN'],
+      allergens: ['CONTAINS_DAIRY', 'CONTAINS_GLUTEN', 'CONTAINS_EGGS'],
       modifierGroups: [],
+      image: `${CDN}/38.webp`,
     },
     {
       key: 'bagel',
-      name: 'Bagel',
+      name: 'Caprese Bruschetta',
       categoryId: catPastries.id,
       taxCategoryId: taxFood.id,
       priceCents: 350,
-      course: 'OTHER',
-      dietary: ['VEGAN'],
-      allergens: ['CONTAINS_GLUTEN'],
+      course: 'APPETIZER',
+      dietary: ['VEGETARIAN'],
+      allergens: ['CONTAINS_DAIRY', 'CONTAINS_GLUTEN'],
       modifierGroups: [],
+      image: `${CDN}/41.webp`,
     },
     {
       key: 'avocado_toast',
-      name: 'Avocado Toast',
+      name: 'Quinoa Salad with Avocado',
       categoryId: catMains.id,
       taxCategoryId: taxFood.id,
       priceCents: 1200,
       course: 'MAIN',
-      dietary: ['VEGETARIAN'],
-      modifierGroups: [breadGroup.id, sidesGroup.id],
-      image: 'https://placehold.co/600x400?text=Avocado+Toast',
+      dietary: ['VEGAN', 'GLUTEN_FREE'],
+      modifierGroups: [sidesGroup.id],
+      image: `${CDN}/6.webp`,
     },
     {
       key: 'eggs_benedict',
-      name: 'Eggs Benedict',
+      name: 'South Indian Masala Dosa',
       categoryId: catMains.id,
       taxCategoryId: taxFood.id,
       priceCents: 1400,
       course: 'MAIN',
       dietary: ['VEGETARIAN'],
       modifierGroups: [],
+      image: `${CDN}/28.webp`,
     },
     {
       key: 'burger',
-      name: 'Burger',
+      name: 'Classic Margherita Pizza',
       categoryId: catMains.id,
       taxCategoryId: taxFood.id,
       priceCents: 1600,
       course: 'MAIN',
-      modifierGroups: [breadGroup.id, sidesGroup.id],
-      image: 'https://placehold.co/600x400?text=Burger',
+      dietary: ['VEGETARIAN'],
+      allergens: ['CONTAINS_DAIRY', 'CONTAINS_GLUTEN'],
+      modifierGroups: [sidesGroup.id],
+      image: `${CDN}/1.webp`,
     },
     {
       key: 'caesar_salad',
-      name: 'Caesar Salad',
+      name: 'Caprese Salad',
       categoryId: catMains.id,
       taxCategoryId: taxFood.id,
       priceCents: 1300,
       course: 'MAIN',
-      dietary: ['VEGETARIAN'],
+      dietary: ['VEGETARIAN', 'GLUTEN_FREE'],
+      allergens: ['CONTAINS_DAIRY'],
       modifierGroups: [sidesGroup.id],
+      image: `${CDN}/9.webp`,
     },
     {
       key: 'grilled_cheese',
-      name: 'Grilled Cheese',
+      name: 'Mediterranean Chickpea Salad',
       categoryId: catMains.id,
       taxCategoryId: taxFood.id,
       priceCents: 1100,
       course: 'MAIN',
-      dietary: ['VEGETARIAN'],
-      allergens: ['CONTAINS_DAIRY', 'CONTAINS_GLUTEN'],
-      modifierGroups: [breadGroup.id, sidesGroup.id],
+      dietary: ['VEGAN', 'GLUTEN_FREE'],
+      modifierGroups: [sidesGroup.id],
+      image: `${CDN}/49.webp`,
     },
     {
       key: 'french_fries',
-      name: 'French Fries',
+      name: 'Spanish Patatas Bravas',
       categoryId: catSides.id,
       taxCategoryId: taxFood.id,
       priceCents: 500,
       course: 'SIDE',
-      dietary: ['VEGAN'],
+      dietary: ['VEGAN', 'GLUTEN_FREE'],
       modifierGroups: [],
+      image: `${CDN}/31.webp`,
     },
     {
       key: 'side_salad',
-      name: 'Side Salad',
+      name: 'Mexican Street Corn',
       categoryId: catSides.id,
       taxCategoryId: taxFood.id,
       priceCents: 500,
       course: 'SIDE',
-      dietary: ['VEGAN'],
+      dietary: ['VEGETARIAN', 'GLUTEN_FREE'],
+      allergens: ['CONTAINS_DAIRY'],
       modifierGroups: [],
+      image: `${CDN}/26.webp`,
     },
     {
       key: 'cheesecake',
-      name: 'Cheesecake',
+      name: 'Italian Tiramisu',
       categoryId: catDesserts.id,
       taxCategoryId: taxFood.id,
       priceCents: 800,
       course: 'DESSERT',
       dietary: ['VEGETARIAN'],
-      allergens: ['CONTAINS_DAIRY'],
+      allergens: ['CONTAINS_DAIRY', 'CONTAINS_EGGS', 'CONTAINS_GLUTEN'],
       modifierGroups: [],
-      image: 'https://placehold.co/600x400?text=Cheesecake',
+      image: `${CDN}/23.webp`,
     },
     {
       key: 'brownie',
-      name: 'Chocolate Brownie',
+      name: 'Brazilian Chocolate Brigadeiros',
       categoryId: catDesserts.id,
       taxCategoryId: taxFood.id,
       priceCents: 600,
@@ -652,18 +719,48 @@ async function main() {
       schedule: { kind: 'always' } as Prisma.InputJsonValue,
     },
   });
-  const allDaySection = await prisma.menuSection.create({
-    data: { menuId: allDayMenu.id, name: 'Everything', sortOrder: 1 },
-  });
-  let order = 0;
+  // Build one MenuSection per Category so the customer-facing menu shows
+  // a sidebar with Drinks / Starters / Mains / Sides / Desserts. Without
+  // this the menu collapses to a single "Everything" bucket and the
+  // sidebar is hidden client-side.
+  const sectionOrder: Record<string, number> = {
+    [catDrinks.id]: 1,
+    [catPastries.id]: 2, // "Starters" category
+    [catMains.id]: 3,
+    [catSides.id]: 4,
+    [catDesserts.id]: 5,
+  };
+  const sectionNames: Record<string, string> = {
+    [catDrinks.id]: 'Drinks',
+    [catPastries.id]: 'Starters',
+    [catMains.id]: 'Mains',
+    [catSides.id]: 'Sides',
+    [catDesserts.id]: 'Desserts',
+  };
+  const itemsByCategory = new Map<string, typeof items>();
   for (const it of items) {
-    await prisma.menuSectionItem.create({
+    const list = itemsByCategory.get(it.categoryId) ?? [];
+    list.push(it);
+    itemsByCategory.set(it.categoryId, list);
+  }
+  for (const [categoryId, categoryItems] of itemsByCategory) {
+    const section = await prisma.menuSection.create({
       data: {
-        menuSectionId: allDaySection.id,
-        menuItemId: itemIdsByKey.get(it.key)!,
-        sortOrder: order++,
+        menuId: allDayMenu.id,
+        name: sectionNames[categoryId] ?? 'Other',
+        sortOrder: sectionOrder[categoryId] ?? 99,
       },
     });
+    let sectionOrderIdx = 0;
+    for (const it of categoryItems) {
+      await prisma.menuSectionItem.create({
+        data: {
+          menuSectionId: section.id,
+          menuItemId: itemIdsByKey.get(it.key)!,
+          sortOrder: sectionOrderIdx++,
+        },
+      });
+    }
   }
 
   const breakfastMenu = await prisma.menu.create({

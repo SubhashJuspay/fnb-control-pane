@@ -27,6 +27,32 @@ const preset: Partial<Config> = {
           DEFAULT: 'oklch(var(--color-success-default) / <alpha-value>)',
           foreground: 'oklch(var(--color-success-fg) / <alpha-value>)',
         },
+        // Shadcn-style aliases. The shadcn components in @repo/ui (Dropdown,
+        // Select, Popover, Sheet, Dialog, Card, …) reference `bg-popover`,
+        // `bg-card`, `bg-primary`, `bg-secondary`, `bg-destructive`. Without
+        // these mappings Tailwind silently emits no rule → transparent
+        // background → text bleeds through every popover. Mapped to the
+        // existing OKLCH tokens so light/dark mode keeps working.
+        popover: {
+          DEFAULT: 'oklch(var(--color-bg-surface) / <alpha-value>)',
+          foreground: 'oklch(var(--color-fg-default) / <alpha-value>)',
+        },
+        card: {
+          DEFAULT: 'oklch(var(--color-bg-surface) / <alpha-value>)',
+          foreground: 'oklch(var(--color-fg-default) / <alpha-value>)',
+        },
+        primary: {
+          DEFAULT: 'oklch(var(--color-accent-default) / <alpha-value>)',
+          foreground: 'oklch(var(--color-accent-fg) / <alpha-value>)',
+        },
+        secondary: {
+          DEFAULT: 'oklch(var(--color-bg-muted) / <alpha-value>)',
+          foreground: 'oklch(var(--color-fg-default) / <alpha-value>)',
+        },
+        destructive: {
+          DEFAULT: 'oklch(var(--color-danger-default) / <alpha-value>)',
+          foreground: 'oklch(var(--color-danger-fg) / <alpha-value>)',
+        },
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],

@@ -350,6 +350,15 @@ export const TicketRef = builder.prismaObject('Ticket', {
     discountCents: t.exposeInt('discountCents'),
     taxCents: t.exposeInt('taxCents'),
     totalCents: t.exposeInt('totalCents'),
+    tipCents: t.exposeInt('tipCents'),
+    refundCents: t.exposeInt('refundCents'),
+    refundReason: t.exposeString('refundReason', { nullable: true }),
+    refundedAt: t.expose('refundedAt', { type: 'DateTime', nullable: true }),
+    pointsEarned: t.exposeInt('pointsEarned'),
+    onlineRequest: t.relation('onlineRequest', {
+      authScopes: { staff: true },
+      nullable: true,
+    }),
     openedBy: t.relation('openedBy', { authScopes: { staff: true } }),
     closedBy: t.relation('closedBy', {
       authScopes: { staff: true },

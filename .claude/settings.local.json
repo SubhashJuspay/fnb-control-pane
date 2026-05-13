@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "Bash(docker --version)",
+      "Bash(docker compose *)",
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(command -v podman)",
+      "Bash(command -v colima)",
+      "Bash(cp .env.example .env)",
+      "Bash(openssl rand *)",
+      "Bash(/usr/bin/sed -i '' 's|^AUTH_SECRET=.*|AUTH_SECRET=__TRACKED_VAR__|' .env)",
+      "Bash(export PATH=\"$HOME/.rd/bin:$PATH\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:3000/sign-in)",
+      "Bash(curl -s -X POST -H 'content-type: application/json' -d '{\"query\":\"{__typename}\"}' http://localhost:4000/graphql)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8025/)",
+      "Bash(docker exec *)",
+      "Bash(curl -s -o /tmp/menu.html -w \"HTTP %{http_code}\\\\n\" http://localhost:3000/order/acme/mission-st)",
+      "Bash(curl -s -o /tmp/checkout.html -w \"HTTP %{http_code}\\\\n\" http://localhost:3000/order/acme/mission-st/checkout)",
+      "Bash(awk '/public-menu-list/,/<\\\\/main/' /tmp/menu.html)",
+      "Bash(curl -s \"http://localhost:3000/order/acme/mission-st?bust=$\\(date +%s\\)\" -o /tmp/menu2.html -w \"HTTP %{http_code}\\\\n\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s \"http://localhost:3000/order/acme/mission-st/checkout?b=$\\(date +%s\\)\" -o /tmp/checkout3.html -w \"checkout HTTP %{http_code}\\\\n\")",
+      "Bash(curl -s \"http://localhost:3000/order/acme/mission-st/track/dummy-token?b=$\\(date +%s\\)\" -o /tmp/track.html -w \"track HTTP %{http_code}\\\\n\")",
+      "Bash(curl -s \"http://localhost:3000/order/acme/mission-st/confirmation/dummy-token?n=42&b=$\\(date +%s\\)\" -o /tmp/conf.html -w \"conf HTTP %{http_code}\\\\n\")"
+    ]
+  }
+}

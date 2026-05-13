@@ -63,6 +63,9 @@ describe('resolvePublicLocationBySlug', () => {
           slug: 'mission-st',
           timezone: 'America/Los_Angeles',
           currency: 'USD',
+          phone: null,
+          address: null,
+          openingHours: null,
         }),
       },
     };
@@ -80,6 +83,9 @@ describe('resolvePublicLocationBySlug', () => {
       tenantName: 'Acme',
       tenantId: 't',
       locationId: 'loc',
+      phone: null,
+      address: null,
+      openingHours: null,
     });
   });
 });

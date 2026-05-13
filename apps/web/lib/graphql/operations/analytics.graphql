@@ -9,6 +9,8 @@ query SalesSummary($dateRange: DateRangeInput!) {
     discountCents
     taxCents
     netSalesCents
+    tipCents
+    refundCents
     averageTicketCents
     uniqueGuests
   }

@@ -28,6 +28,10 @@ query Ticket($id: UUID!) {
     discountCents
     taxCents
     totalCents
+    tipCents
+    refundCents
+    refundReason
+    refundedAt
     openedBy {
       id
       name
@@ -115,12 +119,28 @@ query KitchenTickets {
     shortNumber
     customerLabel
     orderType
+    originChannel
+    openedAt
+    onlineRequest {
+      id
+      pickupAt
+      pickupKind
+      customerName
+      customerPhone
+      notes
+    }
     items {
       id
       status
       nameSnapshot
       quantity
       course
+      notes
+      menuItem {
+        id
+        allergenTags
+        dietaryTags
+      }
       modifiers {
         id
         nameSnapshot
@@ -212,6 +232,15 @@ mutation CloseTicket($input: CloseTicketInput!) {
     status
     totalCents
     closeNote
+  }
+}
+
+mutation RefundTicket($input: RefundTicketInput!) {
+  refundTicket(input: $input) {
+    id
+    refundCents
+    refundReason
+    refundedAt
   }
 }
 

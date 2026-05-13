@@ -76,6 +76,10 @@ export const upsertLocationItemSchema = z.object({
   hidden: z.boolean().optional(),
   available: z.boolean().optional(),
   priceCents: priceCents.optional().nullable(),
+  /** NULL clears stock tracking; integer sets the on-hand count. */
+  stockOnHand: z.number().int().min(0).max(1_000_000).optional().nullable(),
+  /** NULL clears the low-stock threshold; integer sets it. */
+  lowStockThreshold: z.number().int().min(0).max(1_000_000).optional().nullable(),
 });
 export type UpsertLocationItemInput = z.infer<typeof upsertLocationItemSchema>;
 

@@ -13,6 +13,7 @@ query Guests($filter: GuestsFilter) {
     totalSpentCents
     averageTicketCents
     firstVisitAt
+    pointsBalance
   }
 }
 
@@ -31,6 +32,7 @@ query Guest($id: UUID!) {
     totalSpentCents
     averageTicketCents
     firstVisitAt
+    pointsBalance
     upcomingReservation {
       id
       status

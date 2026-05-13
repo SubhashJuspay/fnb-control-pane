@@ -1,0 +1,8 @@
+mutation SignUpTenant($input: SignUpTenantInput!) {
+  signUpTenant(input: $input) {
+    tenantId
+    tenantSlug
+    locationSlug
+    ownerEmail
+  }
+}

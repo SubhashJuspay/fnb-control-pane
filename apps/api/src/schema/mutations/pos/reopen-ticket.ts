@@ -41,6 +41,7 @@ export async function resolveReopenTicket(
       closedAt: null,
       closedById: null,
       closeNote: null,
+      tipCents: 0,
     },
   })) as { id: string };
   await writeAudit(ctx, {

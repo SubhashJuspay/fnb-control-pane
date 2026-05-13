@@ -1,0 +1,21 @@
+query LocationSettings {
+  currentLocation {
+    id
+    name
+    slug
+    timezone
+    currency
+    phone
+    address
+    openingHours
+  }
+}
+
+mutation UpdateLocationSettings($input: UpdateLocationSettingsInput!) {
+  updateLocationSettings(input: $input) {
+    id
+    phone
+    address
+    openingHours
+  }
+}

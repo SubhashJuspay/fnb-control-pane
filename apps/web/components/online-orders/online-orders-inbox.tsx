@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import { useQuery, useSubscription } from 'urql';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@repo/ui';
 import {
   OnlineOrderConfirmStatus,
   OnlineOrderRequestsDocument,
@@ -42,6 +44,15 @@ export function OnlineOrdersInbox({
     }
   }, [subState.data, refetch]);
 
+  const onManualRefresh = (): void => {
+    refetch({ requestPolicy: 'network-only' });
+  };
+
+  // urql's useSubscription stays in `fetching` while the SSE stream is open
+  // (it's a long-lived request). Treat that as the healthy state; only flag
+  // an error as "disconnected".
+  const subscriptionHealthy = !subState.error;
+
   const requests: Request[] = (data?.onlineOrderRequests ?? []).filter(
     (r): r is Request => r != null,
   );
@@ -50,11 +61,42 @@ export function OnlineOrdersInbox({
 
   return (
     <div className="flex flex-col gap-4 p-4" data-testid="online-orders-inbox">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">Online Orders</h1>
-        <p className="text-xs text-muted-foreground">
-          {locationName} • {pending.length} pending
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold">Online Orders</h1>
+          <p className="text-xs text-muted-foreground">
+            {locationName} • {pending.length} pending
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span
+            className={[
+              'inline-flex size-2 rounded-full',
+              subscriptionHealthy ? 'bg-emerald-500' : 'bg-amber-500',
+            ].join(' ')}
+            aria-hidden
+            title={
+              subscriptionHealthy
+                ? 'Live — new orders appear automatically'
+                : 'Reconnecting to live updates…'
+            }
+          />
+          <span>{subscriptionHealthy ? 'Live' : 'Reconnecting…'}</span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onManualRefresh}
+            disabled={fetching}
+            data-testid="online-orders-refresh"
+          >
+            <RefreshCw
+              className={`mr-1.5 size-3.5 ${fetching ? 'animate-spin' : ''}`}
+              aria-hidden
+            />
+            Refresh
+          </Button>
+        </div>
       </header>
       {error ? (
         <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">

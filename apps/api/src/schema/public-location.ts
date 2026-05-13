@@ -19,6 +19,9 @@ export interface PublicLocationData {
   tenantName: string;
   tenantId: string;
   locationId: string;
+  phone: string | null;
+  address: unknown | null;
+  openingHours: unknown | null;
 }
 
 export interface PublicMenuData {
@@ -45,6 +48,7 @@ export interface PublicMenuItemData {
   effectivePriceCents: number;
   available: boolean;
   dietaryTags: string[];
+  allergenTags: string[];
   modifierGroups: PublicModifierGroupData[];
 }
 
@@ -76,7 +80,16 @@ export async function resolvePublicLocationBySlug(
   if (!tenant || tenant.status !== 'ACTIVE') return null;
   const location = await prisma.location.findFirst({
     where: { tenantId: tenant.id, slug: locationSlug, status: 'ACTIVE' },
-    select: { id: true, name: true, slug: true, timezone: true, currency: true },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      timezone: true,
+      currency: true,
+      phone: true,
+      address: true,
+      openingHours: true,
+    },
   });
   if (!location) return null;
   return {
@@ -88,6 +101,9 @@ export async function resolvePublicLocationBySlug(
     tenantName: tenant.name,
     tenantId: tenant.id,
     locationId: location.id,
+    phone: location.phone,
+    address: location.address ?? null,
+    openingHours: location.openingHours ?? null,
   };
 }
 
@@ -176,6 +192,7 @@ export async function loadPublicActiveMenus(
       imageUrl: true,
       basePriceCents: true,
       dietaryTags: true,
+      allergenTags: true,
     },
   })) as Array<{
     id: string;
@@ -185,6 +202,7 @@ export async function loadPublicActiveMenus(
     imageUrl: string | null;
     basePriceCents: number;
     dietaryTags: string[];
+    allergenTags: string[];
   }>;
   const itemById = new Map(menuItems.map((mi) => [mi.id, mi]));
 
@@ -329,6 +347,7 @@ export async function loadPublicActiveMenus(
       effectivePriceCents: price,
       available,
       dietaryTags: mi.dietaryTags,
+      allergenTags: mi.allergenTags,
       modifierGroups: groupsByItem.get(mi.id) ?? [],
     });
     itemsBySection.set(si.menuSectionId, arr);
@@ -398,6 +417,7 @@ PublicMenuItemRef.implement({
     effectivePriceCents: t.exposeInt('effectivePriceCents'),
     available: t.exposeBoolean('available'),
     dietaryTags: t.exposeStringList('dietaryTags'),
+    allergenTags: t.exposeStringList('allergenTags'),
     modifierGroups: t.field({
       type: [PublicModifierGroupRef],
       resolve: (p) => p.modifierGroups,
@@ -441,6 +461,17 @@ PublicLocationRef.implement({
     timezone: t.exposeString('timezone'),
     currency: t.exposeString('currency'),
     tenantName: t.exposeString('tenantName'),
+    phone: t.exposeString('phone', { nullable: true }),
+    address: t.field({
+      type: 'JSON',
+      nullable: true,
+      resolve: (p) => p.address ?? null,
+    }),
+    openingHours: t.field({
+      type: 'JSON',
+      nullable: true,
+      resolve: (p) => p.openingHours ?? null,
+    }),
     activeMenus: t.field({
       type: [PublicMenuRef],
       args: { at: t.arg({ type: 'DateTime', required: false }) },

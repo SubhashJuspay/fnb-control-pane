@@ -6,6 +6,9 @@ query PublicLocationBySlug($tenantSlug: String!, $locationSlug: String!, $at: Da
     tenantName
     timezone
     currency
+    phone
+    address
+    openingHours
     activeMenus(at: $at) {
       id
       name
@@ -22,6 +25,7 @@ query PublicLocationBySlug($tenantSlug: String!, $locationSlug: String!, $at: Da
           effectivePriceCents
           available
           dietaryTags
+          allergenTags
           modifierGroups {
             id
             name
@@ -55,6 +59,38 @@ query TrackOnlineOrder($token: String!) {
     taxCents
     totalCents
     ticketStatus
+  }
+}
+
+query ReceiptOnlineOrder($token: String!) {
+  trackOnlineOrder(token: $token) {
+    shortNumber
+    customerName
+    confirmStatus
+    ticketStatus
+    pickupAt
+    pickupKind
+    subtotalCents
+    taxCents
+    totalCents
+    tipCents
+    closedAt
+    tenantName
+    locationName
+    locationPhone
+    locationAddress
+    items {
+      nameSnapshot
+      quantity
+      unitPriceCents
+      modifiersTotalCents
+      lineSubtotalCents
+      status
+      modifiers {
+        nameSnapshot
+        priceDeltaCents
+      }
+    }
   }
 }
 

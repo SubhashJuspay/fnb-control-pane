@@ -1,4 +1,4 @@
-import { prisma } from '@repo/db';
+import { Prisma, prisma } from '@repo/db';
 import { randomBytes, scryptSync } from 'node:crypto';
 
 function hashPassword(password: string): string {
@@ -60,6 +60,26 @@ export async function resetTestData(): Promise<void> {
       where: { location: { tenantId: acmePre.id } },
     });
     await prisma.ticket.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    // Staff/scheduling rows reference users via Restrict FKs (Shift.userId,
+    // Shift.createdById, TimeEntry.userId, EmploymentProfile.userId,
+    // AvailabilityWindow.userId). Drop them before the user wipe below or
+    // the user delete fails when a previous demo seed left these rows
+    // pointing at non-owner users.
+    await prisma.break.deleteMany({
+      where: { timeEntry: { location: { tenantId: acmePre.id } } },
+    });
+    await prisma.timeEntry.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    await prisma.shift.deleteMany({
+      where: { location: { tenantId: acmePre.id } },
+    });
+    await prisma.availabilityWindow.deleteMany({
+      where: { user: { memberships: { some: { tenantId: acmePre.id } } } },
+    });
+    await prisma.employmentProfile.deleteMany({
       where: { location: { tenantId: acmePre.id } },
     });
     // Detach system user so it can be deleted along with other non-owner
@@ -1100,6 +1120,16 @@ export async function createOnlineOrderFixtures(
   const tenantSlug = opts.tenantSlug ?? 'acme';
   const locationSlug = opts.locationSlug ?? 'mission-st';
   const pos = await createPosFixtures({ tenantSlug, locationSlug });
+
+  // The closed-state guard reads `openingHours` and refuses submission when
+  // the location is closed. The demo seed sets realistic hours that may
+  // round-trip to "closed" depending on when the suite runs — clear them so
+  // online-order tests are time-of-day independent. Tests that exercise the
+  // closed-state explicitly should write hours back themselves.
+  await prisma.location.update({
+    where: { id: pos.locationId },
+    data: { openingHours: Prisma.DbNull },
+  });
 
   // Find or create the menu for this location.
   const existingMenu = await prisma.menu.findFirst({

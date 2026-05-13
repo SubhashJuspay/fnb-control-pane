@@ -151,7 +151,7 @@ export function GuestDetail({
         </Card>
         <div className="flex flex-col gap-4">
           <Card>
-            <CardContent className="grid grid-cols-3 gap-3 p-4 text-center">
+            <CardContent className="grid grid-cols-2 gap-3 p-4 text-center sm:grid-cols-4">
               <div>
                 <p className="text-xs uppercase text-muted-foreground">
                   Visits
@@ -174,6 +174,14 @@ export function GuestDetail({
                 </p>
                 <p className="text-2xl font-semibold tabular-nums">
                   {formatMoney(guest.averageTicketCents ?? 0, currency)}
+                </p>
+              </div>
+              <div data-testid="guest-points-balance">
+                <p className="text-xs uppercase text-muted-foreground">
+                  Points
+                </p>
+                <p className="text-2xl font-semibold tabular-nums">
+                  {guest.pointsBalance ?? 0}
                 </p>
               </div>
             </CardContent>

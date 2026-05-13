@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { headers as nextHeaders } from 'next/headers';
 import { serverFetch } from './graphql/server';
 
@@ -111,8 +112,12 @@ function compareRole(a: string, b: string): number {
  * same tenant are unioned (the api's `Tenant.locations` field is already
  * viewer-scoped, so it returns either all locations for tenant-wide users or
  * just the location-scoped subset). Roles are reduced to the strongest one.
+ *
+ * Wrapped in React `cache()` so that nested layouts (`(app)`,
+ * `[tenantSlug]`, `[tenantSlug]/[locationSlug]`) sharing the same render
+ * pass do one GraphQL roundtrip instead of three.
  */
-export async function loadAppShellData(): Promise<AppShellData | null> {
+export const loadAppShellData = cache(async (): Promise<AppShellData | null> => {
   const cookie = (await nextHeaders()).get('cookie') ?? '';
   const result = await serverFetch<RawViewerResponse>({
     query: VIEWER_QUERY,
@@ -171,4 +176,4 @@ export async function loadAppShellData(): Promise<AppShellData | null> {
     viewer: { id: viewer.id, email: viewer.email, name: viewer.name },
     tenants,
   };
-}
+});

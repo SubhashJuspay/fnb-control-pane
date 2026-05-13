@@ -2,6 +2,14 @@ import { confirmOnlineOrderSchema } from '@repo/validation/online-order';
 import { z } from 'zod';
 import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
+import {
+  loadOrderEmailContext,
+  renderOrderConfirmed,
+  sendOrderEmailSafely,
+} from '../../../email/online-order.js';
+import { env } from '../../../env.js';
+import { sendSmsSafely } from '../../../sms/client.js';
+import { smsOrderConfirmed } from '../../../sms/online-order.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
 import {
   onlineOrdersChannelName,
@@ -91,6 +99,22 @@ export async function resolveConfirmOnlineOrder(
     kind: 'OnlineOrderRequestUpdated',
     requestId: updated.id,
   });
+
+  // Fire-and-forget customer notifications.
+  const ctxOut = await loadOrderEmailContext(ctx.prisma, updated.id, env.AUTH_URL);
+  if (ctxOut) {
+    if (ctxOut.customerEmail) {
+      void sendOrderEmailSafely(
+        ctxOut.customerEmail,
+        renderOrderConfirmed(ctxOut),
+        { kind: 'confirmed', shortNumber: ctxOut.shortNumber },
+      );
+    }
+    void sendSmsSafely(
+      { to: ctxOut.customerPhone, body: smsOrderConfirmed(ctxOut) },
+      { kind: 'order.confirmed' },
+    );
+  }
   return updated;
 }
 

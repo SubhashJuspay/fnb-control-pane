@@ -18,6 +18,7 @@ import {
   type DateRange,
 } from './date-range-picker';
 import { toDateRangeInput } from './date-range-input';
+import { DownloadCsvButton } from './download-csv';
 
 type Row = NonNullable<NonNullable<ServerPerformanceQuery['serverPerformance']>[number]>;
 
@@ -73,7 +74,23 @@ export function ServersReport(): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
+      <div className="flex flex-wrap items-end gap-3">
+        <DateRangePicker value={range} onChange={setRange} />
+        <div className="ml-auto">
+          <DownloadCsvButton
+            filename="server-performance"
+            rows={rows}
+            columns={[
+              { header: 'Server', value: (r) => r.openedByName ?? '' },
+              { header: 'Tickets', value: (r) => r.ticketCount ?? 0 },
+              { header: 'Items', value: (r) => r.itemsServed ?? 0 },
+              { header: 'Revenue cents', value: (r) => r.revenueCents ?? 0 },
+              { header: 'Avg ticket cents', value: (r) => r.averageTicketCents ?? 0 },
+              { header: 'Void rate', value: (r) => (r.voidRate ?? 0).toFixed(4) },
+            ]}
+          />
+        </div>
+      </div>
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error.message}

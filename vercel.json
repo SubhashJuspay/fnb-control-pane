@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter @app/web build",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "apps/web/.next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD ./apps/web ./packages || exit 1",
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

@@ -27,11 +27,20 @@ export const CloseTicketInput = builder.inputType('CloseTicketInput', {
   fields: (t) => ({
     ticketId: t.field({ type: 'UUID', required: true }),
     closeNote: t.string({ required: false }),
+    tipCents: t.int({ required: false }),
   }),
 });
 
 export const ReopenTicketInput = builder.inputType('ReopenTicketInput', {
   fields: (t) => ({ ticketId: t.field({ type: 'UUID', required: true }) }),
+});
+
+export const RefundTicketInput = builder.inputType('RefundTicketInput', {
+  fields: (t) => ({
+    ticketId: t.field({ type: 'UUID', required: true }),
+    amountCents: t.int({ required: true }),
+    reason: t.string({ required: true }),
+  }),
 });
 
 export const VoidTicketInput = builder.inputType('VoidTicketInput', {

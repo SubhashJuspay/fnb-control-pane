@@ -7,6 +7,9 @@ export interface SummaryTicket {
   taxCents: number;
   totalCents: number;
   guestId: string | null;
+  /** Optional — older callers don't pass these; treat undefined as 0. */
+  tipCents?: number;
+  refundCents?: number;
 }
 
 export interface SalesSummaryRow {
@@ -17,6 +20,10 @@ export interface SalesSummaryRow {
   discountCents: number;
   taxCents: number;
   netSalesCents: number;
+  /** Sum of tips collected on closed tickets. */
+  tipCents: number;
+  /** Sum of refunds issued on closed tickets. */
+  refundCents: number;
   averageTicketCents: number;
   uniqueGuests: number;
 }
@@ -28,6 +35,8 @@ export function computeSalesSummary(args: { tickets: SummaryTicket[] }): SalesSu
   let discountCents = 0;
   let taxCents = 0;
   let netSalesCents = 0;
+  let tipCents = 0;
+  let refundCents = 0;
   const guestIds = new Set<string>();
 
   for (const t of args.tickets) {
@@ -41,6 +50,8 @@ export function computeSalesSummary(args: { tickets: SummaryTicket[] }): SalesSu
     discountCents += t.discountCents;
     taxCents += t.taxCents;
     netSalesCents += t.totalCents;
+    tipCents += t.tipCents ?? 0;
+    refundCents += t.refundCents ?? 0;
     if (t.guestId !== null) guestIds.add(t.guestId);
   }
 
@@ -54,6 +65,8 @@ export function computeSalesSummary(args: { tickets: SummaryTicket[] }): SalesSu
     discountCents,
     taxCents,
     netSalesCents,
+    tipCents,
+    refundCents,
     averageTicketCents,
     uniqueGuests: guestIds.size,
   };

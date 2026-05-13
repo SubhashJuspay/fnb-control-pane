@@ -60,3 +60,26 @@ export type SeatReservationInput = z.infer<typeof seatReservationSchema>;
 
 export const completeReservationSchema = z.object({ id: z.string().uuid() });
 export type CompleteReservationInput = z.infer<typeof completeReservationSchema>;
+
+/**
+ * Public, anonymous reservation request — submitted by a customer through
+ * the public booking widget. Tenant + location are addressed by slug; staff
+ * see the request as PENDING and confirm or cancel it from the reservations
+ * console.
+ */
+export const submitReservationRequestSchema = z.object({
+  tenantSlug: z.string().trim().min(1).max(100),
+  locationSlug: z.string().trim().min(1).max(100),
+  guestName: z.string().trim().min(1).max(120),
+  guestPhone: z.string().trim().min(3).max(40),
+  // Server-side schema accepts string | null | undefined directly so the
+  // GraphQL input type lines up. The web form pre-strips empty strings to
+  // undefined before submitting.
+  guestEmail: z.string().email().max(254).optional().nullable(),
+  partySize: z.number().int().min(1).max(40),
+  requestedTime: z.coerce.date(),
+  notes: z.string().trim().max(500).optional().nullable(),
+});
+export type SubmitReservationRequestInput = z.infer<
+  typeof submitReservationRequestSchema
+>;

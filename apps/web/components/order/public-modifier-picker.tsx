@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Check } from 'lucide-react';
 import {
   Button,
   Dialog,
@@ -31,8 +32,13 @@ export interface PublicModifierGroup {
 export interface PublicMenuItem {
   id?: string | null;
   name?: string | null;
+  shortDescription?: string | null;
   description?: string | null;
+  imageUrl?: string | null;
   effectivePriceCents?: number | null;
+  available?: boolean | null;
+  dietaryTags?: readonly string[] | null;
+  allergenTags?: readonly string[] | null;
   modifierGroups?: (PublicModifierGroup | null)[] | null;
 }
 
@@ -169,6 +175,7 @@ export function PublicModifierPicker({
                   <div className="grid grid-cols-2 gap-2">
                     {mods.map((m) => {
                       const checked = selectedIds.has(m.id ?? '');
+                      const delta = m.priceDeltaCents ?? 0;
                       return (
                         <button
                           key={m.id ?? ''}
@@ -176,19 +183,35 @@ export function PublicModifierPicker({
                           role="checkbox"
                           aria-checked={checked}
                           data-testid={`public-modifier-${m.name}`}
+                          data-checked={checked ? 'true' : 'false'}
                           onClick={() => toggle(group, m)}
                           className={[
-                            'flex flex-col items-start gap-1 rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                            'group/mod relative flex flex-col items-start gap-1 rounded-lg border-2 px-3 py-2.5 text-left text-sm transition-all',
                             checked
-                              ? 'border-primary bg-primary/10 text-foreground'
-                              : 'border-border bg-background hover:bg-muted/40',
+                              ? 'border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30'
+                              : 'border-border bg-background hover:border-primary/40 hover:bg-primary/5',
                           ].join(' ')}
                         >
-                          <span className="font-medium">{m.name}</span>
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {(m.priceDeltaCents ?? 0) === 0
-                              ? '—'
-                              : `${(m.priceDeltaCents ?? 0) > 0 ? '+' : ''}${formatMoney(m.priceDeltaCents ?? 0, currency)}`}
+                          {checked ? (
+                            <span
+                              aria-hidden
+                              className="absolute right-2 top-2 inline-flex size-4 items-center justify-center rounded-full bg-primary-foreground/20"
+                            >
+                              <Check className="size-3" strokeWidth={3} />
+                            </span>
+                          ) : null}
+                          <span className="pr-5 font-semibold">{m.name}</span>
+                          <span
+                            className={[
+                              'text-xs tabular-nums',
+                              checked
+                                ? 'text-primary-foreground/85'
+                                : 'text-muted-foreground',
+                            ].join(' ')}
+                          >
+                            {delta === 0
+                              ? 'No charge'
+                              : `${delta > 0 ? '+' : ''}${formatMoney(delta, currency)}`}
                           </span>
                         </button>
                       );

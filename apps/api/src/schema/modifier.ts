@@ -200,7 +200,7 @@ export const ModifierGroupRef = builder.prismaObject('ModifierGroup', {
     createdAt: t.expose('createdAt', { type: 'DateTime' }),
     modifiers: t.prismaField({
       type: ['Modifier'],
-      authScopes: { manager: true },
+      authScopes: { staff: true },
       resolve: (query, parent, _args, ctx) =>
         ctx.prisma.modifier.findMany({
           ...query,

@@ -2,6 +2,14 @@ import { rejectOnlineOrderSchema } from '@repo/validation/online-order';
 import { z } from 'zod';
 import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
+import {
+  loadOrderEmailContext,
+  renderOrderRejected,
+  sendOrderEmailSafely,
+} from '../../../email/online-order.js';
+import { env } from '../../../env.js';
+import { sendSmsSafely } from '../../../sms/client.js';
+import { smsOrderRejected } from '../../../sms/online-order.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
 import {
   onlineOrdersChannelName,
@@ -110,6 +118,21 @@ export async function resolveRejectOnlineOrder(
     kind: 'OnlineOrderRequestUpdated',
     requestId: updated.id,
   });
+
+  const ctxOut = await loadOrderEmailContext(ctx.prisma, updated.id, env.AUTH_URL);
+  if (ctxOut) {
+    if (ctxOut.customerEmail) {
+      void sendOrderEmailSafely(
+        ctxOut.customerEmail,
+        renderOrderRejected(ctxOut),
+        { kind: 'rejected', shortNumber: ctxOut.shortNumber },
+      );
+    }
+    void sendSmsSafely(
+      { to: ctxOut.customerPhone, body: smsOrderRejected(ctxOut) },
+      { kind: 'order.rejected' },
+    );
+  }
   return updated;
 }
 

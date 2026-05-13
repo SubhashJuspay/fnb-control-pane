@@ -60,3 +60,19 @@ export const SeatReservationInput = builder.inputType('SeatReservationInput', {
 export const CompleteReservationInput = builder.inputType('CompleteReservationInput', {
   fields: (t) => ({ id: t.field({ type: 'UUID', required: true }) }),
 });
+
+export const SubmitReservationRequestInput = builder.inputType(
+  'SubmitReservationRequestInput',
+  {
+    fields: (t) => ({
+      tenantSlug: t.string({ required: true }),
+      locationSlug: t.string({ required: true }),
+      guestName: t.string({ required: true }),
+      guestPhone: t.string({ required: true }),
+      guestEmail: t.string({ required: false }),
+      partySize: t.int({ required: true }),
+      requestedTime: t.field({ type: 'DateTime', required: true }),
+      notes: t.string({ required: false }),
+    }),
+  },
+);

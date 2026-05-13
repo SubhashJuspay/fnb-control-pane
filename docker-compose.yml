@@ -34,7 +34,10 @@ services:
     container_name: fnb_api
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgres://fnb:fnb_dev@db:5432/fnb_control_pane
+      # Falls back to the local Docker Postgres when API_DATABASE_URL is unset
+      # (normal dev). For the Vercel demo we override via `.env` to point at
+      # Neon so the deployed frontend and the local API read the same data.
+      DATABASE_URL: ${API_DATABASE_URL:-postgres://fnb:fnb_dev@db:5432/fnb_control_pane}
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL:-http://localhost:3000}
       SMTP_HOST: mailhog

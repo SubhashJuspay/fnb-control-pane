@@ -4,6 +4,7 @@ import './update-ticket-label.js';
 import './update-ticket-order-type.js';
 import './close-ticket.js';
 import './reopen-ticket.js';
+import './refund-ticket.js';
 import './void-ticket.js';
 import './add-ticket-item.js';
 import './update-ticket-item.js';

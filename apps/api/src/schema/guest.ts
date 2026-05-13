@@ -122,6 +122,7 @@ export const GuestRef = builder.prismaObject('Guest', {
     phone: t.exposeString('phone', { nullable: true }),
     email: t.exposeString('email', { nullable: true }),
     notes: t.exposeString('notes', { nullable: true }),
+    pointsBalance: t.exposeInt('pointsBalance'),
     lastSeenAt: t.expose('lastSeenAt', { type: 'DateTime', nullable: true }),
     archivedAt: t.expose('archivedAt', { type: 'DateTime', nullable: true }),
     createdAt: t.expose('createdAt', { type: 'DateTime' }),

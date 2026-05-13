@@ -13,7 +13,7 @@ describe('submitOnlineOrderSchema', () => {
     tenantSlug: 'acme',
     locationSlug: 'mission-st',
     customerName: 'Bob',
-    customerPhone: '555-0100',
+    customerPhone: '+52 55 1234 5678',
     pickupKind: 'ASAP' as const,
     items: [{ menuItemId: UUID, quantity: 1 }],
   };
@@ -41,6 +41,30 @@ describe('submitOnlineOrderSchema', () => {
 
   it('rejects too-short phone', () => {
     expect(submitOnlineOrderSchema.safeParse({ ...base, customerPhone: '123' }).success).toBe(false);
+  });
+
+  it('accepts a bare 10-digit Mexican number', () => {
+    expect(
+      submitOnlineOrderSchema.safeParse({ ...base, customerPhone: '5512345678' }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a +52 prefixed Mexican number', () => {
+    expect(
+      submitOnlineOrderSchema.safeParse({ ...base, customerPhone: '+525512345678' }).success,
+    ).toBe(true);
+  });
+
+  it('accepts a Mexican mobile (+52 1) prefixed number', () => {
+    expect(
+      submitOnlineOrderSchema.safeParse({ ...base, customerPhone: '+52 1 55 1234 5678' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects a non-Mexican-format phone', () => {
+    expect(
+      submitOnlineOrderSchema.safeParse({ ...base, customerPhone: '+1 415 555 0100' }).success,
+    ).toBe(false);
   });
 
   it('accepts optional email', () => {

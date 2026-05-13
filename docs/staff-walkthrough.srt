@@ -1,0 +1,47 @@
+1
+00:00:00,661 --> 00:00:06,685
+A manager signs in to handle the new online order.
+
+2
+00:00:06,685 --> 00:00:08,492
+In Online Orders, request #2 appears at the top with the green "Live" indicator.
+
+3
+00:00:08,492 --> 00:00:16,640
+They tap Accept — the customer’s tracking page advances to "Confirmed".
+
+4
+00:00:16,640 --> 00:00:19,825
+On the POS, the new ticket appears in the open tickets list.
+
+5
+00:00:19,825 --> 00:00:23,021
+Items are already on their way to the kitchen.
+
+6
+00:00:23,021 --> 00:00:29,073
+On the Kitchen Display, the order appears with customer name, items, allergens, and pickup time.
+
+7
+00:00:29,073 --> 00:00:38,120
+They bump each item as it leaves the pass — green ✓ Ready badges replace the buttons.
+
+8
+00:00:38,120 --> 00:00:39,922
+Back on the POS with every line served — "Close ticket" is now active.
+
+9
+00:00:39,922 --> 00:00:43,400
+With every line served, "Close ticket" opens the payment dialog.
+
+10
+00:00:43,400 --> 00:00:46,307
+They keep the tip at "No tip", select Card, and tap Pay.
+
+11
+00:00:46,307 --> 00:00:55,179
+A brief "Processing card payment…" overlay turns into a green "Payment received".
+
+12
+00:00:55,179 --> 00:00:58,681
+Ticket closed. The customer’s tracking page now advances to "Picked up — Order complete!".

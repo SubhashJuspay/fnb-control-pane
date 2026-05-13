@@ -10,6 +10,7 @@ import {
   type DateRange,
 } from './date-range-picker';
 import { toDateRangeInput } from './date-range-input';
+import { DownloadCsvButton } from './download-csv';
 
 export function GuestsReport(): React.JSX.Element {
   const [range, setRange] = useState<DateRange>(defaultDateRange);
@@ -25,9 +26,36 @@ export function GuestsReport(): React.JSX.Element {
   const cohort = data?.guestCohort;
   const repeatRatePct = ((cohort?.repeatRate ?? 0) * 100).toFixed(1);
 
+  const cohortRows = cohort
+    ? [
+        {
+          fromDate: cohort.fromDate,
+          toDate: cohort.toDate,
+          newGuestCount: cohort.newGuestCount,
+          returningGuestCount: cohort.returningGuestCount,
+          repeatRate: cohort.repeatRate,
+        },
+      ]
+    : [];
+
   return (
     <div className="flex flex-col gap-4">
-      <DateRangePicker value={range} onChange={setRange} />
+      <div className="flex flex-wrap items-end gap-3">
+        <DateRangePicker value={range} onChange={setRange} />
+        <div className="ml-auto">
+          <DownloadCsvButton
+            filename="guest-cohort"
+            rows={cohortRows}
+            columns={[
+              { header: 'From', value: (r) => String(r.fromDate ?? '') },
+              { header: 'To', value: (r) => String(r.toDate ?? '') },
+              { header: 'New guests', value: (r) => r.newGuestCount },
+              { header: 'Returning guests', value: (r) => r.returningGuestCount },
+              { header: 'Repeat rate', value: (r) => (r.repeatRate ?? 0).toFixed(4) },
+            ]}
+          />
+        </div>
+      </div>
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error.message}

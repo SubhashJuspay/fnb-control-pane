@@ -1,1 +1,1 @@
-export {};
+export * from './opening-hours.js';

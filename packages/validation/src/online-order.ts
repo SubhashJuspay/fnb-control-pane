@@ -8,12 +8,27 @@ export type OnlinePickupKind = z.infer<typeof onlinePickupKindSchema>;
 export const onlineOrderConfirmStatusSchema = z.enum(['PENDING', 'CONFIRMED', 'REJECTED']);
 export type OnlineOrderConfirmStatus = z.infer<typeof onlineOrderConfirmStatusSchema>;
 
+// Mexican phone number validation. Accepts the local 10-digit format with
+// an optional +52 country code and an optional mobile "1" carrier prefix.
+// Strips whitespace, parens, hyphens, and dots before matching, so customers
+// can type whatever they're used to:
+//   "55 1234 5678"           → 5512345678
+//   "+52 55 1234 5678"       → +525512345678
+//   "+52 1 55 1234 5678"     → +5215512345678
+//   "(55) 1234-5678"         → 5512345678
 const phoneSchema = z
   .string()
   .trim()
-  .min(1)
-  .transform((v) => v.replace(/[\s()]/g, ''))
-  .pipe(z.string().min(7).max(20));
+  .min(1, 'Phone is required')
+  .transform((v) => v.replace(/[\s()\-.]/g, ''))
+  .pipe(
+    z
+      .string()
+      .regex(
+        /^(?:\+?52)?1?\d{10}$/,
+        'Enter a valid Mexican phone number — 10 digits, optional +52 country code',
+      ),
+  );
 
 const submitOnlineOrderItemSchema = z.object({
   menuItemId: z.string().uuid(),

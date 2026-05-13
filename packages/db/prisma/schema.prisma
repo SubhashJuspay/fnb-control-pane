@@ -54,6 +54,8 @@ model Location {
   currency          String         @db.Char(3)
   locale            String         @default("en-US")
   address           Json?
+  phone             String?
+  openingHours      Json?          @map("opening_hours")
   status            LocationStatus @default(ACTIVE)
   businessDayCutoff String         @default("04:00") @map("business_day_cutoff")
   createdAt         DateTime       @default(now()) @map("created_at")
@@ -108,6 +110,7 @@ model User {
   ticketsOpened     Ticket[]     @relation("TicketOpenedBy")
   ticketsClosed     Ticket[]     @relation("TicketClosedBy")
   ticketsVoided     Ticket[]     @relation("TicketVoidedBy")
+  ticketsRefunded   Ticket[]     @relation("TicketRefundedBy")
   ticketItemsFired  TicketItem[] @relation("TicketItemFiredBy")
   ticketItemsServed TicketItem[] @relation("TicketItemServedBy")
   ticketItemsVoided TicketItem[] @relation("TicketItemVoidedBy")
@@ -448,6 +451,10 @@ model LocationItem {
   hidden     Boolean  @default(false)
   available  Boolean  @default(true)
   priceCents Int?
+  /** Optional inventory tracking. NULL = untracked, integer = current count. */
+  stockOnHand        Int? @map("stock_on_hand")
+  /** Threshold below which the item is flagged as low stock in the UI. */
+  lowStockThreshold  Int? @map("low_stock_threshold")
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
@@ -519,6 +526,14 @@ model Ticket {
   discountCents Int @default(0) @map("discount_cents")
   taxCents      Int @default(0) @map("tax_cents")
   totalCents    Int @default(0) @map("total_cents")
+  tipCents      Int @default(0) @map("tip_cents")
+  refundCents   Int @default(0) @map("refund_cents")
+  /** Loyalty points awarded on close (accrual rate is 1pt per dollar net). */
+  pointsEarned  Int @default(0) @map("points_earned")
+
+  refundReason String?   @map("refund_reason")
+  refundedAt   DateTime? @map("refunded_at")
+  refundedById String?   @map("refunded_by_id") @db.Uuid
 
   tableId String? @map("table_id") @db.Uuid
   guestId String? @map("guest_id") @db.Uuid
@@ -527,6 +542,7 @@ model Ticket {
   openedBy    User         @relation("TicketOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
   closedBy    User?        @relation("TicketClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
   voidedBy    User?        @relation("TicketVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  refundedBy  User?        @relation("TicketRefundedBy", fields: [refundedById], references: [id], onDelete: Restrict)
   items       TicketItem[]
   discounts   Discount[]   @relation("TicketLevelDiscounts")
   table         Table?              @relation(fields: [tableId], references: [id], onDelete: SetNull)
@@ -914,16 +930,18 @@ enum DayOfWeekDb {
 
 // ─── Guest CRM ────────────────────────────────────────
 model Guest {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId   String    @map("tenant_id") @db.Uuid
-  name       String
-  phone      String?
-  email      String?
-  notes      String?
-  lastSeenAt DateTime? @map("last_seen_at")
-  archivedAt DateTime? @map("archived_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  name          String
+  phone         String?
+  email         String?
+  notes         String?
+  /** Lifetime loyalty points balance, accrued on closed tickets. */
+  pointsBalance Int       @default(0) @map("points_balance")
+  lastSeenAt    DateTime? @map("last_seen_at")
+  archivedAt    DateTime? @map("archived_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
 
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   tickets      Ticket[]

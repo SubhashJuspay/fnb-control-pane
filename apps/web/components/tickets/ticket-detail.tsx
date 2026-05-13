@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 import {
   Button,
@@ -21,6 +22,7 @@ import {
 } from '@/lib/graphql/generated/graphql';
 import { useLocationCurrency } from '@/lib/location-currency';
 import { TotalsBlock } from '@/components/pos/totals-block';
+import { RefundTicketDialog } from './refund-ticket-dialog';
 
 type Ticket = NonNullable<TicketQuery['ticket']>;
 type Line = NonNullable<NonNullable<Ticket['items']>[number]>;
@@ -130,6 +132,7 @@ export function TicketDetail({
     requestPolicy: 'cache-and-network',
   });
   const [, reopen] = useMutation(ReopenTicketDocument);
+  const [refundOpen, setRefundOpen] = useState(false);
 
   const ticket = data?.ticket ?? null;
 
@@ -186,9 +189,22 @@ export function TicketDetail({
             </p>
           </div>
           {ticket.status === TicketStatus.Closed && canManagerActions ? (
-            <Button type="button" variant="outline" onClick={onReopen}>
-              Reopen ticket
-            </Button>
+            <div className="flex items-center gap-2">
+              {(ticket.totalCents ?? 0) + (ticket.tipCents ?? 0) >
+              (ticket.refundCents ?? 0) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setRefundOpen(true)}
+                  data-testid="ticket-refund-button"
+                >
+                  Refund
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" onClick={onReopen}>
+                Reopen ticket
+              </Button>
+            </div>
           ) : null}
         </CardHeader>
         {ticket.closeNote ? (
@@ -317,7 +333,58 @@ export function TicketDetail({
           taxCents={ticket.taxCents ?? 0}
           totalCents={ticket.totalCents ?? 0}
         />
+        {(ticket.tipCents ?? 0) > 0 || (ticket.refundCents ?? 0) > 0 ? (
+          <CardContent className="border-t pt-3">
+            <dl className="flex flex-col gap-1 text-sm" data-testid="ticket-tip-refund">
+              {(ticket.tipCents ?? 0) > 0 ? (
+                <div className="flex items-center justify-between">
+                  <dt className="text-muted-foreground">Tip</dt>
+                  <dd className="tabular-nums">
+                    {formatMoney(ticket.tipCents ?? 0, currency)}
+                  </dd>
+                </div>
+              ) : null}
+              {(ticket.refundCents ?? 0) > 0 ? (
+                <div className="flex items-center justify-between text-rose-700">
+                  <dt>Refunded</dt>
+                  <dd className="tabular-nums">
+                    -{formatMoney(ticket.refundCents ?? 0, currency)}
+                  </dd>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between border-t pt-1 font-semibold">
+                <dt>Net to customer</dt>
+                <dd className="tabular-nums">
+                  {formatMoney(
+                    (ticket.totalCents ?? 0) +
+                      (ticket.tipCents ?? 0) -
+                      (ticket.refundCents ?? 0),
+                    currency,
+                  )}
+                </dd>
+              </div>
+            </dl>
+            {ticket.refundReason ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Refund reason: {ticket.refundReason}
+              </p>
+            ) : null}
+          </CardContent>
+        ) : null}
       </Card>
+
+      <RefundTicketDialog
+        open={refundOpen}
+        onOpenChange={setRefundOpen}
+        ticketId={ticketId}
+        ticketLabel={`#${ticket.shortNumber ?? '—'}`}
+        refundableCents={(ticket.totalCents ?? 0) + (ticket.tipCents ?? 0)}
+        alreadyRefundedCents={ticket.refundCents ?? 0}
+        onRefunded={() => {
+          setRefundOpen(false);
+          refetch({ requestPolicy: 'network-only' });
+        }}
+      />
     </div>
   );
 }

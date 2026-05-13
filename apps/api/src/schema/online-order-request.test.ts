@@ -41,16 +41,35 @@ describe('projectOnlineOrderTracking', () => {
     subtotalCents: 1000,
     taxCents: 80,
     totalCents: 1080,
+    tipCents: 0,
+    closedAt: null,
   };
+  const baseExtras = {
+    tenantName: 'Acme',
+    locationName: 'Mission St',
+    locationAddress: null,
+    locationPhone: null,
+  };
+  const item = (
+    name: string,
+    qty: number,
+    status: 'NEW' | 'FIRED' | 'READY' | 'SERVED' | 'VOIDED',
+  ) => ({
+    quantity: qty,
+    nameSnapshot: name,
+    status,
+    unitPriceCents: 500,
+    modifiersTotalCents: 0,
+    lineSubtotalCents: 500 * qty,
+    modifiers: [],
+  });
 
   it('formats item summary, isReady false, no estimate when PENDING', () => {
     const out = projectOnlineOrderTracking({
       request: baseRequest,
       ticket: baseTicket,
-      items: [
-        { quantity: 1, nameSnapshot: 'Latte', status: 'NEW' },
-        { quantity: 2, nameSnapshot: 'Croissant', status: 'NEW' },
-      ],
+      ...baseExtras,
+      items: [item('Latte', 1, 'NEW'), item('Croissant', 2, 'NEW')],
     });
     expect(out.itemSummary).toBe('1 Latte, 2 Croissant');
     expect(out.isReady).toBe(false);
@@ -62,10 +81,8 @@ describe('projectOnlineOrderTracking', () => {
     const out = projectOnlineOrderTracking({
       request: baseRequest,
       ticket: baseTicket,
-      items: [
-        { quantity: 1, nameSnapshot: 'Latte', status: 'READY' },
-        { quantity: 2, nameSnapshot: 'Croissant', status: 'VOIDED' },
-      ],
+      ...baseExtras,
+      items: [item('Latte', 1, 'READY'), item('Croissant', 2, 'VOIDED')],
     });
     expect(out.itemSummary).toBe('1 Latte');
     expect(out.isReady).toBe(true);
@@ -80,7 +97,8 @@ describe('projectOnlineOrderTracking', () => {
         confirmedAt,
       },
       ticket: baseTicket,
-      items: [{ quantity: 1, nameSnapshot: 'Latte', status: 'FIRED' }],
+      ...baseExtras,
+      items: [item('Latte', 1, 'FIRED')],
     });
     expect(out.estimatedReadyAt).not.toBeNull();
     expect(out.estimatedReadyAt!.getTime()).toBe(baseRequest.pickupAt.getTime());
@@ -90,7 +108,8 @@ describe('projectOnlineOrderTracking', () => {
     const out = projectOnlineOrderTracking({
       request: baseRequest,
       ticket: baseTicket,
-      items: [{ quantity: 1, nameSnapshot: 'X', status: 'VOIDED' }],
+      ...baseExtras,
+      items: [item('X', 1, 'VOIDED')],
     });
     expect(out.itemSummary).toBe('0 items');
     expect(out.isReady).toBe(false);

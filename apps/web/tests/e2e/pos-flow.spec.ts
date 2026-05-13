@@ -95,7 +95,10 @@ test.describe('POS flow', () => {
     await page.getByRole('button', { name: /^close ticket$/i }).click();
     const closeDialog = page.getByRole('dialog', { name: /^close #/i });
     await closeDialog.getByLabel(/close note/i).fill('paid cash');
-    await closeDialog.getByRole('button', { name: /^close ticket$/i }).click();
+    // Submit button reads "Pay $X.XX • CARD" since the payment-method change.
+    // Match by testid so we don't have to thread a price into the assertion.
+    // The trigger button outside the dialog still reads "Close ticket" exactly.
+    await closeDialog.getByTestId('close-ticket-submit').click();
 
     // The ticket panel surfaces a "Closed at …" badge once the mutation lands.
     await expect(page.getByText(/closed at/i)).toBeVisible({ timeout: 10_000 });

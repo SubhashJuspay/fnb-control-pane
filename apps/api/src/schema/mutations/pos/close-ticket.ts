@@ -4,7 +4,10 @@ import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
 import { completeReservationAfterClose } from '../../../floor/post-close.js';
-import { updateGuestLastSeenAfterClose } from '../../../guest/post-close.js';
+import {
+  accrueGuestPointsAfterClose,
+  updateGuestLastSeenAfterClose,
+} from '../../../guest/post-close.js';
 import { canCloseTicket, canTransitionTicket } from '../../../order/state.js';
 import { resolveTaxRateAt } from '../../../order/tax.js';
 import { pubsub, ticketChannelName } from '../../../pubsub.js';
@@ -14,6 +17,7 @@ import { CloseTicketInput } from './inputs.js';
 export interface CloseTicketArgs {
   ticketId: string;
   closeNote?: string | null;
+  tipCents?: number | null;
 }
 
 const STAFF_ROLES: readonly string[] = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'];
@@ -100,10 +104,12 @@ export async function resolveCloseTicket(
     select: {
       id: true,
       status: true,
+      menuItemId: true,
+      quantity: true,
       lineSubtotalCents: true,
       menuItem: { select: { taxCategoryId: true } },
     },
-  })) as TicketItemWithTaxInfo[];
+  })) as Array<TicketItemWithTaxInfo & { menuItemId: string; quantity: number }>;
 
   if (!canCloseTicket(items.map((i) => ({ status: i.status })))) {
     throw new ConflictError('All items must be SERVED or VOIDED before closing');
@@ -144,6 +150,11 @@ export async function resolveCloseTicket(
   );
 
   const totals = computeCloseTicketTotals({ items: itemsWithRate, discounts });
+  const tipCents = Math.max(0, input.tipCents ?? 0);
+  // Loyalty: 1 point per whole dollar of net sales (subtotal − discount).
+  // Tax + tip are excluded so the rate matches what most operators expect.
+  const netCents = Math.max(0, totals.subtotalCents - totals.discountCents);
+  const pointsEarned = Math.floor(netCents / 100);
   const updated = (await ctx.prisma.ticket.update({
     ...query,
     where: { id: ticket.id },
@@ -156,8 +167,44 @@ export async function resolveCloseTicket(
       discountCents: totals.discountCents,
       taxCents: totals.taxCents,
       totalCents: totals.totalCents,
+      tipCents,
+      pointsEarned,
     },
   })) as { id: string };
+  // Best-effort inventory decrement: for every non-voided line whose location
+  // tracks stock (LocationItem.stockOnHand IS NOT NULL), decrement by the
+  // quantity. Unknowns or untracked items are ignored. We swallow errors so a
+  // bookkeeping race never blocks the close.
+  try {
+    const liveItems = items.filter((i) => i.status !== 'VOIDED');
+    if (liveItems.length > 0) {
+      // Aggregate quantity per menuItemId so multiple lines of the same item
+      // produce a single update each.
+      const qtyByMenuItemId = new Map<string, number>();
+      for (const i of liveItems) {
+        qtyByMenuItemId.set(
+          i.menuItemId,
+          (qtyByMenuItemId.get(i.menuItemId) ?? 0) + (i.quantity ?? 0),
+        );
+      }
+      for (const [menuItemId, qty] of qtyByMenuItemId) {
+        if (qty <= 0) continue;
+        await ctx.prisma.locationItem.updateMany({
+          where: {
+            locationId,
+            menuItemId,
+            stockOnHand: { not: null },
+          },
+          data: { stockOnHand: { decrement: qty } },
+        });
+      }
+    }
+  } catch (err) {
+    // logger import would create a circular dep risk here; lean on the audit
+    // log for visibility instead.
+    void err;
+  }
+
   // Post-commit floor side-effect: if a SEATED reservation is linked to this
   // ticket, transition it to COMPLETED and emit floor events. Wrapped in
   // try/catch inside the helper so a reservation-side failure never blocks
@@ -176,6 +223,11 @@ export async function resolveCloseTicket(
     ticketId: updated.id,
     locationId,
   });
+  await accrueGuestPointsAfterClose({
+    prisma: ctx.prisma,
+    ticketId: updated.id,
+    locationId,
+  });
   await writeAudit(ctx, {
     action: 'ticket.closed',
     resourceType: 'ticket',
@@ -186,6 +238,7 @@ export async function resolveCloseTicket(
       discountCents: totals.discountCents,
       taxCents: totals.taxCents,
       totalCents: totals.totalCents,
+      tipCents,
     },
   });
   await pubsub.publish(ticketChannelName(locationId), {
