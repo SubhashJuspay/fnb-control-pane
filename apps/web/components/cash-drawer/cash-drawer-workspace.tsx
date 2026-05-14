@@ -6,12 +6,12 @@ import { Button, MoneyInput, formatMoney } from '@repo/ui';
 import { toast } from 'sonner';
 import {
   CashDrawerHistoryDocument,
-  CashMovementKind,
   CloseCashDrawerDocument,
   CurrentCashDrawerDocument,
   OpenCashDrawerDocument,
   RecordCashMovementDocument,
   type CashDrawerHistoryQuery,
+  type CashMovementKind,
   type CurrentCashDrawerQuery,
 } from '@/lib/graphql/generated/graphql';
 
@@ -100,7 +100,7 @@ export function CashDrawerWorkspace({
           onChanged={refreshAll}
         />
       ) : (
-        <OpenForm currency={currency} onOpened={refreshAll} />
+        <OpenForm onOpened={refreshAll} />
       )}
 
       <HistoryList history={history} currency={currency} />
@@ -111,10 +111,8 @@ export function CashDrawerWorkspace({
 // ── Open new session ──────────────────────────────────
 
 function OpenForm({
-  currency,
   onOpened,
 }: {
-  currency: string;
   onOpened: () => void;
 }): React.JSX.Element {
   const [startingCashCents, setStartingCashCents] = useState<number>(0);
@@ -205,7 +203,13 @@ function ActiveSession({
   canDeposit: boolean;
   onChanged: () => void;
 }): React.JSX.Element {
-  const movements = session.movements ?? [];
+  // Wrap in useMemo so the array reference is stable across renders — the
+  // expected-cash useMemo below depends on `movements`, so an unmemoised
+  // `session.movements ?? []` would force a recompute on every parent re-render.
+  const movements = useMemo(
+    () => session.movements ?? [],
+    [session.movements],
+  );
   const startingCash = session.startingCashCents ?? 0;
   const expected = useMemo(() => {
     let sum = startingCash;
@@ -266,7 +270,6 @@ function ActiveSession({
       <div className="flex flex-col gap-gutter">
         <RecordMovementForm
           sessionId={session.id ?? ''}
-          currency={currency}
           canDeposit={canDeposit}
           onChanged={onChanged}
         />
@@ -381,12 +384,10 @@ function MovementsList({
 
 function RecordMovementForm({
   sessionId,
-  currency,
   canDeposit,
   onChanged,
 }: {
   sessionId: string;
-  currency: string;
   canDeposit: boolean;
   onChanged: () => void;
 }): React.JSX.Element {

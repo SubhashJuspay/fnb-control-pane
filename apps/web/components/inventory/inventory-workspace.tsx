@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useMutation, useQuery } from 'urql';
 import { Button, formatMoney } from '@repo/ui';
 import { toast } from 'sonner';

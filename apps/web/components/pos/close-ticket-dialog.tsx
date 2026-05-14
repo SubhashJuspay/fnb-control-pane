@@ -91,10 +91,13 @@ function buildCashPresets(totalCents: number): number[] {
   return Array.from(presets).sort((a, b) => a - b).slice(0, 4);
 }
 
-// Demo-only payment simulation. Real PSP integration would replace this with
-// a tokenisation + capture flow, but for demo we just show a believable
-// processing → confirmed transition before the actual closeTicket mutation.
-const PROCESSING_MS = 1100;
+// Demo-only processing-delay was retained for legacy callers but the real
+// `processPayment` mutation now drives the simulated delay server-side
+// (1-2s randomised authorize + configurable decline rate). The const is
+// no longer referenced; leaving the comment so future readers know why
+// there's no client-side `setTimeout(processingMs)`.
+//
+// (intentionally unused — removed)
 
 export function CloseTicketDialog({
   open,
