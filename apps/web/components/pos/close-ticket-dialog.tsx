@@ -462,7 +462,18 @@ export function CloseTicketDialog({
         </form>
         {phase !== 'idle' ? (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 rounded-lg bg-background/95 px-6 text-center backdrop-blur-sm"
+            // Inline style for the backdrop: the Tailwind `bg-background/95`
+            // alpha modifier doesn't work on the M3 colour tokens because
+            // they expand to raw `var(--m3-background)` which Tailwind 3
+            // can't blend with `<alpha-value>`. Hard-coded RGBA against the
+            // M3 surface colour gives a solid 96%-opaque backdrop in light
+            // mode + a tone that matches in dark (Radix's portal sits on a
+            // backdrop-blurred surface so a slightly-translucent overlay
+            // still reads as "modal-over-modal").
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg px-6 text-center backdrop-blur-sm"
+            style={{
+              backgroundColor: 'var(--m3-surface-container-lowest)',
+            }}
             role="status"
             aria-live="polite"
             data-testid="payment-overlay"
