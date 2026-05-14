@@ -14,6 +14,7 @@ const TABS: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: 'items', label: 'Items' },
   { slug: 'hours', label: 'Hours' },
   { slug: 'servers', label: 'Servers' },
+  { slug: 'labor', label: 'Labor' },
   { slug: 'guests', label: 'Guests' },
 ];
 

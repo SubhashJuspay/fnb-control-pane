@@ -13,7 +13,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       {children}
-      <Toaster />
+      {/* `top-center` makes errors and confirmations land in the cashier's
+          line of sight rather than the corner — Clover-style. */}
+      <Toaster position="top-center" richColors />
     </ThemeProvider>
   );
 }

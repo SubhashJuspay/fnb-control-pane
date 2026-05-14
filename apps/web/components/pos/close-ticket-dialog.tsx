@@ -25,7 +25,11 @@ import {
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { closeTicketSchema } from '@repo/validation/ticket';
-import { CloseTicketDocument } from '@/lib/graphql/generated/graphql';
+import {
+  CloseTicketDocument,
+  ProcessPaymentDocument,
+  type TenderMethod,
+} from '@/lib/graphql/generated/graphql';
 import { useLocationCurrency } from '@/lib/location-currency';
 
 const emptyToUndef = (v: unknown): unknown =>
@@ -102,6 +106,8 @@ export function CloseTicketDialog({
 }: CloseTicketDialogProps): React.JSX.Element {
   const currency = useLocationCurrency();
   const [, closeTicket] = useMutation(CloseTicketDocument);
+  const [, processPayment] = useMutation(ProcessPaymentDocument);
+  void closeTicket; // retained for legacy callers / tests; processPayment is the new path
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: { closeNote: undefined },
@@ -140,24 +146,44 @@ export function CloseTicketDialog({
     cashTenderedCents != null ? Math.max(0, cashTenderedCents - grandTotalCents) : 0;
 
   const onSubmit = handleSubmit(async (values) => {
+    // Validate cash tender ahead of the terminal animation so we don't make
+    // the cashier wait through a fake decline.
+    if (paymentMethod === 'CASH') {
+      if (cashTenderedCents == null || cashTenderedCents < grandTotalCents) {
+        toast.error('Cash tendered must cover the grand total.');
+        return;
+      }
+    }
     setPhase('processing');
-    // Simulated payment terminal — replace with PSP capture when wired.
-    await new Promise((resolve) => setTimeout(resolve, PROCESSING_MS));
-    const result = await closeTicket({
+    const tenderInput: {
+      method: TenderMethod;
+      amountCents: number;
+      tipCents: number;
+      tenderedCents: number | null;
+    } = {
+      method: paymentMethod as TenderMethod,
+      amountCents: totalCents,
+      tipCents,
+      tenderedCents: paymentMethod === 'CASH' ? cashTenderedCents : null,
+    };
+    const result = await processPayment({
       input: {
         ticketId,
+        tenders: [tenderInput],
         closeNote: values.closeNote ?? null,
-        tipCents,
       },
     });
     if (result.error) {
       setPhase('idle');
-      toast.error(result.error.message);
+      // Friendlier message for the simulated decline path.
+      const msg = result.error.message.includes('PAYMENT_DECLINED')
+        ? 'Card declined — ask the customer for another tender.'
+        : result.error.message;
+      toast.error(msg);
       return;
     }
     setPhase('confirmed');
     toast.success(`Payment received — ${ticketLabel} closed`);
-    // Give the user a beat to see the success state before the dialog closes.
     setTimeout(() => onClosed(), 700);
   });
 
@@ -440,16 +466,61 @@ export function CloseTicketDialog({
             data-phase={phase}
           >
             {phase === 'processing' ? (
-              <>
-                <Loader2 className="size-10 animate-spin text-primary" aria-hidden />
-                <p className="text-sm font-semibold">
-                  Processing {paymentLabel.toLowerCase()} payment…
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatMoney(grandTotalCents, currency)} — please do not close
-                  this window.
-                </p>
-              </>
+              paymentMethod === 'CARD' || paymentMethod === 'MOBILE' ? (
+                // Clover-style terminal: card icon, blinking dots, "authorizing…".
+                // The actual auth (1-1.8s + decline roll) happens server-side
+                // inside processPayment; this UI just keeps the cashier
+                // distracted while it runs.
+                <>
+                  <div
+                    aria-hidden
+                    className="flex size-20 items-center justify-center rounded-2xl bg-primary text-on-primary shadow-lg shadow-primary/30"
+                  >
+                    <span
+                      className="material-symbols-outlined text-[44px]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      {paymentMethod === 'MOBILE' ? 'contactless' : 'credit_card'}
+                    </span>
+                  </div>
+                  <p className="text-base font-semibold text-on-surface">
+                    {paymentMethod === 'MOBILE'
+                      ? 'Tap or hold card near reader'
+                      : 'Insert card · tap · swipe'}
+                  </p>
+                  <p className="flex items-center gap-1 text-status-pill uppercase tracking-wider text-on-surface-variant">
+                    Authorizing
+                    <span className="ml-1 inline-flex gap-1">
+                      <span
+                        className="size-1.5 animate-pulse rounded-full bg-primary"
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <span
+                        className="size-1.5 animate-pulse rounded-full bg-primary"
+                        style={{ animationDelay: '200ms' }}
+                      />
+                      <span
+                        className="size-1.5 animate-pulse rounded-full bg-primary"
+                        style={{ animationDelay: '400ms' }}
+                      />
+                    </span>
+                  </p>
+                  <p className="text-status-pill text-on-surface-variant">
+                    {formatMoney(grandTotalCents, currency)} — do not remove
+                    card.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="size-10 animate-spin text-primary" aria-hidden />
+                  <p className="text-sm font-semibold">
+                    Recording {paymentLabel.toLowerCase()} payment…
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatMoney(grandTotalCents, currency)}
+                  </p>
+                </>
+              )
             ) : (
               <>
                 <CheckCircle2
@@ -457,11 +528,11 @@ export function CloseTicketDialog({
                   aria-hidden
                 />
                 <p className="text-base font-semibold text-emerald-800 dark:text-emerald-300">
-                  Payment received
+                  {paymentMethod === 'CARD' || paymentMethod === 'MOBILE'
+                    ? 'Approved'
+                    : 'Payment received'}
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  Closing ticket…
-                </p>
+                <p className="text-xs text-muted-foreground">Closing ticket…</p>
               </>
             )}
           </div>

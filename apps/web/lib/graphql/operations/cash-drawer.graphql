@@ -1,0 +1,86 @@
+query CurrentCashDrawer {
+  currentCashDrawer {
+    id
+    openedAt
+    startingCashCents
+    closedAt
+    expectedCashCents
+    countedCashCents
+    varianceCents
+    note
+    openedBy {
+      id
+      name
+      email
+    }
+    closedBy {
+      id
+      name
+      email
+    }
+    movements {
+      id
+      kind
+      amountCents
+      note
+      createdAt
+      createdBy {
+        id
+        name
+        email
+      }
+    }
+  }
+}
+
+query CashDrawerHistory {
+  cashDrawerHistory {
+    id
+    openedAt
+    closedAt
+    startingCashCents
+    expectedCashCents
+    countedCashCents
+    varianceCents
+    openedBy {
+      id
+      name
+    }
+    closedBy {
+      id
+      name
+    }
+  }
+}
+
+mutation OpenCashDrawer($startingCashCents: Int!, $note: String) {
+  openCashDrawer(startingCashCents: $startingCashCents, note: $note) {
+    id
+  }
+}
+
+mutation RecordCashMovement(
+  $sessionId: UUID!
+  $kind: CashMovementKind!
+  $amountCents: Int!
+  $note: String
+) {
+  recordCashMovement(
+    sessionId: $sessionId
+    kind: $kind
+    amountCents: $amountCents
+    note: $note
+  ) {
+    id
+  }
+}
+
+mutation CloseCashDrawer($sessionId: UUID!, $countedCashCents: Int!, $note: String) {
+  closeCashDrawer(
+    sessionId: $sessionId
+    countedCashCents: $countedCashCents
+    note: $note
+  ) {
+    id
+  }
+}

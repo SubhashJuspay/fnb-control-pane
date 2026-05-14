@@ -146,6 +146,23 @@ export function ActiveTicketPanel({
   const hasNew = items.some((i) => i.status === TicketItemStatus.New);
   const readyItems = items.filter((i) => i.status === TicketItemStatus.Ready);
   const ticketLabel = `#${ticket.shortNumber ?? '—'}`;
+  // Build the "why can't I close?" hint when the close button is disabled,
+  // so the cashier sees the gating reason inline instead of having to hover
+  // the disabled button to read a browser tooltip.
+  const unservedReason = ((): string | null => {
+    if (!isOpen || canClose || items.length === 0) return null;
+    const newCount = items.filter((i) => i.status === TicketItemStatus.New).length;
+    const firedCount = items.filter((i) => i.status === TicketItemStatus.Fired).length;
+    const readyCount = items.filter((i) => i.status === TicketItemStatus.Ready).length;
+    if (newCount > 0 && firedCount === 0 && readyCount === 0) {
+      return `Fire ${newCount} ${newCount === 1 ? 'item' : 'items'} to the kitchen first.`;
+    }
+    if (firedCount > 0 || readyCount > 0) {
+      const pending = firedCount + readyCount + newCount;
+      return `Mark ${pending} ${pending === 1 ? 'item' : 'items'} served before closing.`;
+    }
+    return 'Items must be served or voided before closing.';
+  })();
 
   const onLabelChange = (next: string): void => {
     setLabelDraft(next);
@@ -390,6 +407,25 @@ export function ActiveTicketPanel({
         totalCents={ticket.totalCents ?? 0}
       />
 
+      {unservedReason ? (
+        <div
+          className="flex items-start gap-2 border-t border-outline-variant bg-warning-container px-card-padding py-3 text-body-staff text-on-warning-container"
+          role="status"
+          data-testid="close-blocked-reason"
+        >
+          <span
+            aria-hidden
+            className="material-symbols-outlined mt-0.5 text-[18px]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            info
+          </span>
+          <span>
+            <span className="font-semibold">Can&apos;t close yet:</span> {unservedReason}
+          </span>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant bg-surface-container-low p-card-padding">
         {isOpen ? (
           <>
@@ -430,7 +466,6 @@ export function ActiveTicketPanel({
               variant="default"
               disabled={!canClose}
               onClick={() => setCloseOpen(true)}
-              title={canClose ? '' : 'All lines must be SERVED or VOIDED to close'}
               className="bg-primary text-on-primary"
             >
               Close ticket

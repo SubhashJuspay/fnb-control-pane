@@ -172,6 +172,38 @@ input CancelShiftInput {
   id: UUID!
 }
 
+type CashDrawerSession {
+  closedAt: DateTime
+  closedBy: User
+  countedCashCents: Int
+  expectedCashCents: Int
+  id: ID
+  movements: [CashMovement!]
+  note: String
+  openedAt: DateTime
+  openedBy: User
+  startingCashCents: Int
+  varianceCents: Int
+}
+
+type CashMovement {
+  amountCents: Int
+  createdAt: DateTime
+  createdBy: User
+  id: ID
+  kind: CashMovementKind
+  note: String
+  ticket: Ticket
+}
+
+enum CashMovementKind {
+  DEPOSIT
+  PAY_IN
+  PAY_OUT
+  REFUND_CASH
+  SALE_CASH
+}
+
 input CatalogItemFilter {
   archivedOnly: Boolean
   categoryId: UUID
@@ -516,6 +548,28 @@ type JobRole {
   updatedAt: DateTime
 }
 
+"""
+Labor cost summary for a date range: total hours, total cost, revenue, and the labor-cost ratio (cost ÷ net-sales revenue).
+"""
+type LaborCost {
+  laborCostPct: Float
+  perStaff: [LaborStaffRow!]
+  revenueCents: Int
+  totalHours: Float
+  totalLaborCostCents: Int
+}
+
+"""Per-staff labor breakdown for the date range."""
+type LaborStaffRow {
+  hourlyRateCents: Int
+  hours: Float
+  jobRoleName: String
+  laborCostCents: Int
+  shifts: Int
+  userId: ID
+  userName: String
+}
+
 """Discount scope marker — discount applies to a single ticket line."""
 type LineScope {
   ticketItem: TicketItem
@@ -691,10 +745,16 @@ type Mutation {
   archiveModifierGroup(input: ArchiveModifierGroupInput!): ModifierGroup
   archiveSection(input: ArchiveSectionInput!): Section
   archiveTable(input: ArchiveTableInput!): Table
+  """Soft-archive a tip pool rule (sets archivedAt). Manager+ only."""
+  archiveTipPoolRule(id: UUID!): TipPoolRule
   assignTableServer(input: AssignTableServerInput!): Table
   attachModifierGroupToItem(input: AttachModifierGroupInput!): AttachModifierGroupResult
   cancelReservation(input: CancelReservationInput!): Reservation
   cancelShift(input: CancelShiftInput!): Shift
+  """
+  Close an open drawer session with the counted cash total. Computes expected vs counted variance and stores it.
+  """
+  closeCashDrawer(countedCashCents: Int!, note: String, sessionId: UUID!): CashDrawerSession
   closeTicket(input: CloseTicketInput!): Ticket
   completeReservation(input: CompleteReservationInput!): Reservation
   """Confirm a PENDING online order: fires all NEW items."""
@@ -726,12 +786,30 @@ type Mutation {
   markReservationNoShow(input: MarkNoShowInput!): Reservation
   markTicketItemReady(input: MarkTicketItemReadyInput!): TicketItem
   markTicketItemServed(input: MarkTicketItemServedInput!): TicketItem
+  """
+  Open a new cash drawer session at the current location with the given starting cash. Fails if a session is already open.
+  """
+  openCashDrawer(note: String, startingCashCents: Int!): CashDrawerSession
   openTicket(input: OpenTicketInput!): Ticket
   openTicketAtTable(input: OpenTicketAtTableInput!): Ticket
+  """
+  Run all tenders for a ticket through the (simulated) payment terminal. On full capture, the ticket is closed and a cash sale is recorded against the open drawer session. On any decline, nothing is persisted and the ticket stays open.
+  """
+  processPayment(input: ProcessPaymentInput!): Ticket
   publishShift(input: PublishShiftInput!): Shift
   publishWeek(input: PublishWeekInput!): [Shift!]
   punchIn(input: PunchInInput!): TimeEntry
   punchOut(input: PunchOutInput!): TimeEntry
+  """
+  Compute (or recompute) tip allocations for the given business day using the rule's current weights. Idempotent: rerunning replaces existing allocations for that (rule, day).
+  """
+  recomputeTipPool(businessDay: DateTime!, ruleId: UUID!): [TipAllocation!]
+  """Add a manual pay-in / pay-out / deposit to the active drawer session."""
+  recordCashMovement(amountCents: Int!, kind: CashMovementKind!, note: String, sessionId: UUID!): CashMovement
+  """
+  Refund a previously-captured tender. Creates a sibling Tender row with negative-flow semantics and writes a REFUND_CASH movement when applicable. Manager+ only.
+  """
+  refundTender(amountCents: Int!, reason: String, tenderId: UUID!): Tender
   """
   Refund all or part of a CLOSED ticket. Additive — multiple partial refunds allowed up to total + tip.
   """
@@ -793,6 +871,10 @@ type Mutation {
   upsertEmploymentProfile(input: UpsertEmploymentProfileInput!): EmploymentProfile
   upsertLocationItem(input: UpsertLocationItemInput!): LocationItem
   upsertLocationModifier(input: UpsertLocationModifierInput!): LocationModifier
+  """
+  Create a new rule or update an existing one. Manager+ only. Weights are { jobRoleId, weight: int }[] with at least one positive weight.
+  """
+  upsertTipPoolRule(id: UUID, isActive: Boolean, name: String!, weights: JSON!): TipPoolRule
   voidDiscount(input: VoidDiscountInput!): Discount
   voidTicket(input: VoidTicketInput!): Ticket
   voidTicketItem(input: VoidTicketItemInput!): TicketItem
@@ -927,6 +1009,12 @@ type PageInfo {
   startCursor: String
 }
 
+input ProcessPaymentInput {
+  closeNote: String
+  tenders: [TenderInput!]!
+  ticketId: UUID!
+}
+
 type PublicLocation {
   activeMenus(at: DateTime): [PublicMenu!]
   address: JSON
@@ -1003,6 +1091,10 @@ type Query {
   """Audit-log entries within the current tenant. Requires admin role."""
   auditLogs(after: String, before: String, first: Int, last: Int): QueryAuditLogsConnection
   """
+  Closed cash drawer sessions at the viewer location, most recent first. Limited to the last 50 to keep the page snappy.
+  """
+  cashDrawerHistory: [CashDrawerSession!]
+  """
   All non-archived categories within the current tenant. Requires manager role.
   """
   catalogCategories: [Category!]
@@ -1022,9 +1114,17 @@ type Query {
   """
   catalogTaxCategories: [TaxCategory!]
   """
+  The currently-open cash drawer session at the viewer's location, or null if none.
+  """
+  currentCashDrawer: CashDrawerSession
+  """
   The location bound to the current request scope. Null if the request isn't location-scoped.
   """
   currentLocation: Location
+  """
+  All tip allocations computed for a given business day at the viewer's location. Manager+ only.
+  """
+  dailyTipAllocations(businessDay: DateTime!): [TipAllocation!]
   """7-bucket day-of-week mix (MON..SUN) for closed tickets."""
   dayOfWeekMix(dateRange: DateRangeInput!): [DayOfWeekBucket!]
   """
@@ -1055,6 +1155,10 @@ type Query {
   Tickets with at least one FIRED-or-READY item, ordered by oldest unready item.
   """
   kitchenTickets: [Ticket!]
+  """
+  Labor cost summary for the date range. Manager+ only. Includes per-staff hours + cost and the labor-cost percent of net sales.
+  """
+  laborCost(dateRange: DateRangeInput!): LaborCost
   """Menus that are active and live at the given moment. Defaults to now."""
   locationActiveMenus(at: DateTime): [Menu!]
   """
@@ -1079,6 +1183,10 @@ type Query {
   myShifts(from: DateTime, to: DateTime): [Shift!]
   """Tenants the current viewer has at least one ACTIVE membership in."""
   myTenants: [Tenant!]
+  """
+  Tip allocations for the signed-in user across recent business days. Staff-visible self-view.
+  """
+  myTipAllocations(from: DateTime, to: DateTime): [TipAllocation!]
   """Single online order request by id, scoped to the viewer's location."""
   onlineOrderRequest(id: UUID!): OnlineOrderRequest
   """
@@ -1133,10 +1241,16 @@ type Query {
   ticketByShortNumber(businessDay: DateTime!, shortNumber: Int!): Ticket
   """Ticket history at the viewer's location. Requires manager role."""
   ticketHistory(after: String, before: String, filter: TicketHistoryFilter, first: Int, last: Int): QueryTicketHistoryConnection
+  """All tenders captured against a ticket. Staff scope."""
+  ticketTenders(ticketId: UUID!): [Tender!]
   """
   Time entries at the viewer's location, ordered by clockedInAt desc. Manager scope.
   """
   timeEntries(filter: TimeEntriesFilter): [TimeEntry!]
+  """
+  Tip pool rules at the viewer's location. Manager+ only — rule definitions are configuration.
+  """
+  tipPoolRules: [TipPoolRule!]
   """Top-selling menu items in range, sorted by `by`."""
   topItems(by: TopItemsSort = QUANTITY, dateRange: DateRangeInput!, limit: Int = 10): [TopItem!]
   """
@@ -1637,6 +1751,45 @@ enum TenantStatus {
   SUSPENDED
 }
 
+type Tender {
+  amountCents: Int
+  authCode: String
+  cardBrand: String
+  cardLast4: String
+  changeCents: Int
+  declineReason: String
+  id: ID
+  method: TenderMethod
+  processedAt: DateTime
+  processedBy: User
+  status: TenderStatus
+  tenderedCents: Int
+  ticket: Ticket
+  tipCents: Int
+}
+
+input TenderInput {
+  amountCents: Int!
+  method: TenderMethod!
+  tenderedCents: Int
+  tipCents: Int
+}
+
+enum TenderMethod {
+  CARD
+  CASH
+  GIFT
+  MOBILE
+}
+
+enum TenderStatus {
+  AUTHORIZED
+  CAPTURED
+  DECLINED
+  REFUNDED
+  VOIDED
+}
+
 type Ticket {
   businessDay: DateTime
   closeNote: String
@@ -1768,6 +1921,27 @@ type TimeEntry {
 type TimeEntryChangedEvent {
   timeEntry: TimeEntry
   userId: UUID
+}
+
+type TipAllocation {
+  amountCents: Int
+  businessDay: DateTime
+  computedAt: DateTime
+  id: ID
+  jobRole: JobRole
+  rule: TipPoolRule
+  staffMember: User
+  totalTipPoolCents: Int
+}
+
+type TipPoolRule {
+  archivedAt: DateTime
+  createdAt: DateTime
+  id: ID
+  isActive: Boolean
+  name: String
+  updatedAt: DateTime
+  weights: JSON
 }
 
 """Top-selling item over a date range."""

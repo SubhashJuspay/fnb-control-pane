@@ -1,0 +1,84 @@
+query TipPoolRules {
+  tipPoolRules {
+    id
+    name
+    isActive
+    weights
+    archivedAt
+    updatedAt
+  }
+}
+
+
+query DailyTipAllocations($businessDay: DateTime!) {
+  dailyTipAllocations(businessDay: $businessDay) {
+    id
+    amountCents
+    totalTipPoolCents
+    computedAt
+    businessDay
+    staffMember {
+      id
+      name
+      email
+    }
+    jobRole {
+      id
+      name
+      color
+    }
+    rule {
+      id
+      name
+    }
+  }
+}
+
+query MyTipAllocations($from: DateTime, $to: DateTime) {
+  myTipAllocations(from: $from, to: $to) {
+    id
+    businessDay
+    amountCents
+    totalTipPoolCents
+    jobRole {
+      id
+      name
+    }
+    rule {
+      id
+      name
+    }
+  }
+}
+
+mutation UpsertTipPoolRule(
+  $id: UUID
+  $name: String!
+  $isActive: Boolean
+  $weights: JSON!
+) {
+  upsertTipPoolRule(id: $id, name: $name, isActive: $isActive, weights: $weights) {
+    id
+    name
+    isActive
+    weights
+  }
+}
+
+mutation ArchiveTipPoolRule($id: UUID!) {
+  archiveTipPoolRule(id: $id) {
+    id
+    archivedAt
+  }
+}
+
+mutation RecomputeTipPool($ruleId: UUID!, $businessDay: DateTime!) {
+  recomputeTipPool(ruleId: $ruleId, businessDay: $businessDay) {
+    id
+    amountCents
+    staffMember {
+      id
+      name
+    }
+  }
+}

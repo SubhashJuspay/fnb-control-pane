@@ -1,0 +1,17 @@
+query LaborCost($dateRange: DateRangeInput!) {
+  laborCost(dateRange: $dateRange) {
+    totalHours
+    totalLaborCostCents
+    revenueCents
+    laborCostPct
+    perStaff {
+      userId
+      userName
+      jobRoleName
+      hours
+      hourlyRateCents
+      laborCostCents
+      shifts
+    }
+  }
+}

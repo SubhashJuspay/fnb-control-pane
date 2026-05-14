@@ -15,6 +15,11 @@ import {
   computeServerPerformance,
   type ServerPerfRow,
 } from '../analytics/servers.js';
+import {
+  computeLaborCost,
+  type LaborCostSummary,
+  type LaborStaffRow,
+} from '../analytics/labor-cost.js';
 import { computeSalesSummary, type SalesSummaryRow } from '../analytics/summary.js';
 import {
   computeTopItems,
@@ -473,5 +478,118 @@ builder.queryField('guestCohort', (t) =>
     validate: { schema: z.object({ dateRange: dateRangeSchema }) },
     resolve: (_root, args, ctx) =>
       resolveGuestCohort(ctx, args.dateRange as DateRangeArgs),
+  }),
+);
+
+// ─── Labor cost ─────────────────────────────────────────────────────
+
+export async function resolveLaborCost(
+  ctx: RequestContext,
+  range: DateRangeArgs,
+): Promise<LaborCostSummary> {
+  const ac = await getAnalyticsContext(ctx, range);
+  const key = `analytics:${ac.locationId}:laborCost:${rangeKey(range)}`;
+  return withTtlCache(key, ANALYTICS_TTL_MS, async () => {
+    // Sum revenue from closed tickets in the window. Mirrors the
+    // salesSummary `netSalesCents` reference: revenue here is total minus
+    // tax so labor-cost % aligns with the industry-standard formula.
+    const ticketAgg = await ctx.prisma.ticket.aggregate({
+      where: {
+        locationId: ac.locationId,
+        status: 'CLOSED',
+        closedAt: { gte: ac.fromUtc, lt: ac.toUtc },
+      },
+      _sum: { totalCents: true, taxCents: true },
+    });
+    const revenueCents =
+      (ticketAgg._sum.totalCents ?? 0) - (ticketAgg._sum.taxCents ?? 0);
+
+    // Pull every TimeEntry that overlaps the window. Use clockedInAt for
+    // window-overlap; entries that span the boundary are included whole —
+    // the per-entry math then trims them to the entry's full clocked time.
+    // (Trimming exactly to the window would mis-attribute labor that
+    // started before but ended inside; the operational use case for this
+    // report is "what did labor cost today" so whole entries that opened
+    // today is the closer answer.)
+    const entries = await ctx.prisma.timeEntry.findMany({
+      where: {
+        locationId: ac.locationId,
+        clockedInAt: { gte: ac.fromUtc, lt: ac.toUtc },
+      },
+      select: {
+        userId: true,
+        clockedInAt: true,
+        clockedOutAt: true,
+        totalBreakMinutes: true,
+        user: { select: { name: true, email: true } },
+        shift: {
+          select: { jobRole: { select: { name: true } } },
+        },
+      },
+    });
+
+    // Fold in the per-staff hourly rate from EmploymentProfile. One profile
+    // per (user, location).
+    const userIds = [...new Set(entries.map((e) => e.userId))];
+    const profiles = await ctx.prisma.employmentProfile.findMany({
+      where: { locationId: ac.locationId, userId: { in: userIds } },
+      select: { userId: true, hourlyRateCents: true },
+    });
+    const rateByUser = new Map<string, number | null>();
+    for (const p of profiles)
+      rateByUser.set(p.userId, p.hourlyRateCents ?? null);
+
+    return computeLaborCost({
+      revenueCents,
+      entries: entries.map((e) => ({
+        userId: e.userId,
+        userName: e.user?.name ?? e.user?.email ?? e.userId,
+        clockedInAt: e.clockedInAt,
+        clockedOutAt: e.clockedOutAt,
+        totalBreakMinutes: e.totalBreakMinutes,
+        hourlyRateCents: rateByUser.get(e.userId) ?? null,
+        jobRoleName: e.shift?.jobRole?.name ?? null,
+      })),
+    });
+  });
+}
+
+const LaborStaffRowRef = builder.objectRef<LaborStaffRow>('LaborStaffRow');
+LaborStaffRowRef.implement({
+  description: 'Per-staff labor breakdown for the date range.',
+  fields: (t) => ({
+    userId: t.exposeID('userId'),
+    userName: t.exposeString('userName'),
+    jobRoleName: t.exposeString('jobRoleName', { nullable: true }),
+    hours: t.exposeFloat('hours'),
+    hourlyRateCents: t.exposeInt('hourlyRateCents', { nullable: true }),
+    laborCostCents: t.exposeInt('laborCostCents'),
+    shifts: t.exposeInt('shifts'),
+  }),
+});
+
+const LaborCostRef = builder.objectRef<LaborCostSummary>('LaborCost');
+LaborCostRef.implement({
+  description:
+    'Labor cost summary for a date range: total hours, total cost, revenue, and the labor-cost ratio (cost ÷ net-sales revenue).',
+  fields: (t) => ({
+    totalHours: t.exposeFloat('totalHours'),
+    totalLaborCostCents: t.exposeInt('totalLaborCostCents'),
+    revenueCents: t.exposeInt('revenueCents'),
+    laborCostPct: t.exposeFloat('laborCostPct'),
+    perStaff: t.field({ type: [LaborStaffRowRef], resolve: (p) => p.perStaff }),
+  }),
+});
+
+builder.queryField('laborCost', (t) =>
+  t.field({
+    type: LaborCostRef,
+    description:
+      'Labor cost summary for the date range. Manager+ only. Includes per-staff hours + cost and the labor-cost percent of net sales.',
+    authScopes: { manager: true },
+    args: { dateRange: t.arg({ type: DateRangeInput, required: true }) },
+    validate: { schema: z.object({ dateRange: dateRangeSchema }) },
+    resolve: (_root, args, ctx) =>
+      resolveLaborCost(ctx, args.dateRange as DateRangeArgs),
   }),
 );

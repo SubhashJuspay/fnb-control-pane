@@ -98,3 +98,15 @@ export const OnlineOrderConfirmStatusEnum = builder.enumType(
 export const OrderOriginChannelEnum = builder.enumType('OrderOriginChannel', {
   values: ['IN_PERSON', 'ONLINE'] as const,
 });
+
+export const CashMovementKindEnum = builder.enumType('CashMovementKind', {
+  values: ['PAY_IN', 'PAY_OUT', 'DEPOSIT', 'SALE_CASH', 'REFUND_CASH'] as const,
+});
+
+export const TenderMethodEnum = builder.enumType('TenderMethod', {
+  values: ['CASH', 'CARD', 'MOBILE', 'GIFT'] as const,
+});
+
+export const TenderStatusEnum = builder.enumType('TenderStatus', {
+  values: ['AUTHORIZED', 'CAPTURED', 'DECLINED', 'VOIDED', 'REFUNDED'] as const,
+});

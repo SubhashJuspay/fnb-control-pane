@@ -1,0 +1,25 @@
+mutation ProcessPayment($input: ProcessPaymentInput!) {
+  processPayment(input: $input) {
+    id
+    status
+    closedAt
+    tipCents
+    totalCents
+  }
+}
+
+query TicketTenders($ticketId: UUID!) {
+  ticketTenders(ticketId: $ticketId) {
+    id
+    method
+    status
+    amountCents
+    tipCents
+    tenderedCents
+    changeCents
+    cardBrand
+    cardLast4
+    authCode
+    processedAt
+  }
+}

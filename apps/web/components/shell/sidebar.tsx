@@ -127,6 +127,12 @@ export function Sidebar({ tenants }: SidebarProps) {
           matches: startsWith('time-clock'),
         },
         {
+          href: `${base}/cash-drawer`,
+          label: 'Cash drawer',
+          icon: 'point_of_sale',
+          matches: startsWith('cash-drawer'),
+        },
+        {
           href: `${base}/my-schedule`,
           label: 'My schedule',
           icon: 'event_available',
@@ -152,10 +158,17 @@ export function Sidebar({ tenants }: SidebarProps) {
             matches: startsWith('time-entries'),
           },
           {
+            href: `${base}/settings/tip-pool`,
+            label: 'Tip pool',
+            icon: 'payments',
+            matches: (p) => p.startsWith(`${base}/settings/tip-pool`),
+          },
+          {
             href: `${base}/settings`,
             label: 'Settings',
             icon: 'settings',
-            matches: startsWith('settings'),
+            matches: (p) =>
+              p === `${base}/settings` || (p.startsWith(`${base}/settings`) && !p.startsWith(`${base}/settings/tip-pool`)),
           },
         ],
       });
@@ -195,6 +208,18 @@ export function Sidebar({ tenants }: SidebarProps) {
           label: 'Locations',
           icon: 'location_on',
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/locations`),
+        },
+        {
+          href: `/${tenantSlug}/admin/staff`,
+          label: 'Staff & pay',
+          icon: 'badge',
+          matches: (p) => p.startsWith(`/${tenantSlug}/admin/staff`),
+        },
+        {
+          href: `/${tenantSlug}/admin/job-roles`,
+          label: 'Job roles',
+          icon: 'work',
+          matches: (p) => p.startsWith(`/${tenantSlug}/admin/job-roles`),
         },
         {
           href: `/${tenantSlug}/admin/audit-log`,

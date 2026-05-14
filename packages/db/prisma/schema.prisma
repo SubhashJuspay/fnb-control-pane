@@ -42,6 +42,10 @@ model Tenant {
   systemUserId String? @unique @map("system_user_id") @db.Uuid
   systemUser   User?   @relation("TenantSystemUser", fields: [systemUserId], references: [id], onDelete: SetNull)
 
+  cashDrawerSessions CashDrawerSession[]
+  tipPoolRules       TipPoolRule[]
+  tenders            Tender[]
+
   @@map("tenants")
 }
 
@@ -82,6 +86,10 @@ model Location {
   timeEntries        TimeEntry[]
 
   onlineOrderRequests OnlineOrderRequest[]
+  cashDrawerSessions  CashDrawerSession[]
+  tipPoolRules        TipPoolRule[]
+  tipAllocations      TipAllocation[]
+  tenders             Tender[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -130,6 +138,15 @@ model User {
   tenantsAsSystem       Tenant[]             @relation("TenantSystemUser")
   onlineOrdersConfirmed OnlineOrderRequest[] @relation("OnlineOrderConfirmedBy")
   onlineOrdersRejected  OnlineOrderRequest[] @relation("OnlineOrderRejectedBy")
+
+  cashDrawerSessionsOpened CashDrawerSession[] @relation("CashDrawerOpenedBy")
+  cashDrawerSessionsClosed CashDrawerSession[] @relation("CashDrawerClosedBy")
+  cashMovementsCreated     CashMovement[]      @relation("CashMovementCreatedBy")
+
+  tipAllocationsReceived TipAllocation[] @relation("TipAllocationStaff")
+  tipAllocationsComputed TipAllocation[] @relation("TipAllocationComputedBy")
+
+  tendersProcessed Tender[] @relation("TenderProcessedBy")
 
   @@map("users")
 }
@@ -549,6 +566,8 @@ model Ticket {
   reservation   Reservation?        @relation("ReservationTicket")
   guest         Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
   onlineRequest OnlineOrderRequest? @relation("TicketOnlineRequest")
+  cashMovements CashMovement[]      @relation("TicketCashMovements")
+  tenders       Tender[]
 
   @@unique([locationId, businessDay, shortNumber])
   @@index([locationId, status])
@@ -800,8 +819,9 @@ model JobRole {
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  shifts Shift[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  shifts         Shift[]
+  tipAllocations TipAllocation[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -998,4 +1018,208 @@ enum OnlineOrderConfirmStatus {
   PENDING
   CONFIRMED
   REJECTED
+}
+
+// ─── Cash management ──────────────────────────────────
+// Represents a single open-to-close drawer session at a location. A location
+// must have at most one OPEN (closedAt = null) session at a time; the
+// resolver enforces this. Closing computes `expectedCashCents` from
+// startingCash + cash sales + pay-ins - pay-outs - deposits, then records
+// the user-entered `countedCashCents` and the resulting `varianceCents`.
+model CashDrawerSession {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  locationId        String    @map("location_id") @db.Uuid
+  openedAt          DateTime  @default(now()) @map("opened_at")
+  openedById        String    @map("opened_by_id") @db.Uuid
+  startingCashCents Int       @map("starting_cash_cents")
+  closedAt          DateTime? @map("closed_at")
+  closedById        String?   @map("closed_by_id") @db.Uuid
+  /** Computed at close: starting + cash sales + pay-ins - pay-outs - deposits. */
+  expectedCashCents Int?      @map("expected_cash_cents")
+  /** User-entered count at close. */
+  countedCashCents  Int?      @map("counted_cash_cents")
+  /** counted - expected. Negative = drawer short, positive = over. */
+  varianceCents     Int?      @map("variance_cents")
+  note              String?
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location  Location       @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  openedBy  User           @relation("CashDrawerOpenedBy", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy  User?          @relation("CashDrawerClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  movements CashMovement[]
+  tenders   Tender[]
+
+  @@index([tenantId, locationId, openedAt])
+  // Partial unique index in SQL (see migration): only one row per location
+  // where closed_at IS NULL — DB-level guard against double-opening.
+  @@index([locationId, closedAt])
+  @@map("cash_drawer_sessions")
+}
+
+model CashMovement {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId   String           @map("session_id") @db.Uuid
+  kind        CashMovementKind
+  /** Always stored as positive cents. The sign is implied by `kind`. */
+  amountCents Int              @map("amount_cents")
+  note        String?
+  createdAt   DateTime         @default(now()) @map("created_at")
+  createdById String           @map("created_by_id") @db.Uuid
+  /** Optional link when the movement was created automatically by a closed
+   *  ticket paid in cash, or a cash refund. */
+  ticketId    String?          @map("ticket_id") @db.Uuid
+
+  session   CashDrawerSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdBy User              @relation("CashMovementCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  ticket    Ticket?           @relation("TicketCashMovements", fields: [ticketId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId, createdAt])
+  @@map("cash_movements")
+}
+
+enum CashMovementKind {
+  // Manual entries (staff records them)
+  PAY_IN
+  PAY_OUT
+  DEPOSIT
+  // Automated entries (created by closeTicket / refund flow)
+  SALE_CASH
+  REFUND_CASH
+}
+
+// ─── Tip pool ─────────────────────────────────────────
+// A TipPoolRule defines weighted shares of total tips per job role at a
+// location. When a manager runs `recomputeTipPool(businessDay)`, the api:
+//   1. Sums tipCents on every ticket closed during that business day.
+//   2. Looks up which users had a TimeEntry covering any part of the day,
+//      grouped by their EmploymentProfile.jobRoleId at that location.
+//   3. Splits the pool by `weights`: role with weight w gets `w / totalWeight`
+//      of the pool; that role-slice is divided equally among the staff who
+//      worked the day with that role.
+//   4. Writes one TipAllocation per (rule, day, staff) — re-running for the
+//      same day replaces previous allocations via the unique index.
+model TipPoolRule {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  locationId String    @map("location_id") @db.Uuid
+  name       String
+  /** isActive: only active rules are listed in pickers; archived rules are
+   *  kept so historical allocations have a valid foreign key. */
+  isActive   Boolean   @default(true) @map("is_active")
+  /** [{ jobRoleId: uuid, weight: int }]. Sum of weights must be > 0.
+   *  Validated by the resolver / Zod schema; not enforceable in SQL. */
+  weights    Json
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location    Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  allocations TipAllocation[]
+
+  @@index([tenantId, locationId])
+  @@index([locationId, isActive])
+  @@map("tip_pool_rules")
+}
+
+model TipAllocation {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @map("tenant_id") @db.Uuid
+  locationId        String   @map("location_id") @db.Uuid
+  ruleId            String   @map("rule_id") @db.Uuid
+  /** Business day this allocation covers, in the location's local calendar. */
+  businessDay       DateTime @map("business_day") @db.Date
+  /** Staff member who receives the tip share. */
+  staffMemberId     String   @map("staff_member_id") @db.Uuid
+  /** Job role used at compute time. Stored for reporting / audit. */
+  jobRoleId         String?  @map("job_role_id") @db.Uuid
+  amountCents       Int      @map("amount_cents")
+  /** Total tip pool that day, captured at compute time. Lets the UI show
+   *  "your share of $X total" without re-summing tickets. */
+  totalTipPoolCents Int      @map("total_tip_pool_cents")
+  computedAt        DateTime @default(now()) @map("computed_at")
+  computedById      String   @map("computed_by_id") @db.Uuid
+
+  rule          TipPoolRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  location      Location    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  staffMember   User        @relation("TipAllocationStaff", fields: [staffMemberId], references: [id], onDelete: Cascade)
+  jobRole       JobRole?    @relation(fields: [jobRoleId], references: [id], onDelete: SetNull)
+  computedBy    User        @relation("TipAllocationComputedBy", fields: [computedById], references: [id], onDelete: Restrict)
+
+  /** Re-running compute for the same (rule, day, staff) replaces prior rows. */
+  @@unique([ruleId, businessDay, staffMemberId])
+  @@index([locationId, businessDay])
+  @@index([staffMemberId, businessDay])
+  @@map("tip_allocations")
+}
+
+// ─── Payments (simulated terminal) ────────────────────
+// A Tender is one payment event against a Ticket. Most tickets have a single
+// tender (one card swipe, or one cash hand-off). Split-tender tickets get
+// multiple Tender rows whose `amountCents + tipCents` sums to the ticket's
+// grand total. Refunds reference the original tender via `refundsTenderId`.
+//
+// The "simulation" lives entirely in the resolver: CARD / MOBILE tenders go
+// through a fake authorize step (random 1-2s delay, configurable decline
+// rate) before transitioning to CAPTURED. CASH goes straight to CAPTURED and
+// writes a SALE_CASH movement to the open drawer session if one exists.
+model Tender {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  locationId      String       @map("location_id") @db.Uuid
+  ticketId        String       @map("ticket_id") @db.Uuid
+  method          TenderMethod
+  /** Amount charged to this tender (excludes change). */
+  amountCents     Int          @map("amount_cents")
+  /** Tip portion of this tender; the customer-facing receipt sums these. */
+  tipCents        Int          @default(0) @map("tip_cents")
+  /** Cash only: what the customer physically handed over (≥ amount + tip). */
+  tenderedCents   Int?         @map("tendered_cents")
+  /** Cash only: change returned (= tendered − amount − tip). */
+  changeCents     Int?         @map("change_cents")
+  /** Card / mobile: simulated brand + last-4 for receipt rendering. */
+  cardBrand       String?      @map("card_brand")
+  cardLast4       String?      @map("card_last4")
+  /** Simulated authorization code, opaque to the UI. */
+  authCode        String?      @map("auth_code")
+  status          TenderStatus @default(CAPTURED)
+  declineReason   String?      @map("decline_reason")
+  /** When a cash tender lands during an open drawer session, we link it so
+   *  the drawer's expected-cash calculation can incorporate sales. */
+  cashSessionId   String?      @map("cash_session_id") @db.Uuid
+  /** If this tender is a refund, points back at the original tender it
+   *  refunds. Original tenders have null. */
+  refundsTenderId String?      @map("refunds_tender_id") @db.Uuid
+  processedAt     DateTime     @default(now()) @map("processed_at")
+  processedById   String       @map("processed_by_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location      Location          @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  ticket        Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  cashSession   CashDrawerSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  processedBy   User              @relation("TenderProcessedBy", fields: [processedById], references: [id], onDelete: Restrict)
+  refundsTender Tender?           @relation("TenderRefundOf", fields: [refundsTenderId], references: [id], onDelete: SetNull)
+  refundedBy    Tender[]          @relation("TenderRefundOf")
+
+  @@index([ticketId])
+  @@index([locationId, processedAt])
+  @@index([cashSessionId])
+  @@map("tenders")
+}
+
+enum TenderMethod {
+  CASH
+  CARD
+  MOBILE
+  GIFT
+}
+
+enum TenderStatus {
+  AUTHORIZED // card auth approved, settlement pending (we mostly auto-capture in MVP)
+  CAPTURED   // settled successfully — money is "in"
+  DECLINED   // declined by processor (simulated)
+  VOIDED     // tender voided before capture
+  REFUNDED   // tender was fully refunded by a subsequent refund tender
 }
