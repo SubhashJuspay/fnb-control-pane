@@ -82,13 +82,26 @@ export function ActiveTicketPanel({
     query: TicketDocument,
     variables: { id: ticketId },
   });
-  const [, updateLabel] = useMutation(UpdateTicketLabelDocument);
-  const [, updateOrderType] = useMutation(UpdateTicketOrderTypeDocument);
+  const [{ fetching: updatingLabel }, updateLabel] = useMutation(UpdateTicketLabelDocument);
+  const [{ fetching: updatingOrderType }, updateOrderType] = useMutation(UpdateTicketOrderTypeDocument);
   const [{ fetching: firingAll }, fireAll] = useMutation(FireTicketDocument);
-  const [, reopenTicket] = useMutation(ReopenTicketDocument);
-  const [, linkGuest] = useMutation(LinkTicketGuestDocument);
+  const [{ fetching: reopening }, reopenTicket] = useMutation(ReopenTicketDocument);
+  const [{ fetching: linkingGuest }, linkGuest] = useMutation(LinkTicketGuestDocument);
   const [, markServed] = useMutation(MarkTicketItemServedDocument);
   const [servingAll, setServingAll] = useState(false);
+
+  // Anything in flight that should make the user see "Syncing…" — refetches
+  // from `useQuery`, every mutation hook above, and the manual `serving all`
+  // batch. The pill in the header shows while this is true so the user has
+  // visible feedback during the gap between click and UI update.
+  const anyPending =
+    fetching ||
+    updatingLabel ||
+    updatingOrderType ||
+    firingAll ||
+    reopening ||
+    linkingGuest ||
+    servingAll;
 
   const ticket = data?.ticket ?? null;
   const items: Line[] = (ticket?.items ?? []).filter((i): i is Line => i != null && Boolean(i.id));
@@ -272,11 +285,25 @@ export function ActiveTicketPanel({
     <div className="flex h-full flex-col bg-surface-container-lowest">
       <header className="flex flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest p-6">
         <div className="flex items-start justify-between gap-2">
-          <h2 className="font-display text-headline-md font-bold text-on-surface">
+          <h2 className="flex items-center gap-2 font-display text-headline-md font-bold text-on-surface">
             <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
               Ticket{' '}
             </span>
             <span>{ticketLabel}</span>
+            {anyPending ? (
+              <span
+                role="status"
+                aria-live="polite"
+                data-testid="ticket-syncing"
+                className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-status-pill text-status-pill uppercase tracking-wider text-primary"
+              >
+                <span
+                  aria-hidden
+                  className="inline-block size-1.5 animate-pulse rounded-full bg-primary"
+                />
+                Syncing
+              </span>
+            ) : null}
           </h2>
           <span className="text-status-pill tabular-nums text-on-surface-variant">
             Opened {formatTime(ticket.openedAt)}

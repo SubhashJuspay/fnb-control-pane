@@ -79,6 +79,11 @@ export function MenuTileGrid({
     variables: { first: PAGE_SIZE, after: null, filter: { includeArchived: false } },
   });
   const [, addTicketItem] = useMutation(AddTicketItemDocument);
+  // Per-tile pending state — set when the cashier taps a no-modifier item,
+  // cleared on response. Drives the "Adding…" badge so they see something
+  // happen during the ~200-400ms before the parent refetches and the new
+  // line shows up on the right.
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const [pickerTargetId, setPickerTargetId] = useState<string | null>(null);
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -180,20 +185,27 @@ export function MenuTileGrid({
     if (!activeTicketId || !item.id) return;
     const groups = item.modifierGroups ?? [];
     if (groups.length === 0) {
-      const result = await addTicketItem({
-        input: { ticketId: activeTicketId, menuItemId: item.id, quantity: qty, modifiers: [] },
-      });
-      if (result.error) {
-        toast.error(result.error.message);
-        return;
+      // Mark the tile as pending immediately so the user sees feedback
+      // before the network round-trip + parent refetch lands.
+      setPendingItemId(item.id);
+      try {
+        const result = await addTicketItem({
+          input: { ticketId: activeTicketId, menuItemId: item.id, quantity: qty, modifiers: [] },
+        });
+        if (result.error) {
+          toast.error(result.error.message);
+          return;
+        }
+        toast.success(
+          qty > 1
+            ? `Added: ${qty} × ${item.name ?? 'item'}`
+            : `Added: ${item.name ?? 'item'}`,
+        );
+        setQty(1);
+        onItemAdded?.();
+      } finally {
+        setPendingItemId(null);
       }
-      toast.success(
-        qty > 1
-          ? `Added: ${qty} × ${item.name ?? 'item'}`
-          : `Added: ${item.name ?? 'item'}`,
-      );
-      setQty(1);
-      onItemAdded?.();
       return;
     }
     setPickerTargetId(item.id);
@@ -313,7 +325,8 @@ export function MenuTileGrid({
                       key={item.id ?? ''}
                       item={item}
                       currency={currency}
-                      disabled={!activeTicketId}
+                      disabled={!activeTicketId || pendingItemId !== null}
+                      pending={pendingItemId === item.id}
                       paletteIndex={
                         item.category?.id ? (colorByCategory.get(item.category.id) ?? 0) : 9
                       }
@@ -366,11 +379,21 @@ interface TileProps {
   item: CatalogItemRow;
   currency: string;
   disabled: boolean;
+  /** True while this specific tile's `addTicketItem` mutation is in flight.
+   *  Drives the "Adding…" overlay so cashiers see the tap was registered. */
+  pending?: boolean;
   paletteIndex: number;
   onTap: () => void;
 }
 
-function Tile({ item, currency, disabled, paletteIndex, onTap }: TileProps): React.JSX.Element {
+function Tile({
+  item,
+  currency,
+  disabled,
+  pending = false,
+  paletteIndex,
+  onTap,
+}: TileProps): React.JSX.Element {
   const gradient = gradientAt(paletteIndex);
   const hasImage = isUsableImageUrl(item.imageUrl);
   return (
@@ -379,15 +402,29 @@ function Tile({ item, currency, disabled, paletteIndex, onTap }: TileProps): Rea
       onClick={onTap}
       disabled={disabled}
       data-testid={`pos-tile-${item.name ?? ''}`}
+      data-pending={pending ? 'true' : undefined}
       aria-label={item.name ?? undefined}
+      aria-busy={pending}
       className={[
-        'group flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm transition-all',
+        'group relative flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm transition-all',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         disabled
           ? 'cursor-not-allowed opacity-60'
           : 'cursor-pointer hover:shadow-md active:scale-[0.97]',
+        pending ? 'ring-2 ring-primary' : '',
       ].join(' ')}
     >
+      {pending ? (
+        <span
+          aria-hidden
+          className="absolute inset-0 z-10 flex items-center justify-center bg-on-background/40 backdrop-blur-sm"
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-primary px-3 py-1 font-status-pill text-status-pill uppercase tracking-wider text-on-primary shadow-md">
+            <span className="size-1.5 animate-pulse rounded-full bg-on-primary" />
+            Adding
+          </span>
+        </span>
+      ) : null}
       <div className="relative h-32 overflow-hidden">
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element

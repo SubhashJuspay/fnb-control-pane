@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
   formatMoney,
 } from '@repo/ui';
-import { MoreVertical } from 'lucide-react';
+import { Loader2, MoreVertical } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   FireTicketItemDocument,
@@ -64,10 +64,14 @@ export function LineRow({
   onChanged,
 }: LineRowProps): React.JSX.Element {
   const currency = useLocationCurrency();
-  const [, updateLine] = useMutation(UpdateTicketItemDocument);
-  const [, fireLine] = useMutation(FireTicketItemDocument);
-  const [, markReady] = useMutation(MarkTicketItemReadyDocument);
-  const [, markServed] = useMutation(MarkTicketItemServedDocument);
+  const [{ fetching: updating }, updateLine] = useMutation(UpdateTicketItemDocument);
+  const [{ fetching: firing }, fireLine] = useMutation(FireTicketItemDocument);
+  const [{ fetching: readying }, markReady] = useMutation(MarkTicketItemReadyDocument);
+  const [{ fetching: serving }, markServed] = useMutation(MarkTicketItemServedDocument);
+  // Single boolean for any in-flight mutation on this line. We use it to dim
+  // the row and surface a small spinner — concrete visual feedback for the
+  // gap between click and server round-trip + parent refetch.
+  const linePending = updating || firing || readying || serving;
 
   const [editingQty, setEditingQty] = useState(false);
   const [draftQty, setDraftQty] = useState<number>(line.quantity ?? 1);
@@ -140,7 +144,12 @@ export function LineRow({
     <li
       data-testid={`line-row-${line.id ?? ''}`}
       data-status={status}
-      className={`flex flex-col gap-1 border-b px-3 py-2 ${isVoided ? 'opacity-60' : ''}`}
+      data-pending={linePending ? 'true' : undefined}
+      className={[
+        'flex flex-col gap-1 border-b px-3 py-2 transition-opacity',
+        isVoided ? 'opacity-60' : '',
+        linePending ? 'opacity-70' : '',
+      ].join(' ')}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
@@ -190,9 +199,25 @@ export function LineRow({
           >
             {STATUS_LABEL[status]}
           </span>
+          {linePending ? (
+            <span
+              role="status"
+              aria-label="Updating line"
+              data-testid={`line-pending-${line.id ?? ''}`}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary"
+            >
+              <Loader2 className="h-3 w-3 animate-spin" />
+              {firing ? 'Firing…' : readying ? 'Ready…' : serving ? 'Serving…' : 'Saving…'}
+            </span>
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Line actions">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Line actions"
+                disabled={linePending}
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
