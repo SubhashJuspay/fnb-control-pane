@@ -90,6 +90,42 @@ const preset: Partial<Config> = {
           variant: 'var(--m3-on-surface-variant)',
         },
         'on-background': 'var(--m3-on-background)',
+        // Top-level `on-<role>` aliases. The components use class names like
+        // `text-on-primary`, `text-on-primary-container`, `text-on-secondary`,
+        // `bg-on-primary` etc. These DON'T resolve to `primary.foreground` —
+        // Tailwind looks them up as their own color key. Without these
+        // entries the classes generate no CSS, text inherits the body color
+        // (dark navy), and ends up looking ~black on blue surfaces.
+        'on-primary': {
+          DEFAULT: 'var(--m3-on-primary)',
+          container: 'var(--m3-on-primary-container)',
+          fixed: 'var(--m3-on-primary-fixed)',
+          'fixed-variant': 'var(--m3-on-primary-fixed-variant)',
+        },
+        'on-secondary': {
+          DEFAULT: 'var(--m3-on-secondary)',
+          container: 'var(--m3-on-secondary-container)',
+          fixed: 'var(--m3-on-secondary-fixed)',
+          'fixed-variant': 'var(--m3-on-secondary-fixed-variant)',
+        },
+        'on-tertiary': {
+          DEFAULT: 'var(--m3-on-tertiary)',
+          container: 'var(--m3-on-tertiary-container)',
+          fixed: 'var(--m3-on-tertiary-fixed)',
+          'fixed-variant': 'var(--m3-on-tertiary-fixed-variant)',
+        },
+        'on-error': {
+          DEFAULT: 'var(--m3-on-error)',
+          container: 'var(--m3-on-error-container)',
+        },
+        'on-success': {
+          DEFAULT: 'var(--m3-on-success)',
+          container: 'var(--m3-on-success-container)',
+        },
+        'on-warning': {
+          DEFAULT: 'var(--m3-on-warning)',
+          container: 'var(--m3-on-warning-container)',
+        },
         outline: {
           DEFAULT: 'var(--m3-outline)',
           variant: 'var(--m3-outline-variant)',

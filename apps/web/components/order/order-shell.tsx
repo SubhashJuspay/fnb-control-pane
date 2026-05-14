@@ -74,16 +74,19 @@ function OrderShellInner({
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-surface">
       <header
-        className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-outline-variant bg-surface px-container-margin shadow-sm"
+        className="sticky top-0 z-40 flex h-16 w-full items-center justify-between gap-3 border-b border-outline-variant bg-surface px-4 shadow-sm sm:px-container-margin"
         data-testid="order-shell-header"
       >
         <Link
           href={`/order/${tenantSlug}/${locationSlug}`}
-          className="flex items-center gap-3"
+          className="flex min-w-0 flex-1 items-center gap-3"
           data-testid="order-shell-home-link"
         >
+          {/* Brand name: smaller and single-line truncated on mobile so a long
+              tenant name doesn't wrap into the header. Restores headline size
+              from `sm` upwards. */}
           <h1
-            className="font-display text-headline-md font-bold text-primary"
+            className="min-w-0 truncate font-display text-[18px] font-bold text-primary sm:text-headline-md"
             data-testid="order-shell-tenant"
           >
             {tenantName}
@@ -108,21 +111,30 @@ function OrderShellInner({
             type="button"
             onClick={() => setDrawerOpen(true)}
             data-testid="order-cart-button"
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 font-label-caps text-label-caps text-on-primary transition-transform active:scale-95"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-3 py-2 font-label-caps text-label-caps text-on-primary transition-transform active:scale-95 sm:px-4"
           >
             <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-            <span data-testid="order-cart-summary">
+            {/* Mobile shows just the count badge; full summary appears from sm:. */}
+            <span data-testid="order-cart-summary" className="hidden sm:inline">
               {hasItems
                 ? `Cart (${itemCount}) · ${formatMoney(totalCents, currency)}`
                 : 'Cart'}
             </span>
+            {hasItems ? (
+              <span
+                className="inline sm:hidden"
+                aria-label={`${itemCount} in cart`}
+              >
+                {itemCount}
+              </span>
+            ) : null}
           </button>
         ) : null}
       </header>
 
       <main
         className={[
-          'mx-auto w-full max-w-6xl flex-1 px-container-margin py-stack-loose',
+          'mx-auto w-full max-w-6xl flex-1 px-4 py-gutter sm:px-container-margin sm:py-stack-loose',
           showCart && hasItems ? 'pb-28' : '',
         ].join(' ')}
       >
@@ -131,11 +143,11 @@ function OrderShellInner({
 
       {showCart && hasItems ? (
         <footer
-          className="fixed bottom-0 left-0 right-0 z-40 border-t border-outline-variant bg-surface-container-lowest px-container-margin py-3 shadow-bottom-bar"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-outline-variant bg-surface-container-lowest px-4 py-3 shadow-bottom-bar sm:px-container-margin"
           data-testid="order-review-bar"
         >
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-            <div className="flex flex-col">
+            <div className="flex min-w-0 flex-col">
               <span className="text-status-pill font-status-pill uppercase tracking-tight text-on-surface-variant">
                 Current order
               </span>
@@ -155,9 +167,10 @@ function OrderShellInner({
               type="button"
               onClick={() => setDrawerOpen(true)}
               data-testid="order-review-bar-cta"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-95"
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-95 sm:px-8"
             >
-              Review order ({itemCount})
+              <span className="hidden sm:inline">Review order ({itemCount})</span>
+              <span className="sm:hidden">Review ({itemCount})</span>
               <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
             </button>
           </div>

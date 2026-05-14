@@ -109,7 +109,10 @@ export function LocationHero(props: LocationHeroProps): React.JSX.Element {
               </span>
             ) : null}
           </div>
-          <h2 className="font-display text-display-lg leading-tight text-white">
+          {/* Hero headline scales down on small viewports — display-lg (36px)
+              wraps to three awkward lines for any tenant name longer than
+              ~14 characters on a 390px phone. */}
+          <h2 className="font-display text-[28px] font-bold leading-tight text-white sm:text-display-lg">
             {tenantName}
           </h2>
           <p className="flex flex-wrap items-center gap-2 text-body-customer text-white/90">

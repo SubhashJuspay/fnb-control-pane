@@ -43,7 +43,6 @@ export function PublicMenuList({ menus, currency }: PublicMenuListProps): React.
     .filter((s) => s.items.length > 0);
 
   const searchQuery = search.trim().toLowerCase();
-  const totalItemCount = sectionsWithItems.reduce((sum, s) => sum + s.items.length, 0);
 
   const visibleSections = useMemo(() => {
     const byCategory =

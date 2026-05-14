@@ -36,6 +36,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${inter.variable} ${jetbrainsMono.variable} ${hankenGrotesk.variable}`}
     >
       <head>
+        {/* Material Symbols Outlined — global icon font used across all surfaces.
+            The @next/next/no-page-custom-font lint rule is aimed at per-page
+            fonts in the Pages Router; loading a single icon font from the root
+            App Router layout is the App Router-correct pattern. */}
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
