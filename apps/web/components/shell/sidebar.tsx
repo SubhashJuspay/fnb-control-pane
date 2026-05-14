@@ -164,6 +164,12 @@ export function Sidebar({ tenants }: SidebarProps) {
             matches: (p) => p.startsWith(`${base}/settings/tip-pool`),
           },
           {
+            href: `${base}/inventory`,
+            label: 'Inventory',
+            icon: 'inventory_2',
+            matches: startsWith('inventory'),
+          },
+          {
             href: `${base}/settings`,
             label: 'Settings',
             icon: 'settings',

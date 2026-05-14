@@ -497,6 +497,23 @@ type HourlyBucket {
   ticketCount: Int
 }
 
+type Ingredient {
+  archivedAt: DateTime
+  costPerUnitCents: Int
+  defaultVendor: Vendor
+  id: ID
+  name: String
+  unit: String
+}
+
+type IngredientStock {
+  id: ID
+  ingredient: Ingredient
+  lowStockThreshold: Float
+  quantity: Float
+  updatedAt: DateTime
+}
+
 type Invitation {
   acceptedAt: DateTime
   createdAt: DateTime
@@ -807,6 +824,10 @@ type Mutation {
   """Add a manual pay-in / pay-out / deposit to the active drawer session."""
   recordCashMovement(amountCents: Int!, kind: CashMovementKind!, note: String, sessionId: UUID!): CashMovement
   """
+  Record a manual stock movement (RESTOCK / WASTE / COUNT_ADJUST / TRANSFER_*). Updates the ingredient's running stock-on-hand atomically. Manager+ only.
+  """
+  recordStockMovement(costPerUnitCents: Int, ingredientId: UUID!, kind: StockMovementKind!, note: String, quantity: Float!, vendorId: UUID): StockMovement
+  """
   Refund a previously-captured tender. Creates a sibling Tender row with negative-flow semantics and writes a REFUND_CASH movement when applicable. Manager+ only.
   """
   refundTender(amountCents: Int!, reason: String, tenderId: UUID!): Tender
@@ -828,7 +849,15 @@ type Mutation {
   revokeMembership(input: RevokeMembershipInput!): Membership
   seatReservation(input: SeatReservationInput!): SeatReservationResult
   setItem86(input: SetItem86Input!): LocationItem
+  """
+  Set or clear the low-stock alert threshold for an ingredient at the viewer's location. Manager+ only.
+  """
+  setLowStockThreshold(ingredientId: UUID!, lowStockThreshold: Float): IngredientStock
   setMyAvailability(input: SetAvailabilityInput!): [AvailabilityWindow!]
+  """
+  Replace the recipe for a menu item with the given list (each entry: ingredientId + quantity). Manager+ only.
+  """
+  setRecipe(items: JSON!, menuItemId: UUID!): [RecipeItem!]
   setTableManualState(input: SetTableManualStateInput!): Table
   setTaxRate(input: SetTaxRateInput!): TaxRate
   setTicketItemModifiers(input: SetTicketItemModifiersInput!): TicketItem
@@ -869,12 +898,16 @@ type Mutation {
   updateTicketLabel(input: UpdateTicketLabelInput!): Ticket
   updateTicketOrderType(input: UpdateTicketOrderTypeInput!): Ticket
   upsertEmploymentProfile(input: UpsertEmploymentProfileInput!): EmploymentProfile
+  """Create / update an ingredient in the tenant catalog. Manager+ only."""
+  upsertIngredient(costPerUnitCents: Int, defaultVendorId: UUID, id: UUID, name: String!, unit: String!): Ingredient
   upsertLocationItem(input: UpsertLocationItemInput!): LocationItem
   upsertLocationModifier(input: UpsertLocationModifierInput!): LocationModifier
   """
   Create a new rule or update an existing one. Manager+ only. Weights are { jobRoleId, weight: int }[] with at least one positive weight.
   """
   upsertTipPoolRule(id: UUID, isActive: Boolean, name: String!, weights: JSON!): TipPoolRule
+  """Create / update a vendor for the tenant. Manager+ only."""
+  upsertVendor(contactEmail: String, contactName: String, contactPhone: String, id: UUID, name: String!, notes: String): Vendor
   voidDiscount(input: VoidDiscountInput!): Discount
   voidTicket(input: VoidTicketInput!): Ticket
   voidTicketItem(input: VoidTicketItemInput!): TicketItem
@@ -1145,6 +1178,12 @@ type Query {
   guests(filter: GuestsFilter): [Guest!]
   """24-bucket hour-of-day mix (in location timezone) for closed tickets."""
   hourlyMix(dateRange: DateRangeInput!): [HourlyBucket!]
+  """
+  Current stock-on-hand for every active ingredient at the viewer's location. Staff-visible.
+  """
+  ingredientStocks: [IngredientStock!]
+  """Active ingredients catalog for the tenant. Manager+ only."""
+  ingredients: [Ingredient!]
   """Look up an invitation by its single-use token. Anonymous-allowed."""
   invitationByToken(token: String!): InvitationLookup
   """
@@ -1199,6 +1238,8 @@ type Query {
   Anonymous lookup of a tenant + location by slug, returning a sanitized public projection.
   """
   publicLocationBySlug(locationSlug: String!, tenantSlug: String!): PublicLocation
+  """Recipe items defined for a menu item. Manager+ only."""
+  recipeForMenuItem(menuItemId: UUID!): [RecipeItem!]
   """Single reservation by id, scoped to the viewer's location."""
   reservation(id: UUID!): Reservation
   """Reservations currently WAITING or SEATED at the viewer's location."""
@@ -1225,6 +1266,10 @@ type Query {
   Employment profiles at the viewer's location. Manager scope. Active first, ordered by hireDate desc.
   """
   staffRoster: [EmploymentProfile!]
+  """
+  Recent stock-movement ledger entries at the viewer's location, newest first. Manager+ only.
+  """
+  stockMovements(ingredientId: UUID, limit: Int): [StockMovement!]
   """Pending (unaccepted, unexpired) invitations within the current tenant."""
   tenantInvitations: [Invitation!]
   """
@@ -1259,6 +1304,8 @@ type Query {
   trackOnlineOrder(token: String!): OnlineOrderTracking
   """Availability windows for a given user. Manager scope."""
   userAvailability(userId: UUID!): [AvailabilityWindow!]
+  """Active vendors for the tenant. Manager+ only."""
+  vendors: [Vendor!]
   """The currently signed-in user, regardless of tenant context."""
   viewer: Viewer
   """
@@ -1320,6 +1367,12 @@ type QueryTicketHistoryConnection {
 type QueryTicketHistoryConnectionEdge {
   cursor: String!
   node: Ticket
+}
+
+type RecipeItem {
+  id: ID
+  ingredient: Ingredient
+  quantity: Float
 }
 
 input RefundTicketInput {
@@ -1603,6 +1656,28 @@ type SignUpTenantResult {
 
 input StartBreakInput {
   timeEntryId: UUID!
+}
+
+type StockMovement {
+  costPerUnitCents: Int
+  createdAt: DateTime
+  createdBy: User
+  id: ID
+  ingredient: Ingredient
+  kind: StockMovementKind
+  note: String
+  quantity: Float
+  ticket: Ticket
+  vendor: Vendor
+}
+
+enum StockMovementKind {
+  COUNT_ADJUST
+  RESTOCK
+  SALE_DEDUCT
+  TRANSFER_IN
+  TRANSFER_OUT
+  WASTE
 }
 
 input SubmitOnlineOrderInput {
@@ -2135,6 +2210,17 @@ type User {
 enum UserStatus {
   ACTIVE
   DISABLED
+}
+
+type Vendor {
+  archivedAt: DateTime
+  contactEmail: String
+  contactName: String
+  contactPhone: String
+  createdAt: DateTime
+  id: ID
+  name: String
+  notes: String
 }
 
 type Viewer {

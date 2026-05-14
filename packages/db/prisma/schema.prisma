@@ -45,6 +45,9 @@ model Tenant {
   cashDrawerSessions CashDrawerSession[]
   tipPoolRules       TipPoolRule[]
   tenders            Tender[]
+  vendors            Vendor[]
+  ingredients        Ingredient[]
+  stockMovements     StockMovement[]
 
   @@map("tenants")
 }
@@ -90,6 +93,8 @@ model Location {
   tipPoolRules        TipPoolRule[]
   tipAllocations      TipAllocation[]
   tenders             Tender[]
+  ingredientStocks    IngredientStock[]
+  stockMovements      StockMovement[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -147,6 +152,8 @@ model User {
   tipAllocationsComputed TipAllocation[] @relation("TipAllocationComputedBy")
 
   tendersProcessed Tender[] @relation("TenderProcessedBy")
+
+  stockMovementsCreated StockMovement[] @relation("StockMovementCreatedBy")
 
   @@map("users")
 }
@@ -359,6 +366,7 @@ model MenuItem {
   sectionItems      MenuSectionItem[]
   locationOverrides LocationItem[]
   ticketItems       TicketItem[]
+  recipeItems       RecipeItem[]
 
   @@index([tenantId, archivedAt])
   @@index([tenantId, categoryId])
@@ -565,9 +573,10 @@ model Ticket {
   table         Table?              @relation(fields: [tableId], references: [id], onDelete: SetNull)
   reservation   Reservation?        @relation("ReservationTicket")
   guest         Guest?              @relation(fields: [guestId], references: [id], onDelete: SetNull)
-  onlineRequest OnlineOrderRequest? @relation("TicketOnlineRequest")
-  cashMovements CashMovement[]      @relation("TicketCashMovements")
-  tenders       Tender[]
+  onlineRequest  OnlineOrderRequest? @relation("TicketOnlineRequest")
+  cashMovements  CashMovement[]      @relation("TicketCashMovements")
+  tenders        Tender[]
+  stockMovements StockMovement[]     @relation("TicketStockMovements")
 
   @@unique([locationId, businessDay, shortNumber])
   @@index([locationId, status])
@@ -1222,4 +1231,139 @@ enum TenderStatus {
   DECLINED   // declined by processor (simulated)
   VOIDED     // tender voided before capture
   REFUNDED   // tender was fully refunded by a subsequent refund tender
+}
+
+// ─── Inventory & recipes ──────────────────────────────
+// Tracks raw ingredients (per-tenant catalog) and per-location stock-on-hand.
+// A MenuItem optionally has a Recipe (list of RecipeItem) mapping it to the
+// ingredients + quantities consumed when one unit sells. processPayment writes
+// SALE_DEDUCT movements automatically after a ticket closes.
+//
+// IngredientStock is a per-(location, ingredient) materialised current
+// quantity, updated atomically inside the same transaction that writes the
+// StockMovement ledger row. Queries hit the stock table; the ledger is for
+// reporting + audit.
+
+model Vendor {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  name         String
+  contactName  String?   @map("contact_name")
+  contactPhone String?   @map("contact_phone")
+  contactEmail String?   @map("contact_email")
+  notes        String?
+  archivedAt   DateTime? @map("archived_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  ingredients Ingredient[]
+  movements   StockMovement[]
+
+  @@unique([tenantId, name])
+  @@map("vendors")
+}
+
+model Ingredient {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String    @map("tenant_id") @db.Uuid
+  name             String
+  /** Standard purchasing unit: "lb", "kg", "each", "L", "ml" etc.
+   *  Free-form for MVP; future iteration can normalise. */
+  unit             String
+  /** Vendor cost per unit, in cents. Used for COGS reporting on sale. */
+  costPerUnitCents Int?      @map("cost_per_unit_cents")
+  /** Default vendor for restocks; per-location overrides could come later. */
+  defaultVendorId  String?   @map("default_vendor_id") @db.Uuid
+  archivedAt       DateTime? @map("archived_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  defaultVendor  Vendor?           @relation(fields: [defaultVendorId], references: [id], onDelete: SetNull)
+  recipeItems    RecipeItem[]
+  stocks         IngredientStock[]
+  movements      StockMovement[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, archivedAt])
+  @@map("ingredients")
+}
+
+model RecipeItem {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  menuItemId   String   @map("menu_item_id") @db.Uuid
+  ingredientId String   @map("ingredient_id") @db.Uuid
+  /** Quantity of the ingredient (in its standard unit) consumed by one
+   *  unit of the menu item. e.g. 0.5 for "half a pound of beef per burger". */
+  quantity     Float
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  menuItem   MenuItem   @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+
+  @@unique([menuItemId, ingredientId])
+  @@index([ingredientId])
+  @@map("recipe_items")
+}
+
+model IngredientStock {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ingredientId      String   @map("ingredient_id") @db.Uuid
+  locationId        String   @map("location_id") @db.Uuid
+  /** Current quantity on hand in the ingredient's standard unit. Updated
+   *  atomically alongside every StockMovement insert. */
+  quantity          Float    @default(0)
+  /** Per-location low-stock threshold. Alerts fire when `quantity < this`. */
+  lowStockThreshold Float?   @map("low_stock_threshold")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([ingredientId, locationId])
+  @@index([locationId])
+  @@map("ingredient_stocks")
+}
+
+model StockMovement {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String            @map("tenant_id") @db.Uuid
+  locationId       String            @map("location_id") @db.Uuid
+  ingredientId     String            @map("ingredient_id") @db.Uuid
+  kind             StockMovementKind
+  /** Signed quantity in the ingredient's unit. Positive = stock in,
+   *  negative = stock out. The kind tells us why. */
+  quantity         Float
+  note             String?
+  /** Optional linkage to the originating event. */
+  ticketId         String?           @map("ticket_id") @db.Uuid
+  vendorId         String?           @map("vendor_id") @db.Uuid
+  /** Per-unit cost captured at movement time so COGS is point-in-time
+   *  accurate even after the ingredient's costPerUnitCents changes. */
+  costPerUnitCents Int?              @map("cost_per_unit_cents")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  /** null = server-generated (auto SALE_DEDUCT from processPayment). */
+  createdById      String?           @map("created_by_id") @db.Uuid
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  location   Location   @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  ingredient Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Restrict)
+  ticket     Ticket?    @relation("TicketStockMovements", fields: [ticketId], references: [id], onDelete: SetNull)
+  vendor     Vendor?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  createdBy  User?      @relation("StockMovementCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([locationId, ingredientId, createdAt])
+  @@index([locationId, createdAt])
+  @@map("stock_movements")
+}
+
+enum StockMovementKind {
+  RESTOCK       // received from vendor / initial seed
+  SALE_DEDUCT   // auto-generated when a recipe-linked menu item is sold
+  WASTE         // spoilage, breakage
+  COUNT_ADJUST  // manual inventory count correction
+  TRANSFER_IN   // received from another location
+  TRANSFER_OUT  // sent to another location
 }

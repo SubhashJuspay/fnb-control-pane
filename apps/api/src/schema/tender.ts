@@ -7,6 +7,7 @@ import {
   ForbiddenError,
   NotFoundError,
 } from '../errors.js';
+import { deductInventoryForTicket } from '../inventory/deduct-on-close.js';
 import { builder } from './builder.js';
 import { TenderMethodEnum, TenderStatusEnum } from './enums.js';
 
@@ -348,6 +349,16 @@ builder.mutationField('processPayment', (t) =>
             tipCents: totalTipCents,
             closeNote: parsed.data.closeNote ?? null,
           },
+        });
+
+        // Auto-deduct inventory for any line item whose menuItem has a
+        // recipe defined. Same transaction so a failure rolls back tenders,
+        // ticket close, AND inventory side-effects together.
+        await deductInventoryForTicket({
+          tx,
+          ticketId: ticket.id,
+          locationId,
+          tenantId,
         });
 
         return { closed, tenders: createdTenders };

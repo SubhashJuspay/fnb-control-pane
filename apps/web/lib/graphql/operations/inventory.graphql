@@ -1,0 +1,154 @@
+query Vendors {
+  vendors {
+    id
+    name
+    contactName
+    contactPhone
+    contactEmail
+    notes
+  }
+}
+
+query Ingredients {
+  ingredients {
+    id
+    name
+    unit
+    costPerUnitCents
+    defaultVendor {
+      id
+      name
+    }
+  }
+}
+
+query IngredientStocks {
+  ingredientStocks {
+    id
+    quantity
+    lowStockThreshold
+    updatedAt
+    ingredient {
+      id
+      name
+      unit
+      costPerUnitCents
+    }
+  }
+}
+
+query StockMovements($ingredientId: UUID, $limit: Int) {
+  stockMovements(ingredientId: $ingredientId, limit: $limit) {
+    id
+    kind
+    quantity
+    note
+    costPerUnitCents
+    createdAt
+    ingredient {
+      id
+      name
+      unit
+    }
+    vendor {
+      id
+      name
+    }
+    createdBy {
+      id
+      name
+    }
+  }
+}
+
+query RecipeForMenuItem($menuItemId: UUID!) {
+  recipeForMenuItem(menuItemId: $menuItemId) {
+    id
+    quantity
+    ingredient {
+      id
+      name
+      unit
+    }
+  }
+}
+
+mutation UpsertVendor(
+  $id: UUID
+  $name: String!
+  $contactName: String
+  $contactPhone: String
+  $contactEmail: String
+  $notes: String
+) {
+  upsertVendor(
+    id: $id
+    name: $name
+    contactName: $contactName
+    contactPhone: $contactPhone
+    contactEmail: $contactEmail
+    notes: $notes
+  ) {
+    id
+    name
+  }
+}
+
+mutation UpsertIngredient(
+  $id: UUID
+  $name: String!
+  $unit: String!
+  $costPerUnitCents: Int
+  $defaultVendorId: UUID
+) {
+  upsertIngredient(
+    id: $id
+    name: $name
+    unit: $unit
+    costPerUnitCents: $costPerUnitCents
+    defaultVendorId: $defaultVendorId
+  ) {
+    id
+    name
+    unit
+  }
+}
+
+mutation SetRecipe($menuItemId: UUID!, $items: JSON!) {
+  setRecipe(menuItemId: $menuItemId, items: $items) {
+    id
+    quantity
+  }
+}
+
+mutation RecordStockMovement(
+  $ingredientId: UUID!
+  $kind: StockMovementKind!
+  $quantity: Float!
+  $note: String
+  $vendorId: UUID
+  $costPerUnitCents: Int
+) {
+  recordStockMovement(
+    ingredientId: $ingredientId
+    kind: $kind
+    quantity: $quantity
+    note: $note
+    vendorId: $vendorId
+    costPerUnitCents: $costPerUnitCents
+  ) {
+    id
+    kind
+    quantity
+  }
+}
+
+mutation SetLowStockThreshold($ingredientId: UUID!, $lowStockThreshold: Float) {
+  setLowStockThreshold(
+    ingredientId: $ingredientId
+    lowStockThreshold: $lowStockThreshold
+  ) {
+    id
+    lowStockThreshold
+  }
+}

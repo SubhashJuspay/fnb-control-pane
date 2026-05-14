@@ -120,24 +120,37 @@ export function WeekGrid({
               const key = cellKey(user.id, d);
               const content = cells.get(key);
               const hasContent = content != null;
+              // When the cell has content, the content (e.g. ShiftChip) is
+              // itself an interactive `<button>` — nesting a button inside a
+              // button is invalid HTML and triggers a React hydration error.
+              // Render the cell as a `<div>` in that case; the cell content
+              // is responsible for its own click. Empty cells stay as
+              // `<button>` so the "+ add" affordance is keyboard-clickable
+              // and onCellClick fires for the "create new shift" flow.
+              if (hasContent) {
+                return (
+                  <div
+                    key={key}
+                    className="group relative flex min-h-[3.5rem] flex-col items-stretch justify-start gap-1 bg-card p-1 text-left"
+                    aria-label={`${user.name} ${dayKey(d)}`}
+                  >
+                    <div className="flex flex-col gap-1">{content}</div>
+                  </div>
+                );
+              }
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => onCellClick?.(user.id, d)}
                   className={cn(
-                    'group relative flex min-h-[3.5rem] flex-col items-stretch justify-start gap-1 bg-card p-1 text-left transition-colors hover:bg-accent/40',
-                    !hasContent && 'text-muted-foreground',
+                    'group relative flex min-h-[3.5rem] flex-col items-stretch justify-start gap-1 bg-card p-1 text-left text-muted-foreground transition-colors hover:bg-accent/40',
                   )}
                   aria-label={`${user.name} ${dayKey(d)}`}
                 >
-                  {hasContent ? (
-                    <div className="flex flex-col gap-1">{content}</div>
-                  ) : (
-                    <span className="invisible self-end pr-1 text-xs group-hover:visible">
-                      + add
-                    </span>
-                  )}
+                  <span className="invisible self-end pr-1 text-xs group-hover:visible">
+                    + add
+                  </span>
                 </button>
               );
             })}

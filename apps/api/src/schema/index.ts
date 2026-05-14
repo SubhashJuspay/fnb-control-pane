@@ -38,6 +38,7 @@ import './public-location.js';
 import './cash-drawer.js';
 import './tip-pool.js';
 import './tender.js';
+import './inventory.js';
 import './mutations/create-location.js';
 import './mutations/update-location-settings.js';
 import './mutations/invite-staff.js';
