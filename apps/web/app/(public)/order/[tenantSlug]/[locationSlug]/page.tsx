@@ -12,7 +12,10 @@ import { LocationHero } from '@/components/order/location-hero';
 
 interface PageProps {
   params: Promise<{ tenantSlug: string; locationSlug: string }>;
-  searchParams: Promise<{ table?: string | string[] }>;
+  searchParams: Promise<{
+    table?: string | string[];
+    kiosk?: string | string[];
+  }>;
 }
 
 /**
@@ -47,8 +50,9 @@ function describeClosed(reopensAt: { time: string; relative: string } | null): s
  */
 export default async function PublicOrderPage({ params, searchParams }: PageProps) {
   const { tenantSlug, locationSlug } = await params;
-  const { table } = await searchParams;
+  const { table, kiosk } = await searchParams;
   const tableSlug = normalizeTableSlug(table);
+  const kioskMode = Boolean(kiosk && (Array.isArray(kiosk) ? kiosk[0] : kiosk) === '1');
   const result = await serverFetch<PublicLocationBySlugQuery>({
     query: print(PublicLocationBySlugDocument),
     variables: { tenantSlug, locationSlug, at: null },
@@ -79,6 +83,7 @@ export default async function PublicOrderPage({ params, searchParams }: PageProp
       closedReason={closedReason}
       tableSlug={tableSlug}
       tableLabel={tableSlug}
+      kioskMode={kioskMode}
     >
       <LocationHero
         tenantName={tenantName}

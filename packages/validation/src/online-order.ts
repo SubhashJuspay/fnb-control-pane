@@ -8,6 +8,12 @@ export type OnlinePickupKind = z.infer<typeof onlinePickupKindSchema>;
 export const onlineOrderConfirmStatusSchema = z.enum(['PENDING', 'CONFIRMED', 'REJECTED']);
 export type OnlineOrderConfirmStatus = z.infer<typeof onlineOrderConfirmStatusSchema>;
 
+export const onlineOrderPaymentModeSchema = z.enum(['PAY_AT_PICKUP', 'PAY_AT_KIOSK']);
+export type OnlineOrderPaymentMode = z.infer<typeof onlineOrderPaymentModeSchema>;
+
+export const onlineOrderPaymentStatusSchema = z.enum(['PENDING', 'CAPTURED', 'DECLINED']);
+export type OnlineOrderPaymentStatus = z.infer<typeof onlineOrderPaymentStatusSchema>;
+
 // Mexican phone number validation. Accepts the local 10-digit format with
 // an optional +52 country code and an optional mobile "1" carrier prefix.
 // Strips whitespace, parens, hyphens, and dots before matching, so customers
@@ -55,6 +61,12 @@ export const submitOnlineOrderSchema = z
      * When absent, behaves as a regular TAKEOUT pickup order.
      */
     tableSlug: z.string().regex(slugPattern).max(80).optional().nullable(),
+    /**
+     * PAY_AT_KIOSK switches the order into the kiosk-POS payment flow.
+     * Defaults to PAY_AT_PICKUP for backwards compatibility with the
+     * existing customer phone order path.
+     */
+    paymentMode: onlineOrderPaymentModeSchema.optional().nullable(),
   })
   .superRefine((val, ctx) => {
     if (val.pickupKind === 'SCHEDULED') {

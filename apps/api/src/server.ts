@@ -4,6 +4,7 @@ import { clearCache } from './cache.js';
 import { buildContext } from './context.js';
 import { env } from './env.js';
 import { logger } from './logger.js';
+import { registerPosTerminalRoute } from './pos-terminal/route.js';
 import { prisma } from './prisma.js';
 import { buildSchema } from './schema/index.js';
 
@@ -95,6 +96,8 @@ export async function buildServer(): Promise<FastifyInstance> {
       return reply;
     },
   });
+
+  await registerPosTerminalRoute(app);
 
   app.addHook('onClose', async () => {
     await prisma.$disconnect();

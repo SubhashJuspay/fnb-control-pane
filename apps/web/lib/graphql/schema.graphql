@@ -925,6 +925,17 @@ input OnlineOrderFilter {
   toDate: DateTime
 }
 
+enum OnlineOrderPaymentMode {
+  PAY_AT_KIOSK
+  PAY_AT_PICKUP
+}
+
+enum OnlineOrderPaymentStatus {
+  CAPTURED
+  DECLINED
+  PENDING
+}
+
 type OnlineOrderRequest {
   confirmStatus: OnlineOrderConfirmStatus
   confirmedAt: DateTime
@@ -935,6 +946,8 @@ type OnlineOrderRequest {
   customerPhone: String
   id: ID
   notes: String
+  paymentMode: OnlineOrderPaymentMode
+  paymentStatus: OnlineOrderPaymentStatus
   pickupAt: DateTime
   pickupKind: OnlinePickupKind
   rejectReason: String
@@ -967,6 +980,8 @@ type OnlineOrderTracking {
   locationAddress: JSON
   locationName: String
   locationPhone: String
+  paymentMode: OnlineOrderPaymentMode
+  paymentStatus: OnlineOrderPaymentStatus
   pickupAt: DateTime
   pickupKind: OnlinePickupKind
   rejectReason: String
@@ -1688,6 +1703,7 @@ input SubmitOnlineOrderInput {
   items: [SubmitOnlineOrderItemInput!]!
   locationSlug: String!
   notes: String
+  paymentMode: OnlineOrderPaymentMode
   pickupAt: DateTime
   pickupKind: OnlinePickupKind!
   tableSlug: String

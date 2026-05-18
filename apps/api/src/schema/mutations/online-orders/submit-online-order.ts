@@ -19,6 +19,7 @@ import { ensureSystemUser } from '../../../online-orders/system-user.js';
 import { generateTrackingToken } from '../../../online-orders/tracking-token.js';
 import { computeLineSubtotalCents, computeTicketTotalsCents } from '../../../order/pricing.js';
 import { computeBusinessDay, nextShortNumber } from '../../../order/short-number.js';
+import { dispatchPaymentRequest } from '../../../pos-terminal/dispatcher.js';
 import {
   floorChannelName,
   onlineOrdersChannelName,
@@ -57,6 +58,18 @@ export interface SubmitOnlineOrderArgs {
    * and the request is auto-CONFIRMED so it skips the staff inbox.
    */
   tableSlug?: string | null;
+  /**
+   * PAY_AT_KIOSK: the request stays PENDING with paymentStatus PENDING
+   * until a connected POS terminal returns a payment_result over WS. Items
+   * do NOT fire until the payment is CAPTURED. The dispatch happens
+   * synchronously inside the resolver — if no terminal is online we throw
+   * a ConflictError so the kiosk can tell the customer to call staff.
+   *
+   * PAY_AT_PICKUP (default): historical behavior — request lands in the
+   * staff inbox, items fire after staff confirm, or auto-confirm for the
+   * QR-at-table dine-in path.
+   */
+  paymentMode?: 'PAY_AT_PICKUP' | 'PAY_AT_KIOSK' | null;
 }
 
 export interface SubmitOnlineOrderResultData {
@@ -125,6 +138,12 @@ export async function resolveSubmitOnlineOrder(
     },
   });
   if (!location) throw new NotFoundError('Location not found');
+
+  // PAY_AT_KIOSK changes the order's lifecycle: the request stays PENDING
+  // until a connected POS terminal responds with a payment_result. Items
+  // do NOT fire on submit even for dine-in. The current QR-at-table auto-
+  // confirm path is bypassed in this mode.
+  const isKioskPayment = input.paymentMode === 'PAY_AT_KIOSK';
 
   // Resolve the table when a QR-at-table flag is present. We do this before
   // the closed-hours gate so a customer sitting at a table never sees a
@@ -464,6 +483,10 @@ export async function resolveSubmitOnlineOrder(
             );
           }
         }
+        // Dine-in QR scans auto-fire to the kitchen — but only when the
+        // customer is paying at handoff. PAY_AT_KIOSK still waits for the
+        // POS terminal regardless of dine-in vs takeout.
+        const autoFireAndConfirm = Boolean(tableRow) && !isKioskPayment;
         const ticket = (await tx.ticket.create({
           data: {
             locationId: location.id,
@@ -491,11 +514,9 @@ export async function resolveSubmitOnlineOrder(
             data: {
               ticketId: ticket.id,
               menuItemId: p.menuItemId,
-              // Dine-in: skip the staff "Confirm" step and fire to the
-              // kitchen immediately. Takeout still requires staff to accept.
-              status: tableRow ? 'FIRED' : 'NEW',
-              firedById: tableRow ? systemUserId : null,
-              firedAt: tableRow ? now : null,
+              status: autoFireAndConfirm ? 'FIRED' : 'NEW',
+              firedById: autoFireAndConfirm ? systemUserId : null,
+              firedAt: autoFireAndConfirm ? now : null,
               nameSnapshot: p.nameSnapshot,
               unitPriceCents: p.unitPriceCents,
               quantity: p.quantity,
@@ -517,9 +538,11 @@ export async function resolveSubmitOnlineOrder(
             pickupAt,
             pickupKind: input.pickupKind,
             notes: input.notes ?? null,
-            confirmStatus: tableRow ? 'CONFIRMED' : 'PENDING',
-            confirmedAt: tableRow ? now : null,
-            confirmedById: tableRow ? systemUserId : null,
+            confirmStatus: autoFireAndConfirm ? 'CONFIRMED' : 'PENDING',
+            confirmedAt: autoFireAndConfirm ? now : null,
+            confirmedById: autoFireAndConfirm ? systemUserId : null,
+            paymentMode: isKioskPayment ? 'PAY_AT_KIOSK' : 'PAY_AT_PICKUP',
+            paymentStatus: isKioskPayment ? 'PENDING' : null,
             trackingTokenHash: tokenHash,
             submittedFromIp: input.ipAddress ?? null,
           },
@@ -534,7 +557,11 @@ export async function resolveSubmitOnlineOrder(
         tenantId: tenant.id,
         locationId: location.id,
         actorUserId: systemUserId,
-        action: tableRow ? 'online_order.submitted_dine_in' : 'online_order.submitted',
+        action: isKioskPayment
+          ? 'online_order.submitted_kiosk'
+          : tableRow
+            ? 'online_order.submitted_dine_in'
+            : 'online_order.submitted',
         resourceType: 'online_order_request',
         resourceId: result.requestId,
         metadata: {
@@ -543,16 +570,17 @@ export async function resolveSubmitOnlineOrder(
           pickupKind: input.pickupKind,
           tableId: tableRow?.id ?? null,
           tableLabel: tableRow?.label ?? null,
-          autoConfirmed: Boolean(tableRow),
+          paymentMode: isKioskPayment ? 'PAY_AT_KIOSK' : 'PAY_AT_PICKUP',
+          autoConfirmed: Boolean(tableRow) && !isKioskPayment,
         },
       });
-      // 10. Publish. Dine-in goes straight to the kitchen, so wake up the
-      // ticket + floor channels in addition to the online-orders channel.
+      // 10. Publish. Dine-in goes straight to the kitchen (unless kiosk
+      // payment is gating it), so wake up the ticket + floor channels.
       await deps.pubsub.publish(onlineOrdersChannelName(location.id), {
         kind: 'OnlineOrderRequestCreated',
         requestId: result.requestId,
       });
-      if (tableRow) {
+      if (tableRow && !isKioskPayment) {
         await deps.pubsub.publish(ticketChannelName(location.id), {
           kind: 'TicketChanged',
           ticketId: result.ticketId,
@@ -560,6 +588,32 @@ export async function resolveSubmitOnlineOrder(
         await deps.pubsub.publish(floorChannelName(location.id), {
           kind: 'TableChanged',
           tableId: tableRow.id,
+        });
+      }
+
+      // PAY_AT_KIOSK: push the payment intent to the connected POS terminal.
+      // dispatchPaymentRequest throws ConflictError when no terminal is
+      // online — bubbles up unchanged so the kiosk shows "POS terminal
+      // offline" and the order request is left in PENDING/PENDING.
+      if (isKioskPayment) {
+        dispatchPaymentRequest({
+          prisma: ctx.prisma as PrismaClient,
+          tenantSlug: input.tenantSlug,
+          locationSlug: input.locationSlug,
+          payload: {
+            intentId: result.requestId,
+            amountCents: totals.totalCents,
+            currency: 'USD',
+            shortNumber: result.shortNumber,
+            customerName: input.customerName,
+            tableLabel: tableRow?.label ?? null,
+            items: prepared.map((p) => ({
+              name: p.nameSnapshot,
+              qty: p.quantity,
+              lineTotalCents: p.lineSubtotalCents,
+              modifiers: p.modifiers.map((m) => m.nameSnapshot),
+            })),
+          },
         });
       }
       break;
@@ -577,34 +631,37 @@ export async function resolveSubmitOnlineOrder(
 
   // Fire-and-forget customer notifications. Both helpers swallow any failure
   // so the submit mutation never fails because email/SMS infra is down.
+  // Kiosk-paid orders skip both — the customer is standing right there.
   const trackingUrl = `${env.AUTH_URL}/order/${input.tenantSlug}/${input.locationSlug}/track/${token}`;
-  if (input.customerEmail) {
-    void sendOrderEmailSafely(
-      input.customerEmail,
-      renderOrderReceived({
-        customerName: input.customerName,
-        customerEmail: input.customerEmail,
-        customerPhone: input.customerPhone,
-        shortNumber,
-        tenantName: tenant.name,
-        locationName: location.name,
-        trackingUrl,
-      }),
-      { kind: 'received', shortNumber },
+  if (!isKioskPayment) {
+    if (input.customerEmail) {
+      void sendOrderEmailSafely(
+        input.customerEmail,
+        renderOrderReceived({
+          customerName: input.customerName,
+          customerEmail: input.customerEmail,
+          customerPhone: input.customerPhone,
+          shortNumber,
+          tenantName: tenant.name,
+          locationName: location.name,
+          trackingUrl,
+        }),
+        { kind: 'received', shortNumber },
+      );
+    }
+    void sendSmsSafely(
+      {
+        to: input.customerPhone,
+        body: smsOrderReceived({
+          customerName: input.customerName,
+          shortNumber,
+          tenantName: tenant.name,
+          trackingUrl,
+        }),
+      },
+      { kind: 'order.received' },
     );
   }
-  void sendSmsSafely(
-    {
-      to: input.customerPhone,
-      body: smsOrderReceived({
-        customerName: input.customerName,
-        shortNumber,
-        tenantName: tenant.name,
-        trackingUrl,
-      }),
-    },
-    { kind: 'order.received' },
-  );
 
   const estimated = estimateReadyAt({
     pickupAt,

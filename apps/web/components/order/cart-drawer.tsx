@@ -23,10 +23,12 @@ import {
   formatMoney,
 } from '@repo/ui';
 import {
+  OnlineOrderPaymentMode,
   OnlinePickupKind,
   SubmitOnlineOrderDocument,
 } from '@/lib/graphql/generated/graphql';
 import { useCart } from './cart-state';
+import { KioskPaymentOverlay } from './kiosk-payment-overlay';
 
 export interface CartDrawerProps {
   tenantSlug: string;
@@ -86,9 +88,19 @@ export function CartDrawer({
     setQuantity,
     clear,
     tableSlug,
+    kioskMode,
   } = useCart();
   const isDineIn = Boolean(tableSlug);
   const [{ fetching: submitting }, submit] = useMutation(SubmitOnlineOrderDocument);
+
+  // Kiosk-only state. When the submit succeeds in kiosk mode we keep the
+  // tracking token around so the overlay can poll the payment status — we
+  // don't clear the cart or close the drawer until the customer either
+  // walks away or the payment captures.
+  const [kioskPaymentToken, setKioskPaymentToken] = useState<{
+    token: string;
+    amountCents: number;
+  } | null>(null);
 
   // If the cart becomes empty while we're on the details step, drop back to
   // the cart view so the user sees the empty state, not an orphaned form.
@@ -110,6 +122,7 @@ export function CartDrawer({
       toast.error('This location is currently closed for online orders.');
       return;
     }
+    const amountAtSubmit = totalCents;
     const result = await submit({
       input: {
         tenantSlug,
@@ -120,6 +133,9 @@ export function CartDrawer({
         pickupKind: OnlinePickupKind.Asap,
         notes: null,
         tableSlug: tableSlug ?? null,
+        paymentMode: kioskMode
+          ? OnlineOrderPaymentMode.PayAtKiosk
+          : OnlineOrderPaymentMode.PayAtPickup,
         items: items.map((i) => ({
           menuItemId: i.menuItemId,
           quantity: i.quantity,
@@ -138,6 +154,13 @@ export function CartDrawer({
       toast.error('Order submission did not return a tracking token.');
       return;
     }
+    // Kiosk mode keeps the cart populated until the payment captures —
+    // otherwise a DECLINED tap would leave the customer with no items to
+    // retry. The overlay handles the redirect on CAPTURED.
+    if (kioskMode) {
+      setKioskPaymentToken({ token, amountCents: amountAtSubmit });
+      return;
+    }
     clear();
     onOpenChange(false);
     const shortNumber = submitted?.shortNumber;
@@ -148,6 +171,22 @@ export function CartDrawer({
   const canCheckout = items.length > 0 && acceptingOrders && hydrated;
 
   return (
+    <>
+      {kioskPaymentToken ? (
+        <KioskPaymentOverlay
+          tenantSlug={tenantSlug}
+          locationSlug={locationSlug}
+          trackingToken={kioskPaymentToken.token}
+          amountCents={kioskPaymentToken.amountCents}
+          currency={currency}
+          onDismiss={() => {
+            // Customer dismissed a declined attempt — drop back to the
+            // details step so they can edit / retry on a fresh order.
+            setKioskPaymentToken(null);
+            setStep('details');
+          }}
+        />
+      ) : null}
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
@@ -358,9 +397,11 @@ export function CartDrawer({
                   )}
                 />
                 <p className="rounded-lg bg-surface-container-low px-3 py-2 text-body-staff text-on-surface-variant">
-                  {isDineIn
-                    ? "We'll fire your order to the kitchen now. Your server will bring it to your table."
-                    : "We'll prepare your order as soon as the kitchen confirms it. Pay when you collect."}
+                  {kioskMode
+                    ? "Tap Pay to start. The card terminal next to the kiosk will prompt you."
+                    : isDineIn
+                      ? "We'll fire your order to the kitchen now. Your server will bring it to your table."
+                      : "We'll prepare your order as soon as the kitchen confirms it. Pay when you collect."}
                 </p>
               </div>
             </form>
@@ -423,13 +464,23 @@ export function CartDrawer({
                   >
                     progress_activity
                   </span>
-                  {isDineIn ? 'Sending…' : 'Placing order…'}
+                  {kioskMode
+                    ? 'Starting payment…'
+                    : isDineIn
+                      ? 'Sending…'
+                      : 'Placing order…'}
                 </>
               ) : (
                 <>
-                  <span>{isDineIn ? 'Send to kitchen' : 'Place order'}</span>
+                  <span>
+                    {kioskMode
+                      ? `Pay ${formatMoney(totalCents, currency)}`
+                      : isDineIn
+                        ? 'Send to kitchen'
+                        : 'Place order'}
+                  </span>
                   <span className="material-symbols-outlined">
-                    {isDineIn ? 'restaurant' : 'check'}
+                    {kioskMode ? 'credit_card' : isDineIn ? 'restaurant' : 'check'}
                   </span>
                 </>
               )}
@@ -455,5 +506,6 @@ export function CartDrawer({
         </div>
       </SheetContent>
     </Sheet>
+    </>
   );
 }

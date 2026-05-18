@@ -8,6 +8,8 @@ import { hashTrackingToken } from '../online-orders/tracking-token.js';
 import { builder } from './builder.js';
 import {
   OnlineOrderConfirmStatusEnum,
+  OnlineOrderPaymentModeEnum,
+  OnlineOrderPaymentStatusEnum,
   OnlinePickupKindEnum,
   TicketStatusEnum,
 } from './enums.js';
@@ -30,6 +32,8 @@ export interface OnlineOrderTrackingProjection {
   pickupAt: Date;
   pickupKind: 'ASAP' | 'SCHEDULED';
   confirmStatus: 'PENDING' | 'CONFIRMED' | 'REJECTED';
+  paymentMode: 'PAY_AT_PICKUP' | 'PAY_AT_KIOSK';
+  paymentStatus: 'PENDING' | 'CAPTURED' | 'DECLINED' | null;
   ticketStatus: 'OPEN' | 'CLOSED' | 'VOIDED';
   itemSummary: string;
   totalCents: number;
@@ -82,6 +86,8 @@ export function projectOnlineOrderTracking(args: {
     | 'confirmStatus'
     | 'confirmedAt'
     | 'rejectReason'
+    | 'paymentMode'
+    | 'paymentStatus'
   >;
   ticket: {
     shortNumber: number;
@@ -126,6 +132,8 @@ export function projectOnlineOrderTracking(args: {
     pickupAt: args.request.pickupAt,
     pickupKind: args.request.pickupKind,
     confirmStatus: args.request.confirmStatus,
+    paymentMode: args.request.paymentMode,
+    paymentStatus: args.request.paymentStatus,
     ticketStatus: args.ticket.status,
     itemSummary,
     totalCents: args.ticket.totalCents,
@@ -204,6 +212,8 @@ export async function resolveTrackOnlineOrder(
       confirmStatus: true,
       confirmedAt: true,
       rejectReason: true,
+      paymentMode: true,
+      paymentStatus: true,
     },
   });
   if (!request) return null;
@@ -295,6 +305,15 @@ export const OnlineOrderRequestRef = builder.prismaObject('OnlineOrderRequest', 
       type: OnlineOrderConfirmStatusEnum,
       resolve: (parent) => parent.confirmStatus,
     }),
+    paymentMode: t.field({
+      type: OnlineOrderPaymentModeEnum,
+      resolve: (parent) => parent.paymentMode,
+    }),
+    paymentStatus: t.field({
+      type: OnlineOrderPaymentStatusEnum,
+      nullable: true,
+      resolve: (parent) => parent.paymentStatus,
+    }),
     confirmedAt: t.expose('confirmedAt', { type: 'DateTime', nullable: true }),
     rejectedAt: t.expose('rejectedAt', { type: 'DateTime', nullable: true }),
     rejectReason: t.exposeString('rejectReason', { nullable: true }),
@@ -365,6 +384,15 @@ OnlineOrderTrackingRef.implement({
     confirmStatus: t.field({
       type: OnlineOrderConfirmStatusEnum,
       resolve: (p) => p.confirmStatus,
+    }),
+    paymentMode: t.field({
+      type: OnlineOrderPaymentModeEnum,
+      resolve: (p) => p.paymentMode,
+    }),
+    paymentStatus: t.field({
+      type: OnlineOrderPaymentStatusEnum,
+      nullable: true,
+      resolve: (p) => p.paymentStatus,
     }),
     ticketStatus: t.field({
       type: TicketStatusEnum,

@@ -1004,6 +1004,15 @@ model OnlineOrderRequest {
   rejectedById  String?                  @map("rejected_by_id") @db.Uuid
   rejectReason  String?                  @map("reject_reason")
 
+  /**
+   * Where payment lands. PAY_AT_PICKUP is the historical default — staff
+   * collects in person at handoff or close. PAY_AT_KIOSK requires the
+   * customer-facing kiosk to charge the card on a connected POS terminal
+   * before items fire to the kitchen.
+   */
+  paymentMode   OnlineOrderPaymentMode    @default(PAY_AT_PICKUP) @map("payment_mode")
+  paymentStatus OnlineOrderPaymentStatus? @map("payment_status")
+
   trackingTokenHash String  @unique @map("tracking_token_hash")
   submittedFromIp   String? @map("submitted_from_ip")
 
@@ -1029,6 +1038,17 @@ enum OnlineOrderConfirmStatus {
   PENDING
   CONFIRMED
   REJECTED
+}
+
+enum OnlineOrderPaymentMode {
+  PAY_AT_PICKUP
+  PAY_AT_KIOSK
+}
+
+enum OnlineOrderPaymentStatus {
+  PENDING
+  CAPTURED
+  DECLINED
 }
 
 // ─── Cash management ──────────────────────────────────

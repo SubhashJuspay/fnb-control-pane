@@ -1,5 +1,5 @@
 import { builder } from '../../builder.js';
-import { OnlinePickupKindEnum } from '../../enums.js';
+import { OnlinePickupKindEnum, OnlineOrderPaymentModeEnum } from '../../enums.js';
 
 export const SubmitOnlineOrderItemInput = builder.inputType(
   'SubmitOnlineOrderItemInput',
@@ -29,6 +29,8 @@ export const SubmitOnlineOrderInput = builder.inputType('SubmitOnlineOrderInput'
     }),
     /** QR-at-table dine-in flag — see submitOnlineOrderSchema for semantics. */
     tableSlug: t.string({ required: false }),
+    /** PAY_AT_KIOSK requires a connected POS terminal to capture payment. */
+    paymentMode: t.field({ type: OnlineOrderPaymentModeEnum, required: false }),
   }),
 });
 

@@ -38,6 +38,13 @@ export interface CartState {
    * surfaces this in its UI and forwards it to `submitOnlineOrder`.
    */
   tableSlug: string | null;
+  /**
+   * Kiosk mode: when true (URL `?kiosk=1`), the drawer collects payment via
+   * a paired POS terminal before submitting. The submit mutation sets
+   * `paymentMode: PAY_AT_KIOSK` and the kiosk shows a "Reading card…"
+   * overlay until the terminal returns a result.
+   */
+  kioskMode: boolean;
   items: CartItem[];
 }
 
@@ -103,11 +110,13 @@ export function CartProvider({
   tenantSlug,
   locationSlug,
   tableSlug = null,
+  kioskMode = false,
   children,
 }: {
   tenantSlug: string;
   locationSlug: string;
   tableSlug?: string | null;
+  kioskMode?: boolean;
   children: ReactNode;
 }): React.JSX.Element {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -169,6 +178,7 @@ export function CartProvider({
       tenantSlug,
       locationSlug,
       tableSlug,
+      kioskMode,
       items,
       addItem,
       removeItem,
@@ -182,6 +192,7 @@ export function CartProvider({
       tenantSlug,
       locationSlug,
       tableSlug,
+      kioskMode,
       items,
       addItem,
       removeItem,

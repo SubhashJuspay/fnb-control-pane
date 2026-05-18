@@ -34,6 +34,8 @@ describe('projectOnlineOrderTracking', () => {
     confirmStatus: 'PENDING' as const,
     confirmedAt: null,
     rejectReason: null,
+    paymentMode: 'PAY_AT_PICKUP' as const,
+    paymentStatus: null,
   };
   const baseTicket = {
     shortNumber: 12,

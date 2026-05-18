@@ -95,6 +95,17 @@ export const OnlineOrderConfirmStatusEnum = builder.enumType(
   },
 );
 
+export const OnlineOrderPaymentModeEnum = builder.enumType('OnlineOrderPaymentMode', {
+  values: ['PAY_AT_PICKUP', 'PAY_AT_KIOSK'] as const,
+});
+
+export const OnlineOrderPaymentStatusEnum = builder.enumType(
+  'OnlineOrderPaymentStatus',
+  {
+    values: ['PENDING', 'CAPTURED', 'DECLINED'] as const,
+  },
+);
+
 export const OrderOriginChannelEnum = builder.enumType('OrderOriginChannel', {
   values: ['IN_PERSON', 'ONLINE'] as const,
 });

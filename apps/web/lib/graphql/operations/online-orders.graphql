@@ -47,6 +47,8 @@ query PublicLocationBySlug($tenantSlug: String!, $locationSlug: String!, $at: Da
 query TrackOnlineOrder($token: String!) {
   trackOnlineOrder(token: $token) {
     confirmStatus
+    paymentMode
+    paymentStatus
     customerName
     estimatedReadyAt
     isReady

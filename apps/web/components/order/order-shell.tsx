@@ -21,6 +21,8 @@ export interface OrderShellProps {
   tableSlug?: string | null;
   /** Display label for the table, when known. Falls back to the slug. */
   tableLabel?: string | null;
+  /** `?kiosk=1` — drawer collects payment via paired POS terminal. */
+  kioskMode?: boolean;
   children: ReactNode;
 }
 
@@ -35,6 +37,7 @@ export function OrderShell({
   closedReason = null,
   tableSlug = null,
   tableLabel = null,
+  kioskMode = false,
   children,
 }: OrderShellProps): React.JSX.Element {
   const client = useMemo(() => createPublicUrqlClient(), []);
@@ -44,6 +47,7 @@ export function OrderShell({
         tenantSlug={tenantSlug}
         locationSlug={locationSlug}
         tableSlug={tableSlug}
+        kioskMode={kioskMode}
       >
         <OrderShellInner
           tenantSlug={tenantSlug}
@@ -55,6 +59,7 @@ export function OrderShell({
           acceptingOrders={acceptingOrders}
           closedReason={closedReason}
           tableLabel={tableLabel ?? tableSlug}
+          kioskMode={kioskMode}
         >
           {children}
         </OrderShellInner>
@@ -73,13 +78,20 @@ function OrderShellInner({
   acceptingOrders,
   closedReason,
   tableLabel,
+  kioskMode,
   children,
 }: Omit<
   OrderShellProps,
-  'showCart' | 'acceptingOrders' | 'closedReason' | 'tableLabel' | 'tableSlug'
+  | 'showCart'
+  | 'acceptingOrders'
+  | 'closedReason'
+  | 'tableLabel'
+  | 'tableSlug'
+  | 'kioskMode'
 > & {
   showCart: boolean;
   acceptingOrders: boolean;
+  kioskMode: boolean;
   closedReason: string | null;
   tableLabel: string | null;
 }): React.JSX.Element {
@@ -157,10 +169,27 @@ function OrderShellInner({
             className="material-symbols-outlined text-[18px]"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
-            table_restaurant
+            {kioskMode ? 'point_of_sale' : 'table_restaurant'}
           </span>
           <span className="text-body-staff font-semibold uppercase tracking-wide">
-            Dining at · Table {tableLabel}
+            {kioskMode
+              ? `Kiosk · Table ${tableLabel}`
+              : `Dining at · Table ${tableLabel}`}
+          </span>
+        </div>
+      ) : kioskMode ? (
+        <div
+          className="sticky top-16 z-30 flex items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-4 py-2 text-primary"
+          data-testid="order-shell-kiosk-banner"
+        >
+          <span
+            className="material-symbols-outlined text-[18px]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            point_of_sale
+          </span>
+          <span className="text-body-staff font-semibold uppercase tracking-wide">
+            Kiosk mode · Pay at terminal
           </span>
         </div>
       ) : null}
