@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Provider as UrqlProvider } from 'urql';
 import { formatMoney } from '@repo/ui';
 import { createPublicUrqlClient } from './public-graphql-client';
 import { CartProvider, useCart } from './cart-state';
-import { CartDrawer } from './cart-drawer';
 
 export interface OrderShellProps {
   tenantSlug: string;
@@ -21,7 +20,7 @@ export interface OrderShellProps {
   tableSlug?: string | null;
   /** Display label for the table, when known. Falls back to the slug. */
   tableLabel?: string | null;
-  /** `?kiosk=1` — drawer collects payment via paired POS terminal. */
+  /** `?kiosk=1` — checkout collects payment via paired POS terminal. */
   kioskMode?: boolean;
   children: ReactNode;
 }
@@ -59,6 +58,7 @@ export function OrderShell({
           acceptingOrders={acceptingOrders}
           closedReason={closedReason}
           tableLabel={tableLabel ?? tableSlug}
+          tableSlug={tableSlug}
           kioskMode={kioskMode}
         >
           {children}
@@ -78,6 +78,7 @@ function OrderShellInner({
   acceptingOrders,
   closedReason,
   tableLabel,
+  tableSlug,
   kioskMode,
   children,
 }: Omit<
@@ -94,10 +95,20 @@ function OrderShellInner({
   kioskMode: boolean;
   closedReason: string | null;
   tableLabel: string | null;
+  tableSlug: string | null;
 }): React.JSX.Element {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const { itemCount, totalCents } = useCart();
   const hasItems = itemCount > 0;
+
+  // Compose the /checkout URL with the same kiosk + table query flags so
+  // the new page recognises the same context the menu had.
+  const checkoutHref = useMemo(() => {
+    const params = new URLSearchParams();
+    if (kioskMode) params.set('kiosk', '1');
+    if (tableSlug) params.set('table', tableSlug);
+    const search = params.toString();
+    return `/order/${tenantSlug}/${locationSlug}/checkout${search ? `?${search}` : ''}`;
+  }, [tenantSlug, locationSlug, kioskMode, tableSlug]);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-on-surface">
@@ -110,9 +121,6 @@ function OrderShellInner({
           className="flex min-w-0 flex-1 items-center gap-3"
           data-testid="order-shell-home-link"
         >
-          {/* Brand name: smaller and single-line truncated on mobile so a long
-              tenant name doesn't wrap into the header. Restores headline size
-              from `sm` upwards. */}
           <h1
             className="min-w-0 truncate font-display text-[18px] font-bold text-primary sm:text-headline-md"
             data-testid="order-shell-tenant"
@@ -135,28 +143,23 @@ function OrderShellInner({
           </span>
         </Link>
         {showCart ? (
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
+          <Link
+            href={checkoutHref}
             data-testid="order-cart-button"
             className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary px-3 py-2 font-label-caps text-label-caps text-on-primary transition-transform active:scale-95 sm:px-4"
           >
             <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-            {/* Mobile shows just the count badge; full summary appears from sm:. */}
             <span data-testid="order-cart-summary" className="hidden sm:inline">
               {hasItems
                 ? `Cart (${itemCount}) · ${formatMoney(totalCents, currency)}`
                 : 'Cart'}
             </span>
             {hasItems ? (
-              <span
-                className="inline sm:hidden"
-                aria-label={`${itemCount} in cart`}
-              >
+              <span className="inline sm:hidden" aria-label={`${itemCount} in cart`}>
                 {itemCount}
               </span>
             ) : null}
-          </button>
+          </Link>
         ) : null}
       </header>
 
@@ -225,16 +228,15 @@ function OrderShellInner({
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
+            <Link
+              href={checkoutHref}
               data-testid="order-review-bar-cta"
               className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-95 sm:px-8"
             >
               <span className="hidden sm:inline">Review order ({itemCount})</span>
               <span className="sm:hidden">Review ({itemCount})</span>
               <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
-            </button>
+            </Link>
           </div>
         </footer>
       ) : null}
@@ -243,18 +245,6 @@ function OrderShellInner({
         <div className="sr-only" role="status">
           {closedReason}
         </div>
-      ) : null}
-
-      {showCart ? (
-        <CartDrawer
-          tenantSlug={tenantSlug}
-          locationSlug={locationSlug}
-          currency={currency}
-          open={drawerOpen}
-          onOpenChange={setDrawerOpen}
-          acceptingOrders={acceptingOrders}
-          closedReason={closedReason}
-        />
       ) : null}
     </div>
   );

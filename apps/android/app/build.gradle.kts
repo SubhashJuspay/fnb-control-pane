@@ -38,6 +38,10 @@ android {
 
     buildFeatures {
         compose = true
+        // AGP 8+ disables AIDL by default; we use it for the Sunmi
+        // InnerPrinter service (woyou.aidlservice.jiuiv5.IWoyouService),
+        // declared under src/main/aidl/.
+        aidl = true
     }
 
     sourceSets {
@@ -55,9 +59,18 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.activity:activity-compose:1.9.3")
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Sunmi Pay SDK V2 — provides NfcAdapter-equivalent card-read APIs on
+    // Sunmi POS devices (and only on Sunmi devices). The aar is binary-only;
+    // we commit it to the repo since Sunmi doesn't publish to Maven Central.
+    // Requires SPHS (Sunmi Pay Hardware Service) to be installed on the
+    // device — pre-installed on every Sunmi POS. On non-Sunmi devices the
+    // service bind silently fails and we fall back to standard NfcAdapter.
+    implementation(files("libs/PayLib-release-2.0.36.aar"))
 
     // WebSocket + JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

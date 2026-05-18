@@ -15,12 +15,44 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * UI-facing state for the whole terminal app. Three top-level screens are
+ * Brief outcome shown on the POS device for ~3s after a payment is dispatched
+ * upstream. Mirrors what a real card terminal does — "Approved" stays on
+ * screen long enough that the operator can confirm the transaction landed.
+ */
+sealed interface LastResult {
+    val shortNumber: Int
+    val amountCents: Long
+    val currency: String
+
+    data class Approved(
+        override val shortNumber: Int,
+        override val amountCents: Long,
+        override val currency: String,
+    ) : LastResult
+
+    data class Declined(
+        override val shortNumber: Int,
+        override val amountCents: Long,
+        override val currency: String,
+    ) : LastResult
+
+    data class Cancelled(
+        override val shortNumber: Int,
+        override val amountCents: Long,
+        override val currency: String,
+    ) : LastResult
+}
+
+/**
+ * UI-facing state for the whole terminal app. Four top-level screens are
  * derived from this:
  *
  *   1. Settings — when `settings.isComplete()` is false
- *   2. Idle     — connected, no active payment
+ *   2. Idle     — connected, no active payment, no recent result
  *   3. Payment  — `activePayment` is non-null
+ *   4. Result   — last payment outcome; cleared explicitly by the operator
+ *                 tapping Done (no auto-dismiss — cashier needs to confirm
+ *                 the receipt printed before moving on).
  */
 class TerminalViewModel(
     private val settingsRepo: SettingsRepository,
@@ -38,6 +70,9 @@ class TerminalViewModel(
 
     private val _activePayment = MutableStateFlow<ServerMessage.PaymentRequest?>(null)
     val activePayment: StateFlow<ServerMessage.PaymentRequest?> = _activePayment.asStateFlow()
+
+    private val _lastResult = MutableStateFlow<LastResult?>(null)
+    val lastResult: StateFlow<LastResult?> = _lastResult.asStateFlow()
 
     init {
         // Listen for `payment_request` and `payment_cancel` frames forever.
@@ -57,8 +92,6 @@ class TerminalViewModel(
                 }
             }
         }
-        // React to settings changes: reconnect with the new slugs whenever
-        // the user edits and saves.
         viewModelScope.launch {
             settings.collect { s ->
                 if (s.isComplete()) {
@@ -83,19 +116,48 @@ class TerminalViewModel(
     fun approve() {
         val active = _activePayment.value ?: return
         socket.sendResult(active.intentId, PaymentResultStatus.APPROVED)
+        showResult(
+            LastResult.Approved(
+                shortNumber = active.shortNumber,
+                amountCents = active.amountCents,
+                currency = active.currency,
+            ),
+        )
         _activePayment.value = null
     }
 
     fun decline() {
         val active = _activePayment.value ?: return
         socket.sendResult(active.intentId, PaymentResultStatus.DECLINED)
+        showResult(
+            LastResult.Declined(
+                shortNumber = active.shortNumber,
+                amountCents = active.amountCents,
+                currency = active.currency,
+            ),
+        )
         _activePayment.value = null
     }
 
     fun cancel() {
         val active = _activePayment.value ?: return
         socket.sendResult(active.intentId, PaymentResultStatus.CANCELLED)
+        showResult(
+            LastResult.Cancelled(
+                shortNumber = active.shortNumber,
+                amountCents = active.amountCents,
+                currency = active.currency,
+            ),
+        )
         _activePayment.value = null
+    }
+
+    fun clearLastResult() {
+        _lastResult.value = null
+    }
+
+    private fun showResult(result: LastResult) {
+        _lastResult.value = result
     }
 
     override fun onCleared() {

@@ -39,19 +39,16 @@ test.describe('online order flow', () => {
     await expect(dialog).toBeHidden();
 
     // 3. Open cart drawer → Mango Lassi present.
-    await page.getByTestId('order-cart-button').click();
-    const drawer = page.getByTestId('cart-drawer');
-    await expect(drawer).toBeVisible();
-    await expect(drawer.getByTestId('cart-line-Mango Lassi')).toBeVisible();
-
-    // 4. In-drawer checkout: tap Checkout to flip to the details step, enter
-    // name + phone, place the order. No separate page navigation.
+    // 4. Tap the cart button in the header → navigates to /checkout. The
+    // dedicated checkout page shows order summary + name/phone form and
+    // a Proceed button.
     await expect(page.getByTestId('order-cart-button')).toContainText('1');
-    await page.getByTestId('cart-checkout-button').click();
-    await expect(page.getByTestId('cart-details-form')).toBeVisible({ timeout: 10_000 });
-    await page.getByTestId('cart-details-name').fill('Bob');
-    await page.getByTestId('cart-details-phone').fill('+52 55 1234 5678');
-    await page.getByTestId('cart-place-order-button').click();
+    await page.getByTestId('order-cart-button').click();
+    await expect(page.getByTestId('checkout-form')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('checkout-line-Mango Lassi')).toBeVisible();
+    await page.getByTestId('checkout-name').fill('Bob');
+    await page.getByTestId('checkout-phone').fill('+52 55 1234 5678');
+    await page.getByTestId('checkout-submit').click();
 
     // 5. Confirmation page with tracking URL.
     await page.waitForURL(/\/confirmation\//, { timeout: 10_000 });

@@ -7,6 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,10 +57,13 @@ class TerminalSocket(
         encodeDefaults = true
     }
 
-    // OkHttp's default 10s ping is fine; the server also pings us back on a
-    // 25s cadence so a one-sided NAT timeout still trips a close+reconnect.
+    // Render free tier spins down after 15 min idle and the wake-up handshake
+    // can take 30-50s, so the OkHttp connect timeout has to be generous —
+    // anything tighter and the first reconnect after an idle period fails.
+    // pingInterval gives us a kept-alive socket plus dead-peer detection.
     private val http = OkHttpClient.Builder()
         .pingInterval(20, TimeUnit.SECONDS)
+        .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(0, TimeUnit.MILLISECONDS) // long-lived
         .build()
 
@@ -77,6 +81,12 @@ class TerminalSocket(
     private var connectJob: Job? = null
     private var reconnectAttempt: Int = 0
     private var lastConfig: Config? = null
+
+    // One-shot "this connection died" signal. CONFLATED so a close that
+    // fires before connectLoop is awaiting still gets delivered (the latest
+    // send wins; we only care that it died). Replaced per connection attempt.
+    @Volatile
+    private var closeChannel: Channel<Unit> = Channel(Channel.CONFLATED)
 
     data class Config(
         val baseUrl: String,
@@ -116,24 +126,20 @@ class TerminalSocket(
         while (true) {
             reconnectAttempt += 1
             _state.value = ConnectionState.Connecting
+            // Fresh close-channel per attempt so a previous loop iteration's
+            // pending send doesn't immediately satisfy this iteration's
+            // receive (would cause a hot reconnect spin).
+            closeChannel = Channel(Channel.CONFLATED)
             val ws = openSocket(config)
             socket = ws
-            // openSocket suspends until the socket either reaches CONNECTED
-            // or fails. Either way the listener updates _state, so we wait
-            // here until something closes the socket — then back off.
-            awaitClose()
+            // Block until onClosed / onFailure signals the connection died.
+            // Channel.receive() suspends until a value is sent (or the
+            // channel is cancelled), no race with the OkHttp callbacks.
+            closeChannel.receive()
             val backoff = computeBackoffMillis(reconnectAttempt)
             Log.i(TAG, "reconnecting in ${backoff}ms (attempt $reconnectAttempt)")
             delay(backoff)
         }
-    }
-
-    private val closeSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-
-    private suspend fun awaitClose() {
-        // First emission after `openSocket` resolves means the socket closed
-        // or errored; consume one and bounce.
-        closeSignal.collect { return@collect }
     }
 
     private fun openSocket(config: Config): WebSocket {
@@ -184,13 +190,13 @@ class TerminalSocket(
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.i(TAG, "onClosed $code $reason")
                 _state.value = ConnectionState.Disconnected("closed: $reason")
-                closeSignal.tryEmit(Unit)
+                closeChannel.trySend(Unit)
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.w(TAG, "onFailure ${t.message}")
+                Log.w(TAG, "onFailure ${t.message} (status=${response?.code})")
                 _state.value = ConnectionState.Disconnected(t.message ?: "failure")
-                closeSignal.tryEmit(Unit)
+                closeChannel.trySend(Unit)
             }
         })
     }

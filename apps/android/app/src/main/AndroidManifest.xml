@@ -1,11 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Android 11+ package visibility: bindService(intent.setPackage(...))
+         silently fails if the target package isn't listed here. We talk to
+         the Sunmi InnerPrinter via its system AIDL service. -->
+    <queries>
+        <package android:name="woyou.aidlservice.jiuiv5" />
+    </queries>
+
     <!-- WebSocket needs network; keep-screen-on so the device stays awake
          on a kiosk counter without anyone tapping it. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- NFC. `required="false"` lets the APK install on devices without an
+         NFC chip (emulators, older tablets); the runtime check in MainActivity
+         falls back to a manual approve button when the adapter is missing. -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="false" />
+
+    <!-- Sunmi Pay SDK — contactless card reading on Sunmi POS devices.
+         Ignored (and effectively a no-op) on non-Sunmi hardware. -->
+    <uses-permission android:name="com.sunmi.perm.CONTACTLESS_CARD" />
 
     <application
         android:label="POS Terminal"
@@ -19,7 +38,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.PosTerminal">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

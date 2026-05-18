@@ -1,6 +1,7 @@
 package com.fnb.posterminal
 
 import android.os.Bundle
+import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,17 +12,37 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.fnb.posterminal.nfc.CardReader
+import com.fnb.posterminal.nfc.StockNfcReader
+import com.fnb.posterminal.nfc.SunmiCardReader
+import com.fnb.posterminal.printer.Receipt
+import com.fnb.posterminal.printer.ReceiptItem
+import com.fnb.posterminal.printer.ReceiptPrinter
 import com.fnb.posterminal.state.SettingsRepository
 import com.fnb.posterminal.state.TerminalViewModel
 import com.fnb.posterminal.ui.IdleScreen
 import com.fnb.posterminal.ui.PaymentScreen
 import com.fnb.posterminal.ui.PosTerminalTheme
+import com.fnb.posterminal.ui.ResultScreen
 import com.fnb.posterminal.ui.SettingsScreen
+import com.fnb.posterminal.ws.ConnectionState
+import com.fnb.posterminal.ws.ServerMessage
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * Single activity, full-screen, sensor-landscape. The activity owns the
- * `TerminalViewModel` which in turn owns the WebSocket — both survive
- * config changes (orientation, dark/light, …).
+ * Single activity, full-screen, portrait. Owns:
+ *   - the TerminalViewModel + its WebSocket
+ *   - a CardReader picked at runtime: SunmiCardReader on Sunmi POS hardware,
+ *     StockNfcReader on phones with a standard NfcAdapter, neither on
+ *     emulators / non-NFC tablets (the PaymentScreen falls back to its
+ *     manual "Simulate card tap" button in that case).
+ *   - a ReceiptPrinter that prints to the Sunmi InnerPrinter when present;
+ *     silently no-ops on non-Sunmi devices.
  */
 class MainActivity : ComponentActivity() {
 
@@ -29,29 +50,190 @@ class MainActivity : ComponentActivity() {
         TerminalViewModel.Factory(SettingsRepository(applicationContext))
     }
 
+    private lateinit var sunmiReader: SunmiCardReader
+    private lateinit var stockReader: StockNfcReader
+    private lateinit var receiptPrinter: ReceiptPrinter
+
+    @Volatile private var activeReader: CardReader? = null
+    @Volatile private var sunmiAvailable: Boolean = false
+
+    /** Last printed receipt — kept around so the operator can Reprint from
+     *  the ResultScreen without re-doing the payment. Cleared on Done. */
+    @Volatile private var lastReceipt: Receipt? = null
+
+    private var paymentInFlight: Boolean = false
+    private var sunmiBindWatchdog: Job? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Kiosk-style: keep the screen on while the activity is foregrounded.
-        // A real production build would use a foreground service instead so
-        // the WebSocket survives the device dimming/sleeping.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        stockReader = StockNfcReader(this)
+        sunmiReader = SunmiCardReader(this, onReady = ::onSunmiConnected)
+        receiptPrinter = ReceiptPrinter(applicationContext).also { it.bind() }
+
+        val sunmiInitStarted = sunmiReader.init()
+        if (sunmiInitStarted) {
+            Log.i(TAG, "Sunmi initPaySDK returned true — waiting for bind")
+            armSunmiWatchdog()
+            useStockReaderIfPossible()
+        } else {
+            Log.i(TAG, "Sunmi initPaySDK returned false — using stock NFC")
+            useStockReaderIfPossible()
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.activePayment.collect { active ->
+                    paymentInFlight = active != null
+                    if (paymentInFlight) {
+                        activeReader?.start { doApprove() }
+                    } else {
+                        activeReader?.stop()
+                    }
+                }
+            }
+        }
 
         setContent {
             PosTerminalTheme {
-                Root(viewModel = viewModel)
+                Root(
+                    viewModel = viewModel,
+                    hasNfc = ::hasAnyReader,
+                    hasPrinter = { receiptPrinter.isAvailable },
+                    onApprove = ::doApprove,
+                    onReprint = ::reprintLastReceipt,
+                    onDismissResult = ::dismissResult,
+                )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (paymentInFlight) activeReader?.start { doApprove() }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        activeReader?.stop()
+    }
+
+    override fun onDestroy() {
+        sunmiBindWatchdog?.cancel()
+        try { sunmiReader.shutdown() } catch (_: Throwable) {}
+        try { stockReader.shutdown() } catch (_: Throwable) {}
+        try { receiptPrinter.unbind() } catch (_: Throwable) {}
+        super.onDestroy()
+    }
+
+    /**
+     * Single funnel for "approve this payment". Both the NFC reader
+     * callback and the PaymentScreen's manual button (on no-NFC devices)
+     * land here so receipts always print regardless of which path fired.
+     */
+    private fun doApprove() {
+        // Snapshot the active payment + connection before approve() clears
+        // them — the receipt needs item names, amounts, customer, and the
+        // tenant/location for the header.
+        val payment = viewModel.activePayment.value ?: return
+        val conn = viewModel.connection.value
+        viewModel.approve()
+        val receipt = buildReceipt(payment, conn)
+        lastReceipt = receipt
+        receiptPrinter.printReceipt(receipt)
+    }
+
+    private fun reprintLastReceipt() {
+        val r = lastReceipt ?: return
+        receiptPrinter.printReceipt(r)
+    }
+
+    private fun dismissResult() {
+        lastReceipt = null
+        viewModel.clearLastResult()
+    }
+
+    private fun buildReceipt(
+        payment: ServerMessage.PaymentRequest,
+        connection: ConnectionState,
+    ): Receipt {
+        val (tenant, location) = when (connection) {
+            is ConnectionState.Connected -> connection.tenantName to connection.locationName
+            else -> "" to ""
+        }
+        return Receipt(
+            tenantName = tenant,
+            locationName = location,
+            shortNumber = payment.shortNumber,
+            customerName = payment.customerName,
+            tableLabel = payment.tableLabel,
+            amountCents = payment.amountCents,
+            currency = payment.currency,
+            items = payment.items.map {
+                ReceiptItem(
+                    qty = it.qty,
+                    name = it.name,
+                    lineTotalCents = it.lineTotalCents,
+                    modifiers = it.modifiers,
+                )
+            },
+            timestamp = System.currentTimeMillis(),
+        )
+    }
+
+    private fun onSunmiConnected() {
+        sunmiBindWatchdog?.cancel()
+        sunmiAvailable = true
+        if (activeReader === sunmiReader) return
+        Log.i(TAG, "Sunmi connected — swapping in")
+        activeReader?.stop()
+        activeReader = sunmiReader
+        if (paymentInFlight) sunmiReader.start { doApprove() }
+    }
+
+    private fun useStockReaderIfPossible() {
+        if (!stockReader.isSupported) {
+            Log.i(TAG, "No stock NFC adapter — running without a card reader")
+            activeReader = null
+            return
+        }
+        activeReader = stockReader
+        if (paymentInFlight) stockReader.start { doApprove() }
+    }
+
+    private fun armSunmiWatchdog() {
+        sunmiBindWatchdog?.cancel()
+        sunmiBindWatchdog = lifecycleScope.launch {
+            delay(SUNMI_BIND_TIMEOUT_MS)
+            if (!sunmiAvailable) {
+                Log.i(TAG, "Sunmi bind didn't complete in time — sticking with stock NFC")
+            }
+        }
+    }
+
+    private fun hasAnyReader(): Boolean = activeReader != null
+
+    companion object {
+        private const val TAG = "MainActivity"
+        private const val SUNMI_BIND_TIMEOUT_MS = 2000L
     }
 }
 
 @Composable
-private fun Root(viewModel: TerminalViewModel) {
+private fun Root(
+    viewModel: TerminalViewModel,
+    hasNfc: () -> Boolean,
+    hasPrinter: () -> Boolean,
+    onApprove: () -> Unit,
+    onReprint: () -> Unit,
+    onDismissResult: () -> Unit,
+) {
     val settings by viewModel.settings.collectAsState()
     val connection by viewModel.connection.collectAsState()
     val activePayment by viewModel.activePayment.collectAsState()
+    val lastResult by viewModel.lastResult.collectAsState()
 
-    // The user can force-open the settings screen from the idle screen even
-    // when settings are already saved — we toggle a local bit for that.
     var editingSettings by remember { mutableStateOf(false) }
 
     when {
@@ -64,9 +246,18 @@ private fun Root(viewModel: TerminalViewModel) {
         )
         activePayment != null -> PaymentScreen(
             payment = activePayment!!,
-            onApprove = { viewModel.approve() },
+            nfcAvailable = hasNfc(),
+            // Manual "Simulate card tap" route on no-NFC devices: routed
+            // through the activity's doApprove so the receipt still prints.
+            onApprove = onApprove,
             onDecline = { viewModel.decline() },
             onCancel = { viewModel.cancel() },
+        )
+        lastResult != null -> ResultScreen(
+            result = lastResult!!,
+            printerAvailable = hasPrinter(),
+            onReprint = onReprint,
+            onDismiss = onDismissResult,
         )
         else -> IdleScreen(
             connection = connection,
