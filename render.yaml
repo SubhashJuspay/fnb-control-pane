@@ -21,6 +21,12 @@ services:
     # When the prototype graduates, flip to `plan: starter` and uncomment the
     # `preDeployCommand` below to get always-on + auto-migrations.
     plan: free
+    # Region-pair the api with Neon. The Postgres host is
+    # ep-round-art-ao3o5p9q.c-2.ap-southeast-1.aws.neon.tech (Singapore).
+    # Without this, Render defaults to Oregon and every Prisma round-trip
+    # pays ~200ms of trans-Pacific latency — a query that needs 4 sequential
+    # round-trips (e.g. publicLocationBySlug) takes ~4s instead of ~50ms.
+    region: singapore
     rootDir: .
     autoDeploy: true
     healthCheckPath: /health
