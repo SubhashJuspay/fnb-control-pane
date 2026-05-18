@@ -12,6 +12,12 @@ export type TicketItemStatus = z.infer<typeof ticketItemStatusSchema>;
 export const openTicketSchema = z.object({
   customerLabel: z.string().trim().max(120).optional().nullable(),
   orderType: orderTypeSchema.default('DINE_IN'),
+  /**
+   * Bind the ticket to a specific table at open time. Only meaningful when
+   * `orderType === 'DINE_IN'`; ignored for TAKEOUT. Server enforces the
+   * "one open ticket per table" invariant.
+   */
+  tableId: z.string().uuid().optional().nullable(),
 });
 export type OpenTicketInput = z.infer<typeof openTicketSchema>;
 

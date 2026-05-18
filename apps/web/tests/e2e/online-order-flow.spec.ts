@@ -44,22 +44,14 @@ test.describe('online order flow', () => {
     await expect(drawer).toBeVisible();
     await expect(drawer.getByTestId('cart-line-Mango Lassi')).toBeVisible();
 
-    // 4. Verify the cart's checkout button is reachable, then navigate to
-    // checkout. We `goto` directly so the test doesn't depend on a SPA
-    // navigation interaction that's brittle through Radix Sheet portals;
-    // the button presence alone is the integration assertion.
-    await expect(page.getByTestId('cart-checkout-button')).toBeVisible();
-    // Wait for the cart count to surface in the header — confirms the
-    // CartProvider has flushed `items` to sessionStorage before navigation.
+    // 4. In-drawer checkout: tap Checkout to flip to the details step, enter
+    // name + phone, place the order. No separate page navigation.
     await expect(page.getByTestId('order-cart-button')).toContainText('1');
-    await page.goto(`/order/acme/mission-st/checkout`);
-    await expect(page.getByTestId('checkout-form')).toBeVisible({ timeout: 15_000 });
-    // Wait for the cart to hydrate from sessionStorage on the checkout page.
-    await expect(page.getByTestId('order-cart-button')).toContainText('1');
-    await page.getByTestId('checkout-name').fill('Bob');
-    await page.getByTestId('checkout-phone').fill('+52 55 1234 5678');
-    // ASAP is the default — no need to click pickup toggle.
-    await page.getByTestId('checkout-submit').click();
+    await page.getByTestId('cart-checkout-button').click();
+    await expect(page.getByTestId('cart-details-form')).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('cart-details-name').fill('Bob');
+    await page.getByTestId('cart-details-phone').fill('+52 55 1234 5678');
+    await page.getByTestId('cart-place-order-button').click();
 
     // 5. Confirmation page with tracking URL.
     await page.waitForURL(/\/confirmation\//, { timeout: 10_000 });

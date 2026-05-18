@@ -90,18 +90,17 @@ test('Customer journey — QR scan to tracking', async ({ page }, testInfo) => {
   await narrate(page, 'The cart drawer shows both items, modifiers, and the subtotal.');
 
   // ─── 5. Checkout ───────────────────────────────────────────────────────
-  await narrate(page, 'They tap Checkout — the button shows a spinner until the page loads.');
+  await narrate(page, 'They tap Checkout — the drawer flips to a short details step.');
   await page.getByTestId('cart-checkout-button').click();
-  await page.waitForURL(/\/checkout$/, { timeout: 20_000 });
-  await expect(page.getByTestId('checkout-form')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId('cart-details-form')).toBeVisible({ timeout: 10_000 });
 
-  await narrate(page, 'On checkout: they enter a name and a Mexican phone number.');
-  await page.getByTestId('checkout-name').fill('Subhash');
+  await narrate(page, 'They enter a name and a Mexican phone number — that\'s all.');
+  await page.getByTestId('cart-details-name').fill('Subhash');
   await page.waitForTimeout(400);
-  await page.getByTestId('checkout-phone').fill('+52 55 1234 5678');
+  await page.getByTestId('cart-details-phone').fill('+52 55 1234 5678');
   await page.waitForTimeout(800);
-  await narrate(page, 'ASAP pickup is the default — they confirm and place the order.');
-  await page.getByTestId('checkout-submit').click();
+  await narrate(page, 'They tap Place order — pickup is ASAP by default.');
+  await page.getByTestId('cart-place-order-button').click();
 
   // ─── 6. Confirmation ───────────────────────────────────────────────────
   await page.waitForURL(/\/confirmation\//, { timeout: 25_000 });

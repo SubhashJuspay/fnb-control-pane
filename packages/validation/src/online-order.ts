@@ -49,6 +49,12 @@ export const submitOnlineOrderSchema = z
     pickupAt: z.coerce.date().optional().nullable(),
     notes: z.string().trim().max(500).optional().nullable(),
     items: z.array(submitOnlineOrderItemSchema).min(1).max(50),
+    /**
+     * QR-at-table dine-in: when set, the order is bound to the table with
+     * this slug, marked DINE_IN, and auto-confirmed (skips the staff inbox).
+     * When absent, behaves as a regular TAKEOUT pickup order.
+     */
+    tableSlug: z.string().regex(slugPattern).max(80).optional().nullable(),
   })
   .superRefine((val, ctx) => {
     if (val.pickupKind === 'SCHEDULED') {

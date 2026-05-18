@@ -728,6 +728,7 @@ model Table {
   locationId       String           @map("location_id") @db.Uuid
   sectionId        String?          @map("section_id") @db.Uuid
   label            String
+  slug             String
   capacity         Int              @default(2)
   shape            TableShape       @default(RECT)
   positionX        Int              @map("position_x")
@@ -748,6 +749,7 @@ model Table {
   reservations   Reservation[]
 
   @@unique([locationId, label])
+  @@unique([locationId, slug])
   @@index([locationId, sectionId])
   @@index([locationId, archivedAt])
   @@map("tables")
