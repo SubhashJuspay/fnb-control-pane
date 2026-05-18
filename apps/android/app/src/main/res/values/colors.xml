@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Background used by the pre-Compose splash. Matches Compose primary
+         surface to avoid a colour flash at launch. -->
+    <color name="background">#0F172A</color>
+</resources>
