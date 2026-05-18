@@ -12,6 +12,23 @@ import { LocationHero } from '@/components/order/location-hero';
 
 interface PageProps {
   params: Promise<{ tenantSlug: string; locationSlug: string }>;
+  searchParams: Promise<{ table?: string | string[] }>;
+}
+
+/**
+ * Normalize an incoming `?table=` value to the canonical slug shape we use
+ * everywhere else (lowercase, ascii alphanumerics, single hyphens). Returns
+ * null when the input is missing or doesn't contain anything we can salvage.
+ */
+function normalizeTableSlug(raw: string | string[] | undefined): string | null {
+  if (!raw) return null;
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  if (!first) return null;
+  const cleaned = first
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 function describeClosed(reopensAt: { time: string; relative: string } | null): string {
@@ -28,8 +45,10 @@ function describeClosed(reopensAt: { time: string; relative: string } | null): s
  * query (no auth, no tenant headers) and hydrates a client-side
  * `<OrderShell>` providing the cart + anonymous urql client.
  */
-export default async function PublicOrderPage({ params }: PageProps) {
+export default async function PublicOrderPage({ params, searchParams }: PageProps) {
   const { tenantSlug, locationSlug } = await params;
+  const { table } = await searchParams;
+  const tableSlug = normalizeTableSlug(table);
   const result = await serverFetch<PublicLocationBySlugQuery>({
     query: print(PublicLocationBySlugDocument),
     variables: { tenantSlug, locationSlug, at: null },
@@ -58,6 +77,8 @@ export default async function PublicOrderPage({ params }: PageProps) {
       currency={currency}
       acceptingOrders={acceptingOrders}
       closedReason={closedReason}
+      tableSlug={tableSlug}
+      tableLabel={tableSlug}
     >
       <LocationHero
         tenantName={tenantName}

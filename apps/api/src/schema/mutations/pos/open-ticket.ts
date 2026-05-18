@@ -1,8 +1,11 @@
+import type { PrismaClient } from '@repo/db';
 import { openTicketSchema } from '@repo/validation/ticket';
 import { z } from 'zod';
 import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, ForbiddenError } from '../../../errors.js';
+import { openTicketBoundToTable } from '../../../floor/open-ticket.js';
+import { floorChannelName } from '../../../pubsub.js';
 import { computeBusinessDay, nextShortNumber } from '../../../order/short-number.js';
 import { pubsub, ticketChannelName } from '../../../pubsub.js';
 import { builder } from '../../builder.js';
@@ -11,14 +14,16 @@ import { OpenTicketInput } from './inputs.js';
 export interface OpenTicketArgs {
   customerLabel?: string | null;
   orderType?: 'DINE_IN' | 'TAKEOUT' | null;
+  tableId?: string | null;
 }
 
 const STAFF_ROLES: readonly string[] = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF'];
 
 /**
- * Pure resolver for `Mutation.openTicket`. Computes the (locationId,
- * businessDay, shortNumber) tuple inside a transaction and retries up to
- * three times if a concurrent insert wins the unique race.
+ * Pure resolver for `Mutation.openTicket`. When `tableId` is provided the
+ * ticket is bound to that table via `openTicketBoundToTable` (which enforces
+ * "one open ticket per table"). Otherwise it allocates a free-floating ticket
+ * for takeout or "I'll seat them later" dine-in.
  */
 export async function resolveOpenTicket(
   query: object,
@@ -33,6 +38,48 @@ export async function resolveOpenTicket(
   const locationId = ctx.auth.location.id;
   const userId = ctx.auth.user.id;
 
+  const orderType = input.orderType ?? 'DINE_IN';
+  const customerLabel = input.customerLabel ?? null;
+  // tableId + TAKEOUT is nonsensical — refuse rather than silently dropping
+  // one of the two so the caller sees the conflict.
+  if (input.tableId && orderType === 'TAKEOUT') {
+    throw new ConflictError('A table cannot be assigned to a takeout ticket');
+  }
+
+  if (input.tableId) {
+    const result = await openTicketBoundToTable({
+      prisma: ctx.prisma as PrismaClient,
+      ctx,
+      tableId: input.tableId,
+      customerLabel,
+      orderType: 'DINE_IN',
+    });
+    await writeAudit(ctx, {
+      action: 'ticket.opened',
+      resourceType: 'ticket',
+      resourceId: result.ticketId,
+      metadata: {
+        shortNumber: result.shortNumber,
+        businessDay: result.businessDay,
+        customerLabel,
+        orderType: 'DINE_IN',
+        tableId: input.tableId,
+      },
+    });
+    await pubsub.publish(ticketChannelName(locationId), {
+      kind: 'TicketChanged',
+      ticketId: result.ticketId,
+    });
+    await pubsub.publish(floorChannelName(locationId), {
+      kind: 'TableChanged',
+      tableId: input.tableId,
+    });
+    return ctx.prisma.ticket.findUnique({
+      ...query,
+      where: { id: result.ticketId },
+    });
+  }
+
   const location = await ctx.prisma.location.findUnique({
     where: { id: locationId },
     select: { businessDayCutoff: true, timezone: true },
@@ -45,8 +92,6 @@ export async function resolveOpenTicket(
     businessDayCutoff: location.businessDayCutoff,
     timezone: location.timezone,
   });
-  const orderType = input.orderType ?? 'DINE_IN';
-  const customerLabel = input.customerLabel ?? null;
 
   let lastError: unknown = null;
   for (let attempt = 0; attempt < 3; attempt++) {

@@ -116,6 +116,7 @@ export const TableRef = builder.prismaObject('Table', {
   fields: (t) => ({
     id: t.exposeID('id'),
     label: t.exposeString('label'),
+    slug: t.exposeString('slug'),
     capacity: t.exposeInt('capacity'),
     shape: t.field({
       type: TableShapeEnum,

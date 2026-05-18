@@ -17,6 +17,10 @@ export interface OrderShellProps {
   showCart?: boolean;
   acceptingOrders?: boolean;
   closedReason?: string | null;
+  /** Slug from the `?table=` QR-at-table flag, or null for pickup. */
+  tableSlug?: string | null;
+  /** Display label for the table, when known. Falls back to the slug. */
+  tableLabel?: string | null;
   children: ReactNode;
 }
 
@@ -29,12 +33,18 @@ export function OrderShell({
   showCart = true,
   acceptingOrders = true,
   closedReason = null,
+  tableSlug = null,
+  tableLabel = null,
   children,
 }: OrderShellProps): React.JSX.Element {
   const client = useMemo(() => createPublicUrqlClient(), []);
   return (
     <UrqlProvider value={client}>
-      <CartProvider tenantSlug={tenantSlug} locationSlug={locationSlug}>
+      <CartProvider
+        tenantSlug={tenantSlug}
+        locationSlug={locationSlug}
+        tableSlug={tableSlug}
+      >
         <OrderShellInner
           tenantSlug={tenantSlug}
           locationSlug={locationSlug}
@@ -44,6 +54,7 @@ export function OrderShell({
           showCart={showCart}
           acceptingOrders={acceptingOrders}
           closedReason={closedReason}
+          tableLabel={tableLabel ?? tableSlug}
         >
           {children}
         </OrderShellInner>
@@ -61,11 +72,16 @@ function OrderShellInner({
   showCart,
   acceptingOrders,
   closedReason,
+  tableLabel,
   children,
-}: Omit<OrderShellProps, 'showCart' | 'acceptingOrders' | 'closedReason'> & {
+}: Omit<
+  OrderShellProps,
+  'showCart' | 'acceptingOrders' | 'closedReason' | 'tableLabel' | 'tableSlug'
+> & {
   showCart: boolean;
   acceptingOrders: boolean;
   closedReason: string | null;
+  tableLabel: string | null;
 }): React.JSX.Element {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { itemCount, totalCents } = useCart();
@@ -131,6 +147,23 @@ function OrderShellInner({
           </button>
         ) : null}
       </header>
+
+      {tableLabel ? (
+        <div
+          className="sticky top-16 z-30 flex items-center justify-center gap-2 border-b border-primary/20 bg-primary/10 px-4 py-2 text-primary"
+          data-testid="order-shell-table-banner"
+        >
+          <span
+            className="material-symbols-outlined text-[18px]"
+            style={{ fontVariationSettings: "'FILL' 1" }}
+          >
+            table_restaurant
+          </span>
+          <span className="text-body-staff font-semibold uppercase tracking-wide">
+            Dining at · Table {tableLabel}
+          </span>
+        </div>
+      ) : null}
 
       <main
         className={[

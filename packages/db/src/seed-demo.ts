@@ -921,6 +921,10 @@ async function main() {
         locationId: mission.id,
         sectionId: t.sectionId,
         label: t.label,
+        slug: t.label
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, ''),
         capacity: t.capacity,
         shape: t.shape,
         positionX: t.x,

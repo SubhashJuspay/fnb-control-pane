@@ -27,6 +27,8 @@ export const SubmitOnlineOrderInput = builder.inputType('SubmitOnlineOrderInput'
       type: [SubmitOnlineOrderItemInput],
       required: true,
     }),
+    /** QR-at-table dine-in flag — see submitOnlineOrderSchema for semantics. */
+    tableSlug: t.string({ required: false }),
   }),
 });
 

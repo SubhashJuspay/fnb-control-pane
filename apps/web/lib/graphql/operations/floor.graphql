@@ -2,6 +2,7 @@ query FloorTables {
   floorTables {
     id
     label
+    slug
     capacity
     shape
     positionX

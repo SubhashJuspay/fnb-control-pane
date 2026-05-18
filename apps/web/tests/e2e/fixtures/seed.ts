@@ -686,6 +686,7 @@ export async function createFloorFixtures(
       locationId: location.id,
       sectionId: section.id,
       label: 'T-1',
+      slug: 't-1',
       capacity: 4,
       shape: 'RECT',
       positionX: 100,

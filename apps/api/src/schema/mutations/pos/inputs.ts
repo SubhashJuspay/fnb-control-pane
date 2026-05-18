@@ -6,6 +6,7 @@ export const OpenTicketInput = builder.inputType('OpenTicketInput', {
   fields: (t) => ({
     customerLabel: t.string({ required: false }),
     orderType: t.field({ type: OrderTypeEnum, required: false }),
+    tableId: t.field({ type: 'UUID', required: false }),
   }),
 });
 

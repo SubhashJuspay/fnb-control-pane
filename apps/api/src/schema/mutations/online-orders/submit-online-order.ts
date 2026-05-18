@@ -20,8 +20,10 @@ import { generateTrackingToken } from '../../../online-orders/tracking-token.js'
 import { computeLineSubtotalCents, computeTicketTotalsCents } from '../../../order/pricing.js';
 import { computeBusinessDay, nextShortNumber } from '../../../order/short-number.js';
 import {
+  floorChannelName,
   onlineOrdersChannelName,
   pubsub as defaultPubsub,
+  ticketChannelName,
 } from '../../../pubsub.js';
 import { builder } from '../../builder.js';
 import { findModifierGroupViolations } from '../pos/recompute-totals.js';
@@ -49,6 +51,12 @@ export interface SubmitOnlineOrderArgs {
     notes?: string | null;
   }>;
   ipAddress?: string | null;
+  /**
+   * Set when the customer scanned a QR sticker on a table. Switches the
+   * order to dine-in: ticket gets `tableId`, items are fired immediately,
+   * and the request is auto-CONFIRMED so it skips the staff inbox.
+   */
+  tableSlug?: string | null;
 }
 
 export interface SubmitOnlineOrderResultData {
@@ -118,13 +126,38 @@ export async function resolveSubmitOnlineOrder(
   });
   if (!location) throw new NotFoundError('Location not found');
 
-  // Reject when the location is closed. If `openingHours` is unset we treat
-  // the location as always open (consistent with the public surface).
-  const hours = parseOpeningHours(location.openingHours);
-  if (hours) {
-    const status = computeOpenStatus(hours, location.timezone, deps.now());
-    if (!status.isOpen) {
-      throw new ConflictError('This location is currently closed for online orders');
+  // Resolve the table when a QR-at-table flag is present. We do this before
+  // the closed-hours gate so a customer sitting at a table never sees a
+  // "closed for online orders" message when they're physically in the dining
+  // room — dine-in is independent of online-pickup hours.
+  let tableRow: { id: string; label: string } | null = null;
+  if (input.tableSlug) {
+    const tbl = (await ctx.prisma.table.findFirst({
+      where: { locationId: location.id, slug: input.tableSlug, archivedAt: null },
+      select: { id: true, label: true },
+    })) as { id: string; label: string } | null;
+    if (!tbl) throw new NotFoundError('Table not found');
+    const occupied = await ctx.prisma.ticket.findFirst({
+      where: { tableId: tbl.id, status: 'OPEN' },
+      select: { id: true },
+    });
+    if (occupied) {
+      throw new ConflictError(
+        'This table already has an open order. Please ask a server for help.',
+      );
+    }
+    tableRow = tbl;
+  }
+
+  // Reject when the location is closed — but only for pickup. Dine-in QR
+  // scans bypass the closed-hours check (see above).
+  if (!tableRow) {
+    const hours = parseOpeningHours(location.openingHours);
+    if (hours) {
+      const status = computeOpenStatus(hours, location.timezone, deps.now());
+      if (!status.isOpen) {
+        throw new ConflictError('This location is currently closed for online orders');
+      }
     }
   }
 
@@ -417,17 +450,35 @@ export async function resolveSubmitOnlineOrder(
     });
     try {
       const result = await ctx.prisma.$transaction(async (tx) => {
+        // Re-check table occupancy inside the transaction — between the
+        // pre-check and now, a server may have opened a ticket at this
+        // table. This is the authoritative gate.
+        if (tableRow) {
+          const inTxOccupied = await tx.ticket.findFirst({
+            where: { tableId: tableRow.id, status: 'OPEN' },
+            select: { id: true },
+          });
+          if (inTxOccupied) {
+            throw new ConflictError(
+              'This table already has an open order. Please ask a server for help.',
+            );
+          }
+        }
         const ticket = (await tx.ticket.create({
           data: {
             locationId: location.id,
             shortNumber: sn,
             businessDay,
             customerLabel: input.customerName,
-            orderType: 'TAKEOUT',
-            originChannel: 'ONLINE',
+            orderType: tableRow ? 'DINE_IN' : 'TAKEOUT',
+            // Dine-in QR scans are physically in-restaurant — the order
+            // does not flow through the staff online-inbox, so tag it
+            // IN_PERSON to match how a server-rung ticket looks.
+            originChannel: tableRow ? 'IN_PERSON' : 'ONLINE',
             status: 'OPEN',
             openedById: systemUserId,
             guestId,
+            tableId: tableRow?.id ?? null,
             subtotalCents: totals.subtotalCents,
             discountCents: totals.discountCents,
             taxCents: totals.taxCents,
@@ -440,7 +491,11 @@ export async function resolveSubmitOnlineOrder(
             data: {
               ticketId: ticket.id,
               menuItemId: p.menuItemId,
-              status: 'NEW',
+              // Dine-in: skip the staff "Confirm" step and fire to the
+              // kitchen immediately. Takeout still requires staff to accept.
+              status: tableRow ? 'FIRED' : 'NEW',
+              firedById: tableRow ? systemUserId : null,
+              firedAt: tableRow ? now : null,
               nameSnapshot: p.nameSnapshot,
               unitPriceCents: p.unitPriceCents,
               quantity: p.quantity,
@@ -462,7 +517,9 @@ export async function resolveSubmitOnlineOrder(
             pickupAt,
             pickupKind: input.pickupKind,
             notes: input.notes ?? null,
-            confirmStatus: 'PENDING',
+            confirmStatus: tableRow ? 'CONFIRMED' : 'PENDING',
+            confirmedAt: tableRow ? now : null,
+            confirmedById: tableRow ? systemUserId : null,
             trackingTokenHash: tokenHash,
             submittedFromIp: input.ipAddress ?? null,
           },
@@ -477,20 +534,34 @@ export async function resolveSubmitOnlineOrder(
         tenantId: tenant.id,
         locationId: location.id,
         actorUserId: systemUserId,
-        action: 'online_order.submitted',
+        action: tableRow ? 'online_order.submitted_dine_in' : 'online_order.submitted',
         resourceType: 'online_order_request',
         resourceId: result.requestId,
         metadata: {
           ticketId: result.ticketId,
           itemCount: prepared.length,
           pickupKind: input.pickupKind,
+          tableId: tableRow?.id ?? null,
+          tableLabel: tableRow?.label ?? null,
+          autoConfirmed: Boolean(tableRow),
         },
       });
-      // 10. Publish.
+      // 10. Publish. Dine-in goes straight to the kitchen, so wake up the
+      // ticket + floor channels in addition to the online-orders channel.
       await deps.pubsub.publish(onlineOrdersChannelName(location.id), {
         kind: 'OnlineOrderRequestCreated',
         requestId: result.requestId,
       });
+      if (tableRow) {
+        await deps.pubsub.publish(ticketChannelName(location.id), {
+          kind: 'TicketChanged',
+          ticketId: result.ticketId,
+        });
+        await deps.pubsub.publish(floorChannelName(location.id), {
+          kind: 'TableChanged',
+          tableId: tableRow.id,
+        });
+      }
       break;
     } catch (err) {
       lastErr = err;

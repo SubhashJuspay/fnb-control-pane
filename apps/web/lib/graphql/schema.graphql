@@ -1008,6 +1008,7 @@ input OpenTicketAtTableInput {
 input OpenTicketInput {
   customerLabel: String
   orderType: OrderType
+  tableId: UUID
 }
 
 input OpeningHoursInput {
@@ -1689,6 +1690,7 @@ input SubmitOnlineOrderInput {
   notes: String
   pickupAt: DateTime
   pickupKind: OnlinePickupKind!
+  tableSlug: String
   tenantSlug: String!
 }
 
@@ -1758,6 +1760,7 @@ type Table {
   rotation: Int
   section: Section
   shape: TableShape
+  slug: String
   state: TableState
   upcomingReservation: Reservation
   updatedAt: DateTime

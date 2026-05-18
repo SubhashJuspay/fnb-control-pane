@@ -204,12 +204,20 @@ export function LiveFloor({
             My tables
           </label>
           {canManagerActions ? (
-            <Link
-              href={`/${tenantSlug}/${locationSlug}/floor/edit`}
-              className="rounded-lg border border-primary bg-surface-container-lowest px-3 py-1.5 text-body-staff font-semibold text-primary transition-colors hover:bg-primary/5"
-            >
-              Edit floor
-            </Link>
+            <>
+              <Link
+                href={`/${tenantSlug}/${locationSlug}/floor/qr`}
+                className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 text-body-staff font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
+              >
+                Print QR sheet
+              </Link>
+              <Link
+                href={`/${tenantSlug}/${locationSlug}/floor/edit`}
+                className="rounded-lg border border-primary bg-surface-container-lowest px-3 py-1.5 text-body-staff font-semibold text-primary transition-colors hover:bg-primary/5"
+              >
+                Edit floor
+              </Link>
+            </>
           ) : null}
         </div>
       </header>

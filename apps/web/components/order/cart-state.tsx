@@ -32,6 +32,12 @@ export interface CartItem {
 export interface CartState {
   tenantSlug: string;
   locationSlug: string;
+  /**
+   * QR-at-table slug, derived from the `?table=` search param on the public
+   * order page. When set, the order is dine-in (not pickup) — the drawer
+   * surfaces this in its UI and forwards it to `submitOnlineOrder`.
+   */
+  tableSlug: string | null;
   items: CartItem[];
 }
 
@@ -96,10 +102,12 @@ function writePersisted(tenantSlug: string, locationSlug: string, items: CartIte
 export function CartProvider({
   tenantSlug,
   locationSlug,
+  tableSlug = null,
   children,
 }: {
   tenantSlug: string;
   locationSlug: string;
+  tableSlug?: string | null;
   children: ReactNode;
 }): React.JSX.Element {
   const [items, setItems] = useState<CartItem[]>([]);
@@ -160,6 +168,7 @@ export function CartProvider({
     () => ({
       tenantSlug,
       locationSlug,
+      tableSlug,
       items,
       addItem,
       removeItem,
@@ -172,6 +181,7 @@ export function CartProvider({
     [
       tenantSlug,
       locationSlug,
+      tableSlug,
       items,
       addItem,
       removeItem,

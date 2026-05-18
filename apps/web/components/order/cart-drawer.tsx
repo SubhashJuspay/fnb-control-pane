@@ -77,8 +77,17 @@ export function CartDrawer({
       onOpenChange(false);
     }
   }, [open, pathname, onOpenChange]);
-  const { items, totalCents, itemCount, hydrated, removeItem, setQuantity, clear } =
-    useCart();
+  const {
+    items,
+    totalCents,
+    itemCount,
+    hydrated,
+    removeItem,
+    setQuantity,
+    clear,
+    tableSlug,
+  } = useCart();
+  const isDineIn = Boolean(tableSlug);
   const [{ fetching: submitting }, submit] = useMutation(SubmitOnlineOrderDocument);
 
   // If the cart becomes empty while we're on the details step, drop back to
@@ -110,6 +119,7 @@ export function CartDrawer({
         customerEmail: null,
         pickupKind: OnlinePickupKind.Asap,
         notes: null,
+        tableSlug: tableSlug ?? null,
         items: items.map((i) => ({
           menuItemId: i.menuItemId,
           quantity: i.quantity,
@@ -290,6 +300,22 @@ export function CartDrawer({
               className="flex-1 overflow-y-auto px-container-margin py-gutter"
             >
               <div className="flex flex-col gap-5">
+                {isDineIn ? (
+                  <div
+                    className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-primary"
+                    data-testid="cart-table-chip"
+                  >
+                    <span
+                      className="material-symbols-outlined text-[18px]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      table_restaurant
+                    </span>
+                    <span className="text-body-staff font-semibold">
+                      Dining at · Table {tableSlug}
+                    </span>
+                  </div>
+                ) : null}
                 <FormField
                   control={form.control}
                   name="customerName"
@@ -332,8 +358,9 @@ export function CartDrawer({
                   )}
                 />
                 <p className="rounded-lg bg-surface-container-low px-3 py-2 text-body-staff text-on-surface-variant">
-                  We&apos;ll prepare your order as soon as the kitchen confirms it. Pay when you
-                  collect.
+                  {isDineIn
+                    ? "We'll fire your order to the kitchen now. Your server will bring it to your table."
+                    : "We'll prepare your order as soon as the kitchen confirms it. Pay when you collect."}
                 </p>
               </div>
             </form>
@@ -347,7 +374,9 @@ export function CartDrawer({
               <span className="tabular-nums">{formatMoney(totalCents, currency)}</span>
             </div>
             <p className="text-status-pill text-on-surface-variant">
-              Tax and final total are confirmed at pickup.
+              {isDineIn
+                ? 'Tax is added on your final bill.'
+                : 'Tax and final total are confirmed at pickup.'}
             </p>
             <div className="flex justify-between border-t border-outline-variant pt-3 font-display text-headline-md font-bold text-on-surface">
               <span>Total</span>
@@ -394,12 +423,14 @@ export function CartDrawer({
                   >
                     progress_activity
                   </span>
-                  Placing order…
+                  {isDineIn ? 'Sending…' : 'Placing order…'}
                 </>
               ) : (
                 <>
-                  <span>Place order</span>
-                  <span className="material-symbols-outlined">check</span>
+                  <span>{isDineIn ? 'Send to kitchen' : 'Place order'}</span>
+                  <span className="material-symbols-outlined">
+                    {isDineIn ? 'restaurant' : 'check'}
+                  </span>
                 </>
               )}
             </button>

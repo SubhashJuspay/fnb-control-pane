@@ -4,6 +4,7 @@ import { writeAudit } from '../../../audit.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
 import { floorChannelName, pubsub } from '../../../pubsub.js';
+import { slugifyTableLabel } from '../../../floor/slug.js';
 import { builder } from '../../builder.js';
 import { CreateTableInput } from './inputs.js';
 
@@ -41,8 +42,17 @@ export async function resolveCreateTable(
     if (!section) throw new NotFoundError('Section not found');
   }
 
+  const slug = slugifyTableLabel(input.label);
+  if (!slug) {
+    throw new ConflictError(
+      'Label must contain at least one letter or number to derive a URL slug',
+    );
+  }
   const dup = await ctx.prisma.table.findFirst({
-    where: { locationId, label: input.label },
+    where: {
+      locationId,
+      OR: [{ label: input.label }, { slug }],
+    },
     select: { id: true },
   });
   if (dup) throw new ConflictError('A table with that label already exists');
@@ -53,6 +63,7 @@ export async function resolveCreateTable(
       locationId,
       sectionId: input.sectionId ?? null,
       label: input.label,
+      slug,
       capacity: input.capacity ?? 2,
       shape: input.shape ?? 'RECT',
       positionX: input.positionX,
