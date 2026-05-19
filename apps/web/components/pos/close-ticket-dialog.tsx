@@ -361,8 +361,8 @@ export function CloseTicketDialog({
           <DialogHeader className="shrink-0">
             <DialogTitle>Close {ticketLabel}</DialogTitle>
             <DialogDescription>
-              The customer already paid at the kiosk. Closing the ticket here
-              just clears it from the open list — no charge is taken.
+              This ticket has already been paid. Closing here just clears
+              it from the open list — no charge is taken.
             </DialogDescription>
           </DialogHeader>
           <form
@@ -377,7 +377,7 @@ export function CloseTicketDialog({
                 <CheckCircle2 className="size-8 shrink-0 text-emerald-600" />
                 <div className="flex flex-col">
                   <span className="text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
-                    Paid at kiosk
+                    Already paid
                   </span>
                   <span className="text-xl font-bold tabular-nums text-foreground">
                     {formatMoney(totalCents, currency)}
