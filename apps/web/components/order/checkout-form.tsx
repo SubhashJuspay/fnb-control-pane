@@ -190,12 +190,27 @@ export function CheckoutForm({
     }
     clear();
     const shortNumber = submitted?.shortNumber;
-    // Preserve ?table= through confirmation + tracking so the customer's
-    // "Back to menu" link returns them to the same table-scanned menu
-    // they came from instead of the generic location landing page.
+    // Dine-in QR flow: the customer is physically at the table and the
+    // order fires immediately to the kitchen. Routing them through a
+    // confirmation + tracking page is friction — they want to keep
+    // browsing the menu (and possibly add more items, which appends to
+    // the same tab). Toast the confirmation, route straight back to
+    // the table-scanned menu.
+    if (tableSlug) {
+      toast.success(
+        shortNumber != null
+          ? `Order #${shortNumber} sent to the kitchen`
+          : 'Order sent to the kitchen',
+      );
+      router.push(
+        `/order/${tenantSlug}/${locationSlug}?table=${encodeURIComponent(tableSlug)}`,
+      );
+      return;
+    }
+    // Pickup flow keeps the existing confirmation page so the customer
+    // gets a tracking link they can save and check later.
     const params = new URLSearchParams();
     if (shortNumber != null) params.set('n', String(shortNumber));
-    if (tableSlug) params.set('table', tableSlug);
     const search = params.toString() ? `?${params.toString()}` : '';
     router.push(`/order/${tenantSlug}/${locationSlug}/confirmation/${token}${search}`);
   };

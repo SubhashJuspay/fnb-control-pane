@@ -172,18 +172,33 @@ export function OpenTicketsSidebar({
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span
-                        className={[
-                          'rounded-full px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider',
-                          isDineIn
-                            ? 'bg-secondary-container text-secondary-on-container'
-                            : isTakeout
-                              ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
-                              : 'bg-surface-container-high text-on-surface-variant',
-                        ].join(' ')}
-                      >
-                        {t.orderType ? ORDER_TYPE_LABEL[t.orderType] : '—'}
-                      </span>
+                      {/* When a ticket is bound to a table (QR scan or
+                          kiosk near a numbered table), the table label
+                          is the most useful identifier — staff knows
+                          where to deliver. Falls back to the order-type
+                          pill (Dine-in / Takeout) for tickets without a
+                          table assignment. */}
+                      {t.table?.label ? (
+                        <span
+                          data-testid="open-ticket-table-badge"
+                          className="rounded-full bg-secondary-container px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider text-secondary-on-container"
+                        >
+                          Table {t.table.label}
+                        </span>
+                      ) : (
+                        <span
+                          className={[
+                            'rounded-full px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider',
+                            isDineIn
+                              ? 'bg-secondary-container text-secondary-on-container'
+                              : isTakeout
+                                ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant'
+                                : 'bg-surface-container-high text-on-surface-variant',
+                          ].join(' ')}
+                        >
+                          {t.orderType ? ORDER_TYPE_LABEL[t.orderType] : '—'}
+                        </span>
+                      )}
                       {isPrepaid ? (
                         <span
                           data-testid="open-ticket-prepaid-badge"

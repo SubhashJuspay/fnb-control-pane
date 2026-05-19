@@ -290,6 +290,17 @@ export function ActiveTicketPanel({
               Ticket{' '}
             </span>
             <span>{ticketLabel}</span>
+            {/* Table assignment. Always surface when present (QR scan or
+                kiosk-near-table) — knowing which table the food goes to
+                is more useful than knowing it's "Dine-in". */}
+            {ticket.table?.label ? (
+              <span
+                data-testid="ticket-table-badge"
+                className="inline-flex items-center gap-1 rounded-full bg-secondary-container px-2 py-0.5 font-status-pill text-status-pill uppercase tracking-wider text-secondary-on-container"
+              >
+                Table {ticket.table.label}
+              </span>
+            ) : null}
             {/* Prepaid badge. Most kiosk orders carry an OnlineOrderRequest
                 with paymentMode=PAY_AT_KIOSK + paymentStatus=CAPTURED — the
                 customer already swiped at the terminal. Surfacing it here
