@@ -120,6 +120,16 @@ export function OpenTicketsSidebar({
               const isPrepaid =
                 t.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
                 t.onlineRequest?.paymentStatus === 'CAPTURED';
+              // Counter-kiosk orders (no table assignment) are bucketed
+              // as orderType=TAKEOUT server-side, but on the floor the
+              // cashier wants to distinguish "ordered at the in-store
+              // kiosk" from "called in / ordered online for pickup".
+              // The paymentMode discriminator does this cleanly:
+              //   PAY_AT_KIOSK + no table → in-store kiosk
+              //   PAY_AT_PICKUP + no table → phone / web pickup
+              const isKioskOrder =
+                !t.table?.label &&
+                t.onlineRequest?.paymentMode === 'PAY_AT_KIOSK';
               return (
                 <li key={t.id ?? ''}>
                   <button
@@ -172,18 +182,28 @@ export function OpenTicketsSidebar({
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      {/* When a ticket is bound to a table (QR scan or
-                          kiosk near a numbered table), the table label
-                          is the most useful identifier — staff knows
-                          where to deliver. Falls back to the order-type
-                          pill (Dine-in / Takeout) for tickets without a
-                          table assignment. */}
+                      {/* Origin pill — three buckets, in priority order:
+                          (1) bound to a table → "Table N" (most useful
+                              to staff, who need to know where to go).
+                          (2) no table + paid via kiosk → "Kiosk" (the
+                              counter-kiosk-pickup flow; orderType is
+                              TAKEOUT server-side but the staff cares
+                              about *where* the order came from).
+                          (3) otherwise → orderType label
+                              (Dine-in / Takeout for phone orders). */}
                       {t.table?.label ? (
                         <span
                           data-testid="open-ticket-table-badge"
                           className="rounded-full bg-secondary-container px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider text-secondary-on-container"
                         >
                           Table {t.table.label}
+                        </span>
+                      ) : isKioskOrder ? (
+                        <span
+                          data-testid="open-ticket-kiosk-badge"
+                          className="rounded-full bg-primary/15 px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider text-primary"
+                        >
+                          Kiosk
                         </span>
                       ) : (
                         <span
