@@ -31,6 +31,14 @@ interface PrepayTicketDialogProps {
   ticketLabel: string;
   /** Ticket total before tip, in cents. */
   totalCents: number;
+  /**
+   * True when the ticket still has NEW items the server will flip to
+   * FIRED on capture. False when everything's already at the kitchen
+   * (QR auto-fire, staff manually fired earlier) — the prepay mutation
+   * still runs but the "fire" half is a no-op, so the dialog softens
+   * its language to just talk about taking payment.
+   */
+  hasNewItems?: boolean;
   onPrepaid: () => void;
 }
 
@@ -84,6 +92,7 @@ export function PrepayTicketDialog({
   ticketId,
   ticketLabel,
   totalCents,
+  hasNewItems = true,
   onPrepaid,
 }: PrepayTicketDialogProps): React.JSX.Element {
   const currency = useLocationCurrency();
@@ -165,7 +174,11 @@ export function PrepayTicketDialog({
   useEffect(() => {
     if (!pendingTenderId) return;
     if (tenderStatus === TenderStatus.Captured) {
-      toast.success(`${ticketLabel} paid — order fired to kitchen`);
+      toast.success(
+        hasNewItems
+          ? `${ticketLabel} paid — order fired to kitchen`
+          : `${ticketLabel} paid`,
+      );
       if (successCloseTimeoutRef.current) {
         clearTimeout(successCloseTimeoutRef.current);
       }
@@ -258,7 +271,11 @@ export function PrepayTicketDialog({
       toast.error(result.error.message);
       return;
     }
-    toast.success(`${ticketLabel} paid — order fired to kitchen`);
+    toast.success(
+      hasNewItems
+        ? `${ticketLabel} paid — order fired to kitchen`
+        : `${ticketLabel} paid`,
+    );
     onPrepaid();
   };
 
@@ -268,9 +285,9 @@ export function PrepayTicketDialog({
         <DialogHeader className="shrink-0">
           <DialogTitle>Take payment for {ticketLabel}</DialogTitle>
           <DialogDescription>
-            Charge the customer now and we&apos;ll fire the order to the
-            kitchen right away. The ticket stays open until the food is
-            served, but no further payment is taken on close.
+            {hasNewItems
+              ? "Charge the customer now and we'll fire the order to the kitchen right away. The ticket stays open until the food is served, but no further payment is taken on close."
+              : "Charge the customer now. The order is already with the kitchen — the ticket stays open until the food is served, then closes with no further charge."}
           </DialogDescription>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">

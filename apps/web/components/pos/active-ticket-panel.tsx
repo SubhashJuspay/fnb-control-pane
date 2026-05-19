@@ -497,13 +497,15 @@ export function ActiveTicketPanel({
       <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant bg-surface-container-low p-card-padding">
         {isOpen ? (
           <>
-            {/* Counter-service "pay first" entry point. Only useful
-                while the ticket still has items to charge for and
-                hasn't already been paid (kiosk path or earlier prepay).
-                Clicking opens the prepay dialog; on success the server
-                captures payment and auto-fires the order, so we don't
-                also need the "Fire all" button — they're the same
-                action with payment attached. */}
+            {/* Capture payment without closing the ticket.
+                - Cashier-rung ticket with NEW items: "Charge & fire"
+                  (capture + auto-fire the kitchen lines).
+                - Ticket whose items already fired (e.g. QR-at-table
+                  auto-fire, or staff manually fired earlier): "Take
+                  payment" — the same mutation runs, the fire step is
+                  a no-op because there's nothing in NEW status.
+                Hidden once any captured tender is already on the
+                ticket (kiosk-prepaid or already-prepaid by staff). */}
             {!isPrepaid && items.length > 0 ? (
               <Button
                 type="button"
@@ -511,7 +513,7 @@ export function ActiveTicketPanel({
                 className="bg-emerald-600 text-white hover:bg-emerald-700"
                 data-testid="charge-and-fire"
               >
-                Charge &amp; fire
+                {hasNew ? 'Charge & fire' : 'Take payment'}
               </Button>
             ) : null}
             {hasNew ? (
@@ -647,6 +649,11 @@ export function ActiveTicketPanel({
         ticketId={ticketId}
         ticketLabel={ticketLabel}
         totalCents={ticket.totalCents ?? 0}
+        // When everything's already at the kitchen (QR auto-fire or
+        // staff manually fired), the prepay action is just "take
+        // payment" — the dialog copy adjusts so the cashier isn't
+        // told we'll fire something that's already cooking.
+        hasNewItems={hasNew}
         onPrepaid={() => {
           setPrepayOpen(false);
           refresh();
