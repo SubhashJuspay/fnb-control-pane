@@ -38,7 +38,7 @@ class SunmiCardReader(
     private val main = Handler(Looper.getMainLooper())
 
     @Volatile private var readCardOpt: ReadCardOptV2? = null
-    @Volatile private var pendingOnTap: (() -> Unit)? = null
+    @Volatile private var pendingOnTap: ((uuid: String?) -> Unit)? = null
     private var checkCardCallback: CheckCardCallbackV2.Stub? = null
 
     override val displayName: String = "Sunmi Pay SDK"
@@ -70,24 +70,25 @@ class SunmiCardReader(
         }
     }
 
-    override fun start(onTagDetected: () -> Unit) {
+    override fun start(onTagDetected: (uuid: String?) -> Unit) {
         // Buffer the callback if SPHS hasn't bound yet — the connect callback
         // above will pick this up and start the check.
         pendingOnTap = onTagDetected
         if (readCardOpt != null) startInternal(onTagDetected)
     }
 
-    private fun startInternal(onTagDetected: () -> Unit) {
+    private fun startInternal(onTagDetected: (uuid: String?) -> Unit) {
         val opt = readCardOpt ?: return
         val cb = object : CheckCardCallbackV2.Stub() {
             // Contactless card detected — the demo's "approve" trigger.
             override fun findRFCard(uuid: String?) {
                 Log.i(TAG, "findRFCard uuid=$uuid")
-                main.post(onTagDetected)
+                main.post { onTagDetected(uuid) }
             }
             override fun findRFCardEx(info: Bundle?) {
-                Log.i(TAG, "findRFCardEx")
-                main.post(onTagDetected)
+                val uuid = info?.getString("uuid")
+                Log.i(TAG, "findRFCardEx uuid=$uuid")
+                main.post { onTagDetected(uuid) }
             }
 
             // We don't care about magstripe or contact IC for this demo —

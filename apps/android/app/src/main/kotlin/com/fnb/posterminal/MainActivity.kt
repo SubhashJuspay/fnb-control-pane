@@ -66,14 +66,20 @@ class MainActivity : ComponentActivity() {
     private var sunmiBindWatchdog: Job? = null
 
     /**
-     * Elapsed-realtime ms at which the last tap was approved. Taps fired
-     * within `APPROVE_COOLDOWN_MS` of this are dropped — Sunmi's NFC SDK
-     * occasionally emits a second `findRFCard` event for the same physical
-     * tap (the card is still inside the antenna field when the next
-     * payment dispatches), and without this debounce the stale tap lands
-     * on the freshly-armed intent and silently approves it.
+     * Elapsed-realtime ms at which the last tap was approved + the UUID
+     * of the tag that did it. Used to debounce:
+     *
+     *   1. The same physical card being detected twice for one tap
+     *      (Sunmi SDK occasionally double-emits findRFCard) — caught by
+     *      `APPROVE_COOLDOWN_MS`.
+     *   2. The card being left on the reader between back-to-back
+     *      transactions. When a new payment_request arrives and we re-arm
+     *      the reader, the SDK reports the same card that never left the
+     *      antenna field. Caught by `SAME_CARD_COOLDOWN_MS` against the
+     *      stored UUID.
      */
     @Volatile private var lastApproveAt: Long = 0L
+    @Volatile private var lastApproveUuid: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,7 +104,7 @@ class MainActivity : ComponentActivity() {
                 viewModel.activePayment.collect { active ->
                     paymentInFlight = active != null
                     if (paymentInFlight) {
-                        activeReader?.start { doApprove() }
+                        activeReader?.start { uuid -> doApprove(uuid) }
                     } else {
                         activeReader?.stop()
                     }
@@ -112,7 +118,9 @@ class MainActivity : ComponentActivity() {
                     viewModel = viewModel,
                     hasNfc = ::hasAnyReader,
                     hasPrinter = { receiptPrinter.isAvailable },
-                    onApprove = ::doApprove,
+                    // Manual fallback button has no card UUID — pass null
+                    // so the cooldown logic falls through cleanly.
+                    onApprove = { doApprove(null) },
                     onReprint = ::reprintLastReceipt,
                     onDismissResult = ::dismissResult,
                 )
@@ -122,7 +130,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (paymentInFlight) activeReader?.start { doApprove() }
+        if (paymentInFlight) activeReader?.start { uuid -> doApprove(uuid) }
     }
 
     override fun onPause() {
@@ -143,13 +151,27 @@ class MainActivity : ComponentActivity() {
      * callback and the PaymentScreen's manual button (on no-NFC devices)
      * land here so receipts always print regardless of which path fired.
      */
-    private fun doApprove() {
-        // Stale-tap guard: Sunmi's NFC SDK sometimes fires a second
-        // findRFCard for the same physical tap. If we just left a payment
-        // a moment ago and a fresh one armed, that second event would land
-        // on the new intent — the cashier sees a ticket close before the
-        // customer has even tapped. Drop taps in the cooldown window.
+    private fun doApprove(uuid: String?) {
         val now = SystemClock.elapsedRealtime()
+
+        // Guard 1: same-card debounce. The phantom-tap bug surfaces when
+        // the customer leaves their card on the reader between back-to-
+        // back payments — the SDK re-detects the same UUID as soon as
+        // checkCard starts on the new intent. If this is the same UUID
+        // that just approved a moment ago, the customer didn't tap; the
+        // card just never left.
+        if (uuid != null && uuid == lastApproveUuid &&
+            now - lastApproveAt < SAME_CARD_COOLDOWN_MS) {
+            Log.w(
+                TAG,
+                "doApprove ignored — same card UUID $uuid within ${SAME_CARD_COOLDOWN_MS}ms",
+            )
+            return
+        }
+
+        // Guard 2: SDK-double-emit debounce. Sunmi's NFC layer occasionally
+        // fires findRFCard twice for one physical tap; the cooldown blocks
+        // the second approve from going through.
         if (now - lastApproveAt < APPROVE_COOLDOWN_MS) {
             Log.w(
                 TAG,
@@ -157,11 +179,13 @@ class MainActivity : ComponentActivity() {
             )
             return
         }
+
         // Snapshot the active payment + connection before approve() clears
         // them — the receipt needs item names, amounts, customer, and the
         // tenant/location for the header.
         val payment = viewModel.activePayment.value ?: return
         lastApproveAt = now
+        lastApproveUuid = uuid
         val conn = viewModel.connection.value
         viewModel.approve()
         val receipt = buildReceipt(payment, conn)
@@ -214,7 +238,7 @@ class MainActivity : ComponentActivity() {
         Log.i(TAG, "Sunmi connected — swapping in")
         activeReader?.stop()
         activeReader = sunmiReader
-        if (paymentInFlight) sunmiReader.start { doApprove() }
+        if (paymentInFlight) sunmiReader.start { uuid -> doApprove(uuid) }
     }
 
     private fun useStockReaderIfPossible() {
@@ -224,7 +248,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         activeReader = stockReader
-        if (paymentInFlight) stockReader.start { doApprove() }
+        if (paymentInFlight) stockReader.start { uuid -> doApprove(uuid) }
     }
 
     private fun armSunmiWatchdog() {
@@ -249,6 +273,14 @@ class MainActivity : ComponentActivity() {
          * real cashier can chain payments back-to-back.
          */
         private const val APPROVE_COOLDOWN_MS = 2500L
+
+        /**
+         * Window in which the SAME card UUID is rejected as a likely
+         * "card was left on the reader" rather than a fresh intentional
+         * tap. Long enough to cover the time the cashier needs to ring up
+         * the next ticket and dispatch its payment.
+         */
+        private const val SAME_CARD_COOLDOWN_MS = 15_000L
     }
 }
 

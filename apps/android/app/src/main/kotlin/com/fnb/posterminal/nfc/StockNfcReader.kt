@@ -26,7 +26,7 @@ class StockNfcReader(private val activity: Activity) : CardReader {
     /** True iff the device has an NFC chip exposed to third-party apps. */
     val isSupported: Boolean get() = adapter != null
 
-    override fun start(onTagDetected: () -> Unit) {
+    override fun start(onTagDetected: (uuid: String?) -> Unit) {
         val a = adapter ?: return
         if (!a.isEnabled) {
             Log.w(TAG, "NFC adapter present but disabled in system settings")
@@ -34,9 +34,10 @@ class StockNfcReader(private val activity: Activity) : CardReader {
         }
         a.enableReaderMode(
             activity,
-            { _ ->
+            { tag ->
                 buzz()
-                activity.runOnUiThread(onTagDetected)
+                val uuid = tag?.id?.joinToString("") { byte -> "%02X".format(byte) }
+                activity.runOnUiThread { onTagDetected(uuid) }
             },
             NfcAdapter.FLAG_READER_NFC_A or
                 NfcAdapter.FLAG_READER_NFC_B or

@@ -142,8 +142,18 @@ export function CloseTicketDialog({
     pause: !pendingTenderId,
     requestPolicy: 'network-only',
   });
-  const tenderStatus = tenderData?.tender?.status ?? null;
-  const tenderDeclineReason = tenderData?.tender?.declineReason ?? null;
+  // urql keeps the previous response visible while a new request is in
+  // flight. When pendingTenderId flips from a just-captured tender to a
+  // fresh one, that stale CAPTURED status briefly leaks into this render
+  // and the dialog auto-closes before the network has even answered for
+  // the new tender. Reject any data whose tender.id doesn't match the
+  // id we're currently asking about — once the real response lands, the
+  // ids line up and we trust it.
+  const tenderIdMatches = tenderData?.tender?.id === pendingTenderId;
+  const tenderStatus = tenderIdMatches ? (tenderData?.tender?.status ?? null) : null;
+  const tenderDeclineReason = tenderIdMatches
+    ? (tenderData?.tender?.declineReason ?? null)
+    : null;
 
   useEffect(() => {
     if (open) {

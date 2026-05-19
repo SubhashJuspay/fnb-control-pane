@@ -19,9 +19,12 @@ interface CardReader {
 
     /**
      * Begin listening for card taps. Idempotent — safe to call when already
-     * active. `onTagDetected` is dispatched on the main thread.
+     * active. `onTagDetected` is dispatched on the main thread. The `uuid`
+     * is the NFC tag's identifier (hex string) when the underlying reader
+     * exposes one — used to debounce the same physical card sitting in
+     * the antenna field across back-to-back payments.
      */
-    fun start(onTagDetected: () -> Unit)
+    fun start(onTagDetected: (uuid: String?) -> Unit)
 
     /** Stop listening. Idempotent — safe to call when not active. */
     fun stop()
