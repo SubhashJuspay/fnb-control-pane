@@ -497,23 +497,24 @@ export function ActiveTicketPanel({
       <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant bg-surface-container-low p-card-padding">
         {isOpen ? (
           <>
-            {/* Capture payment without closing the ticket.
-                - Cashier-rung ticket with NEW items: "Charge & fire"
-                  (capture + auto-fire the kitchen lines).
-                - Ticket whose items already fired (e.g. QR-at-table
-                  auto-fire, or staff manually fired earlier): "Take
-                  payment" — the same mutation runs, the fire step is
-                  a no-op because there's nothing in NEW status.
-                Hidden once any captured tender is already on the
-                ticket (kiosk-prepaid or already-prepaid by staff). */}
+            {/* Counter-service path: cashier picks one of two routes
+                once they're done ringing up items.
+                - "Take Payment" — capture payment now and let the
+                  server fire any still-NEW lines on the same go. The
+                  close dialog later shows the "Already paid" panel.
+                - "Send to Kitchen" — fire items only, payment happens
+                  the normal way at close.
+                Both buttons hide once the ticket is empty or already
+                paid. "Send to Kitchen" additionally hides when every
+                line is already fired/ready/served. */}
             {!isPrepaid && items.length > 0 ? (
               <Button
                 type="button"
                 onClick={() => setPrepayOpen(true)}
                 className="bg-emerald-600 text-white hover:bg-emerald-700"
-                data-testid="charge-and-fire"
+                data-testid="take-payment"
               >
-                {hasNew ? 'Charge & fire' : 'Take payment'}
+                Take Payment
               </Button>
             ) : null}
             {hasNew ? (
@@ -522,8 +523,9 @@ export function ActiveTicketPanel({
                 onClick={onFireAll}
                 disabled={firingAll}
                 className="bg-tertiary text-white hover:opacity-90"
+                data-testid="send-to-kitchen"
               >
-                {firingAll ? 'Firing…' : 'Fire all'}
+                {firingAll ? 'Sending…' : 'Send to Kitchen'}
               </Button>
             ) : null}
             {readyItems.length > 0 ? (
@@ -649,11 +651,6 @@ export function ActiveTicketPanel({
         ticketId={ticketId}
         ticketLabel={ticketLabel}
         totalCents={ticket.totalCents ?? 0}
-        // When everything's already at the kitchen (QR auto-fire or
-        // staff manually fired), the prepay action is just "take
-        // payment" — the dialog copy adjusts so the cashier isn't
-        // told we'll fire something that's already cooking.
-        hasNewItems={hasNew}
         onPrepaid={() => {
           setPrepayOpen(false);
           refresh();
