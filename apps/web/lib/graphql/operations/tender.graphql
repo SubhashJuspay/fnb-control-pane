@@ -8,6 +8,27 @@ mutation ProcessPayment($input: ProcessPaymentInput!) {
   }
 }
 
+mutation ProcessCardPaymentAtTerminal($input: ProcessCardPaymentAtTerminalInput!) {
+  processCardPaymentAtTerminal(input: $input) {
+    tenderId
+    amountCents
+    tipCents
+    currency
+  }
+}
+
+query Tender($id: UUID!) {
+  tender(id: $id) {
+    id
+    method
+    status
+    amountCents
+    tipCents
+    declineReason
+    authCode
+  }
+}
+
 query TicketTenders($ticketId: UUID!) {
   ticketTenders(ticketId: $ticketId) {
     id

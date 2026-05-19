@@ -1248,6 +1248,7 @@ enum TenderMethod {
 }
 
 enum TenderStatus {
+  PENDING    // dispatched to POS terminal, waiting for tap result
   AUTHORIZED // card auth approved, settlement pending (we mostly auto-capture in MVP)
   CAPTURED   // settled successfully — money is "in"
   DECLINED   // declined by processor (simulated)

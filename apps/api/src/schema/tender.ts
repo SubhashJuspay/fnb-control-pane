@@ -166,6 +166,25 @@ builder.queryField('ticketTenders', (t) =>
   }),
 );
 
+// Single tender by id — used by the close-ticket dialog to poll the status
+// of a PENDING terminal payment.
+builder.queryField('tender', (t) =>
+  t.prismaField({
+    type: 'Tender',
+    nullable: true,
+    description: "Single tender by id, scoped to the viewer's location.",
+    authScopes: { staff: true },
+    args: { id: t.arg({ type: 'UUID', required: true }) },
+    resolve: async (query, _root, args, ctx) => {
+      const { locationId } = requireStaffLocation(ctx);
+      return ctx.prisma.tender.findFirst({
+        ...query,
+        where: { id: args.id as string, locationId },
+      });
+    },
+  }),
+);
+
 // ── Mutation: processPayment ──────────────────────────
 
 builder.mutationField('processPayment', (t) =>

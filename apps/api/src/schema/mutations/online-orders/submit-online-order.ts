@@ -602,6 +602,7 @@ export async function resolveSubmitOnlineOrder(
           locationSlug: input.locationSlug,
           payload: {
             intentId: result.requestId,
+            kind: 'kiosk_order',
             amountCents: totals.totalCents,
             currency: 'USD',
             shortNumber: result.shortNumber,

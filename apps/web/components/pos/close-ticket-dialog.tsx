@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from 'urql';
+import { useMutation, useQuery } from 'urql';
 import {
   Button,
   Dialog,
@@ -27,7 +27,10 @@ import { z } from 'zod';
 import { closeTicketSchema } from '@repo/validation/ticket';
 import {
   CloseTicketDocument,
+  ProcessCardPaymentAtTerminalDocument,
   ProcessPaymentDocument,
+  TenderDocument,
+  TenderStatus,
   type TenderMethod,
 } from '@/lib/graphql/generated/graphql';
 import { useLocationCurrency } from '@/lib/location-currency';
@@ -110,6 +113,7 @@ export function CloseTicketDialog({
   const currency = useLocationCurrency();
   const [, closeTicket] = useMutation(CloseTicketDocument);
   const [, processPayment] = useMutation(ProcessPaymentDocument);
+  const [, processCardAtTerminal] = useMutation(ProcessCardPaymentAtTerminalDocument);
   void closeTicket; // retained for legacy callers / tests; processPayment is the new path
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
@@ -125,6 +129,22 @@ export function CloseTicketDialog({
   const [cashTenderedCents, setCashTenderedCents] = useState<number | null>(null);
   const [cashCustomDollars, setCashCustomDollars] = useState<string>('');
 
+  /**
+   * Set after processCardPaymentAtTerminal succeeds — the Tender row's id
+   * is what the WS dispatcher routes the terminal response to. While set,
+   * we poll the tender every ~1.5s and react to PENDING → CAPTURED / DECLINED.
+   */
+  const [pendingTenderId, setPendingTenderId] = useState<string | null>(null);
+
+  const [{ data: tenderData }, reexecuteTender] = useQuery({
+    query: TenderDocument,
+    variables: { id: pendingTenderId ?? '' },
+    pause: !pendingTenderId,
+    requestPolicy: 'network-only',
+  });
+  const tenderStatus = tenderData?.tender?.status ?? null;
+  const tenderDeclineReason = tenderData?.tender?.declineReason ?? null;
+
   useEffect(() => {
     if (open) {
       reset({ closeNote: undefined });
@@ -134,8 +154,49 @@ export function CloseTicketDialog({
       setPhase('idle');
       setCashTenderedCents(null);
       setCashCustomDollars('');
+      setPendingTenderId(null);
     }
   }, [open, reset]);
+
+  // Poll the pending tender every 1.5s until it settles. The dispatcher's
+  // 60s auto-expire keeps this from hanging forever even if the terminal
+  // never responds.
+  useEffect(() => {
+    if (!pendingTenderId) return;
+    if (tenderStatus === TenderStatus.Captured || tenderStatus === TenderStatus.Declined ||
+        tenderStatus === TenderStatus.Voided) {
+      return;
+    }
+    const handle = setInterval(
+      () => reexecuteTender({ requestPolicy: 'network-only' }),
+      1500,
+    );
+    return () => clearInterval(handle);
+  }, [pendingTenderId, tenderStatus, reexecuteTender]);
+
+  // React to terminal-driven status changes.
+  useEffect(() => {
+    if (!pendingTenderId) return;
+    if (tenderStatus === TenderStatus.Captured) {
+      setPhase('confirmed');
+      toast.success(`Payment received — ${ticketLabel} closed`);
+      setTimeout(() => {
+        setPendingTenderId(null);
+        onClosed();
+      }, 700);
+    } else if (
+      tenderStatus === TenderStatus.Declined ||
+      tenderStatus === TenderStatus.Voided
+    ) {
+      setPhase('idle');
+      setPendingTenderId(null);
+      toast.error(
+        tenderDeclineReason
+          ? `Card declined — ${tenderDeclineReason}`
+          : 'Card declined — ask the customer for another tender.',
+      );
+    }
+  }, [pendingTenderId, tenderStatus, tenderDeclineReason, ticketLabel, onClosed]);
 
   const tipCents =
     tip.kind === 'preset'
@@ -149,13 +210,41 @@ export function CloseTicketDialog({
     cashTenderedCents != null ? Math.max(0, cashTenderedCents - grandTotalCents) : 0;
 
   const onSubmit = handleSubmit(async (values) => {
-    // Validate cash tender ahead of the terminal animation so we don't make
-    // the cashier wait through a fake decline.
-    if (paymentMethod === 'CASH') {
-      if (cashTenderedCents == null || cashTenderedCents < grandTotalCents) {
-        toast.error('Cash tendered must cover the grand total.');
+    // CARD / MOBILE → dispatch to the paired POS terminal and wait for the
+    // tap result. Real customer-facing card flow, no inline simulator.
+    if (paymentMethod === 'CARD' || paymentMethod === 'MOBILE') {
+      setPhase('processing');
+      const result = await processCardAtTerminal({
+        input: { ticketId, tipCents },
+      });
+      if (result.error) {
+        setPhase('idle');
+        // The dispatcher throws ConflictError when no terminal is online —
+        // surface that as a clear, actionable error.
+        toast.error(
+          result.error.message.includes('terminal')
+            ? result.error.message
+            : `Could not start card payment — ${result.error.message}`,
+        );
         return;
       }
+      const tenderId = result.data?.processCardPaymentAtTerminal?.tenderId;
+      if (!tenderId) {
+        setPhase('idle');
+        toast.error('Payment dispatch did not return a tender id.');
+        return;
+      }
+      // From here on, the polling effect drives the rest of the flow:
+      // PENDING → CAPTURED closes the ticket, DECLINED resets to idle.
+      setPendingTenderId(tenderId);
+      return;
+    }
+
+    // CASH path — synchronous, no terminal involved. Validate the cash
+    // tender before kicking off the call.
+    if (cashTenderedCents == null || cashTenderedCents < grandTotalCents) {
+      toast.error('Cash tendered must cover the grand total.');
+      return;
     }
     setPhase('processing');
     const tenderInput: {
@@ -167,7 +256,7 @@ export function CloseTicketDialog({
       method: paymentMethod as TenderMethod,
       amountCents: totalCents,
       tipCents,
-      tenderedCents: paymentMethod === 'CASH' ? cashTenderedCents : null,
+      tenderedCents: cashTenderedCents,
     };
     const result = await processPayment({
       input: {
@@ -178,11 +267,7 @@ export function CloseTicketDialog({
     });
     if (result.error) {
       setPhase('idle');
-      // Friendlier message for the simulated decline path.
-      const msg = result.error.message.includes('PAYMENT_DECLINED')
-        ? 'Card declined — ask the customer for another tender.'
-        : result.error.message;
-      toast.error(msg);
+      toast.error(result.error.message);
       return;
     }
     setPhase('confirmed');
@@ -481,47 +566,44 @@ export function CloseTicketDialog({
           >
             {phase === 'processing' ? (
               paymentMethod === 'CARD' || paymentMethod === 'MOBILE' ? (
-                // Clover-style terminal: card icon, blinking dots, "authorizing…".
-                // The actual auth (1-1.8s + decline roll) happens server-side
-                // inside processPayment; this UI just keeps the cashier
-                // distracted while it runs.
+                // Real-terminal flow: the customer taps on the paired POS
+                // terminal. We just animate the wait and react to status
+                // changes pushed in via the WebSocket roundtrip.
                 <>
-                  <div
-                    aria-hidden
-                    className="flex size-20 items-center justify-center rounded-2xl bg-primary text-on-primary shadow-lg shadow-primary/30"
-                  >
+                  <div className="relative flex size-28 items-center justify-center">
                     <span
-                      className="material-symbols-outlined text-[44px]"
+                      aria-hidden
+                      className="absolute inset-0 animate-ping rounded-full bg-primary/20"
+                      style={{ animationDuration: '1.8s' }}
+                    />
+                    <span
+                      aria-hidden
+                      className="absolute inset-3 animate-ping rounded-full bg-primary/25"
+                      style={{ animationDuration: '1.8s', animationDelay: '0.5s' }}
+                    />
+                    <span
+                      aria-hidden
+                      className="absolute inset-6 rounded-full bg-primary"
+                      style={{ boxShadow: '0 10px 24px -8px rgba(79,70,229,0.55)' }}
+                    />
+                    <span
+                      aria-hidden
+                      className="material-symbols-outlined relative text-[40px] text-on-primary"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       {paymentMethod === 'MOBILE' ? 'contactless' : 'credit_card'}
                     </span>
                   </div>
                   <p className="text-base font-semibold text-on-surface">
-                    {paymentMethod === 'MOBILE'
-                      ? 'Tap or hold card near reader'
-                      : 'Insert card · tap · swipe'}
-                  </p>
-                  <p className="flex items-center gap-1 text-status-pill uppercase tracking-wider text-on-surface-variant">
-                    Authorizing
-                    <span className="ml-1 inline-flex gap-1">
-                      <span
-                        className="size-1.5 animate-pulse rounded-full bg-primary"
-                        style={{ animationDelay: '0ms' }}
-                      />
-                      <span
-                        className="size-1.5 animate-pulse rounded-full bg-primary"
-                        style={{ animationDelay: '200ms' }}
-                      />
-                      <span
-                        className="size-1.5 animate-pulse rounded-full bg-primary"
-                        style={{ animationDelay: '400ms' }}
-                      />
-                    </span>
+                    Tap card on terminal
                   </p>
                   <p className="text-status-pill text-on-surface-variant">
-                    {formatMoney(grandTotalCents, currency)} — do not remove
-                    card.
+                    {formatMoney(grandTotalCents, currency)} — ask the customer to
+                    present their card.
+                  </p>
+                  <p className="inline-flex items-center gap-2 rounded-full bg-surface-container-high px-3 py-1 font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+                    <span className="size-2 animate-pulse rounded-full bg-primary" />
+                    Waiting for terminal
                   </p>
                 </>
               ) : (

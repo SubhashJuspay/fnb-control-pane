@@ -119,7 +119,7 @@ export const TenderMethodEnum = builder.enumType('TenderMethod', {
 });
 
 export const TenderStatusEnum = builder.enumType('TenderStatus', {
-  values: ['AUTHORIZED', 'CAPTURED', 'DECLINED', 'VOIDED', 'REFUNDED'] as const,
+  values: ['PENDING', 'AUTHORIZED', 'CAPTURED', 'DECLINED', 'VOIDED', 'REFUNDED'] as const,
 });
 
 export const StockMovementKindEnum = builder.enumType('StockMovementKind', {

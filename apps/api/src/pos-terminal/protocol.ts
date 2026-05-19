@@ -25,8 +25,17 @@ export const inboundMessageSchema = z.discriminatedUnion('type', [
 ]);
 export type InboundMessage = z.infer<typeof inboundMessageSchema>;
 
+/**
+ * Identifies which kind of intent the server-side `intentId` resolves to.
+ * The terminal app doesn't strictly need this — it just relays back the
+ * same `intentId` in `payment_result` — but it lets the UI badge the
+ * payment with a hint (kiosk vs cashier).
+ */
+export type PaymentKind = 'kiosk_order' | 'staff_ticket';
+
 export interface PaymentRequestPayload {
   intentId: string;
+  kind: PaymentKind;
   amountCents: number;
   currency: string;
   shortNumber: number;

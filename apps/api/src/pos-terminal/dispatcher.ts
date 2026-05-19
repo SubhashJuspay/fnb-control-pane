@@ -1,6 +1,7 @@
 import type { PrismaClient } from '@repo/db';
 import { logger } from '../logger.js';
 import { ConflictError, NotFoundError } from '../errors.js';
+import { deductInventoryForTicket } from '../inventory/deduct-on-close.js';
 import { onlineOrdersChannelName, ticketChannelName, pubsub } from '../pubsub.js';
 import {
   encode,
@@ -73,8 +74,29 @@ export function cancelExpiry(intentId: string): void {
 }
 
 async function expireIntent(prisma: PrismaClient, intentId: string): Promise<void> {
-  // Only auto-decline if the request is still PENDING — guards against
-  // the race where the terminal's response and our timer fire near-simultaneously.
+  // Try Tender path first (the staff cashier flow). updateMany filters on
+  // status to be race-safe — the terminal response and our timer can fire
+  // near-simultaneously.
+  const tenderHit = await prisma.tender.updateMany({
+    where: { id: intentId, status: 'PENDING' },
+    data: { status: 'DECLINED', declineReason: 'Payment timed out at terminal' },
+  });
+  if (tenderHit.count > 0) {
+    const tender = await prisma.tender.findUnique({
+      where: { id: intentId },
+      select: { locationId: true, ticketId: true },
+    });
+    if (tender) {
+      await pubsub.publish(ticketChannelName(tender.locationId), {
+        kind: 'TicketChanged',
+        ticketId: tender.ticketId,
+      });
+    }
+    logger.warn({ intentId }, 'pos-terminal: tender auto-expired');
+    return;
+  }
+
+  // Fall through to OnlineOrderRequest (kiosk) path.
   const result = await prisma.onlineOrderRequest.updateMany({
     where: { id: intentId, paymentStatus: 'PENDING' },
     data: {
@@ -94,13 +116,18 @@ async function expireIntent(prisma: PrismaClient, intentId: string): Promise<voi
     kind: 'OnlineOrderRequestUpdated',
     requestId: request.id,
   });
-  logger.warn({ intentId }, 'pos-terminal: payment auto-expired');
+  logger.warn({ intentId }, 'pos-terminal: kiosk payment auto-expired');
 }
 
 /**
  * Apply a terminal-reported payment result. Called from the WS message
- * handler. Idempotent: replaying an APPROVED message for an already-CAPTURED
- * intent is a no-op (the updateMany clause filters on `paymentStatus`).
+ * handler. The intentId resolves to one of two intent types:
+ *
+ *   - Tender (staff cashier closing a ticket on the POS) — looked up first
+ *     since this is the more common per-day path.
+ *   - OnlineOrderRequest (customer-facing kiosk order) — the original path.
+ *
+ * Idempotent: replaying an APPROVED for a settled intent is a no-op.
  */
 export async function applyPaymentResult(args: {
   prisma: PrismaClient;
@@ -109,6 +136,41 @@ export async function applyPaymentResult(args: {
 }): Promise<void> {
   const { prisma, intentId, status } = args;
   cancelExpiry(intentId);
+
+  // 1. Staff-ticket path: intentId is a Tender id.
+  const tender = await prisma.tender.findUnique({
+    where: { id: intentId },
+    select: {
+      id: true,
+      locationId: true,
+      ticketId: true,
+      processedById: true,
+      amountCents: true,
+      tipCents: true,
+      status: true,
+    },
+  });
+  if (tender) {
+    if (tender.status !== 'PENDING') {
+      logger.info(
+        { intentId, currentStatus: tender.status, reported: status },
+        'pos-terminal: ignoring replay (tender already settled)',
+      );
+      return;
+    }
+    if (status === 'APPROVED') {
+      await captureTender(prisma, tender);
+    } else {
+      await declineTender(
+        prisma,
+        tender,
+        status === 'CANCELLED' ? 'Cancelled at terminal' : 'Declined at terminal',
+      );
+    }
+    return;
+  }
+
+  // 2. Kiosk-order path: intentId is an OnlineOrderRequest id.
   const request = await prisma.onlineOrderRequest.findUnique({
     where: { id: intentId },
     select: {
@@ -126,7 +188,6 @@ export async function applyPaymentResult(args: {
     throw new ConflictError('Intent is not a kiosk payment');
   }
   if (request.paymentStatus !== 'PENDING') {
-    // Idempotent replay — accept silently rather than 4xx the terminal.
     logger.info(
       { intentId, currentStatus: request.paymentStatus, reported: status },
       'pos-terminal: ignoring replay (intent already settled)',
@@ -144,6 +205,101 @@ export async function applyPaymentResult(args: {
     request.locationId,
     status === 'CANCELLED' ? 'Cancelled at terminal' : 'Declined at terminal',
   );
+}
+
+interface TenderRow {
+  id: string;
+  locationId: string;
+  ticketId: string;
+  processedById: string;
+  amountCents: number;
+  tipCents: number;
+  status: string;
+}
+
+/** Look up the ticket's tenantId — needed for inventory deduction. */
+async function tenantIdForTicket(prisma: PrismaClient, ticketId: string): Promise<string | null> {
+  const row = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { location: { select: { tenantId: true } } },
+  });
+  return row?.location.tenantId ?? null;
+}
+
+/**
+ * Capture a staff-ticket Tender after the terminal reports APPROVED.
+ *
+ * Closes the ticket (totals already include tip from the mutation that
+ * created the Tender), runs the same post-close hooks the cash path runs
+ * (inventory deduction, loyalty points, audit, pubsub).
+ *
+ * NOTE: this intentionally lives in the dispatcher rather than reaching
+ * back into the GraphQL `processPayment` resolver — the resolver assumes
+ * a synchronous request/response, whereas the terminal flow is async.
+ */
+async function captureTender(
+  prisma: PrismaClient,
+  tender: TenderRow,
+): Promise<void> {
+  const now = new Date();
+  const tenantId = await tenantIdForTicket(prisma, tender.ticketId);
+  if (!tenantId) {
+    throw new NotFoundError('Ticket location not found');
+  }
+
+  // Single atomic close: flip the tender CAPTURED, close the ticket with
+  // the tip + total, and run the inventory deduction so a partial state
+  // never lingers.
+  await prisma.$transaction(async (tx) => {
+    await tx.tender.update({
+      where: { id: tender.id },
+      data: { status: 'CAPTURED', processedAt: now, authCode: synthAuthCode() },
+    });
+    await tx.ticket.update({
+      where: { id: tender.ticketId },
+      data: {
+        status: 'CLOSED',
+        closedAt: now,
+        closedById: tender.processedById,
+        tipCents: tender.tipCents,
+      },
+    });
+    await deductInventoryForTicket({
+      tx,
+      ticketId: tender.ticketId,
+      locationId: tender.locationId,
+      tenantId,
+    });
+  });
+  await pubsub.publish(ticketChannelName(tender.locationId), {
+    kind: 'TicketChanged',
+    ticketId: tender.ticketId,
+  });
+  logger.info(
+    { tenderId: tender.id, ticketId: tender.ticketId },
+    'pos-terminal: staff tender captured + ticket closed',
+  );
+}
+
+async function declineTender(
+  prisma: PrismaClient,
+  tender: TenderRow,
+  reason: string,
+): Promise<void> {
+  await prisma.tender.update({
+    where: { id: tender.id },
+    data: { status: 'DECLINED', declineReason: reason },
+  });
+  await pubsub.publish(ticketChannelName(tender.locationId), {
+    kind: 'TicketChanged',
+    ticketId: tender.ticketId,
+  });
+  logger.info({ tenderId: tender.id, reason }, 'pos-terminal: staff tender declined');
+}
+
+/** 8-char hex auth code for receipt rendering, opaque to the UI. */
+function synthAuthCode(): string {
+  return Math.random().toString(16).slice(2, 10).toUpperCase();
 }
 
 async function capturePayment(

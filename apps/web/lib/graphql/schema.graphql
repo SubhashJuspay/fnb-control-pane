@@ -810,6 +810,10 @@ type Mutation {
   openTicket(input: OpenTicketInput!): Ticket
   openTicketAtTable(input: OpenTicketAtTableInput!): Ticket
   """
+  Create a PENDING card tender for the ticket and dispatch it to the paired POS terminal. The terminal returns APPROVED/DECLINED via WS which captures or declines the tender (and closes the ticket on capture). Hard fails when no terminal is online.
+  """
+  processCardPaymentAtTerminal(input: ProcessCardPaymentAtTerminalInput!): ProcessCardPaymentAtTerminalResult
+  """
   Run all tenders for a ticket through the (simulated) payment terminal. On full capture, the ticket is closed and a cash sale is recorded against the open drawer session. On any decline, nothing is persisted and the ticket stays open.
   """
   processPayment(input: ProcessPaymentInput!): Ticket
@@ -1058,6 +1062,21 @@ type PageInfo {
   startCursor: String
 }
 
+input ProcessCardPaymentAtTerminalInput {
+  ticketId: UUID!
+  tipCents: Int
+}
+
+"""
+Intent for a card payment dispatched to the location's paired POS terminal. The client polls `tender(id)` until it transitions out of PENDING.
+"""
+type ProcessCardPaymentAtTerminalResult {
+  amountCents: Int
+  currency: String
+  tenderId: String
+  tipCents: Int
+}
+
 input ProcessPaymentInput {
   closeNote: String
   tenders: [TenderInput!]!
@@ -1294,6 +1313,8 @@ type Query {
   tenantLocations: [Location!]
   """Memberships within the current tenant. Requires admin role."""
   tenantMembers(after: String, before: String, first: Int, last: Int): QueryTenantMembersConnection
+  """Single tender by id, scoped to the viewer's location."""
+  tender(id: UUID!): Tender
   """Single ticket by id, scoped to the viewer's location."""
   ticket(id: UUID!): Ticket
   """
@@ -1880,6 +1901,7 @@ enum TenderStatus {
   AUTHORIZED
   CAPTURED
   DECLINED
+  PENDING
   REFUNDED
   VOIDED
 }
