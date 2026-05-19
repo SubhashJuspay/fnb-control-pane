@@ -9,6 +9,7 @@ import {
 import { OrderShell } from '@/components/order/order-shell';
 import { PublicMenuList } from '@/components/order/public-menu-list';
 import { LocationHero } from '@/components/order/location-hero';
+import { TableTabValidator } from '@/components/order/table-tab-validator';
 
 interface PageProps {
   params: Promise<{ tenantSlug: string; locationSlug: string }>;
@@ -85,6 +86,10 @@ export default async function PublicOrderPage({ params, searchParams }: PageProp
       tableLabel={tableSlug}
       kioskMode={kioskMode}
     >
+      {/* Wipe any cached "open order" state that's no longer valid —
+          e.g. the ticket was closed by staff while the customer wasn't
+          watching the track page. Renders nothing. */}
+      <TableTabValidator />
       <LocationHero
         tenantName={tenantName}
         locationName={locationName}

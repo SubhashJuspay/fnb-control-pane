@@ -392,7 +392,7 @@ export function CheckoutForm({
               </div>
               <div className="flex flex-col">
                 <h2 className="font-display text-headline-md font-semibold text-on-surface">
-                  Adding to your tab
+                  Adding to your order
                 </h2>
                 <p className="text-body-staff text-on-surface-variant">
                   Order #{tableTab.shortNumber} · {tableTab.customer.customerName}
@@ -400,8 +400,8 @@ export function CheckoutForm({
               </div>
             </div>
             <p className="mt-3 text-body-staff text-on-surface-variant">
-              These items will be added to the same order. You&apos;ll settle
-              one bill when you&apos;re done.
+              These items will be added to your existing order. You&apos;ll
+              get one bill at the end.
             </p>
           </section>
         ) : (
@@ -535,12 +535,13 @@ function ProceedButton({
   /** Direct submit handler used in resume mode (no form to submit). */
   onResume: () => void;
 }): React.JSX.Element {
-  // Three label paths: kiosk (pay now), dine-in resume tab (add to tab),
-  // first-time dine-in (place order), default (proceed to next step).
+  // Three label paths: kiosk (pay now), dine-in resume tab (add to
+  // existing order), first-time dine-in (place order), default (proceed
+  // to next step).
   const idleLabel = kioskMode
     ? `Pay ${formatMoney(totalCents, currency)}`
     : resumeTab
-      ? 'Add to my tab'
+      ? 'Add to my order'
       : isDineIn
         ? 'Place Order'
         : 'Proceed';
