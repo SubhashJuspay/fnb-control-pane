@@ -110,8 +110,20 @@ function OrderShellInner({
     return `/order/${tenantSlug}/${locationSlug}/checkout${search ? `?${search}` : ''}`;
   }, [tenantSlug, locationSlug, kioskMode, tableSlug]);
 
+  // Total height occupied by the sticky chrome at the top of the page —
+  // the tenant header (h-16 = 64px) plus the table/kiosk banner when
+  // present (~40px). Exposed as a CSS var so deeper components (the
+  // sticky-pane menu layout) can position themselves against it without
+  // duplicating the calculation. Pixel values land in calc() and `top`
+  // utilities via [top:var(--shell-top)] / h-[calc(100dvh-var(--shell-top))].
+  const hasShellBanner = Boolean(tableLabel) || kioskMode;
+  const shellTopPx = hasShellBanner ? 104 : 64;
+
   return (
-    <div className="flex min-h-screen flex-col bg-background text-on-surface">
+    <div
+      className="flex min-h-screen flex-col bg-background text-on-surface"
+      style={{ ['--shell-top' as string]: `${shellTopPx}px` }}
+    >
       <header
         className="sticky top-0 z-40 flex h-16 w-full items-center justify-between gap-3 border-b border-outline-variant bg-surface px-4 shadow-sm sm:px-container-margin"
         data-testid="order-shell-header"

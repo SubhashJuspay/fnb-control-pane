@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useQuery } from 'urql';
 import { formatMoney } from '@repo/ui';
 import { TrackOnlineOrderDocument } from '@/lib/graphql/generated/graphql';
+import { useCart } from './cart-state';
 
 export interface TrackingPageProps {
   token: string;
@@ -103,6 +104,20 @@ export function TrackingPage({
   const isReady = Boolean(tracking?.isReady);
   const isRejected = status === 'REJECTED';
   const isClosed = tracking?.ticketStatus === 'CLOSED';
+
+  // When the table tab settles (ticket closed or rejected), drop the
+  // localStorage memory for the table so the next customer at this table
+  // starts a fresh tab — name/phone form re-shown, no "open tab" banner.
+  // Runs once per terminal state transition; further re-renders are
+  // no-ops because `forgetTableTab` is stable per (tenant, location,
+  // table) and the underlying key is idempotent.
+  const { forgetTableTab } = useCart();
+  useEffect(() => {
+    if (!tableSlug) return;
+    if (isClosed || isRejected) {
+      forgetTableTab();
+    }
+  }, [tableSlug, isClosed, isRejected, forgetTableTab]);
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-gutter" data-testid="tracking-page">

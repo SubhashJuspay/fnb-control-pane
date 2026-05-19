@@ -48,16 +48,49 @@ export interface CartState {
   items: CartItem[];
 }
 
+/**
+ * Per-table "open tab" memory, persisted in localStorage and keyed by
+ * (tenant, location, table). Lets a returning customer skip the
+ * name/phone form and resume tracking the same ticket on subsequent
+ * orders. Cleared when the ticket closes.
+ *
+ * Only used for dine-in (tableSlug present) — pickup orders are
+ * single-shot and don't benefit from this.
+ */
+export interface CustomerInfo {
+  customerName: string;
+  customerPhone: string;
+}
+
+export interface TableTabState {
+  /** Captured the first time the customer submits — reused on the next. */
+  customer: CustomerInfo;
+  /** Most recent tracking token; the menu page uses this to show
+   *  a "you have an open tab" banner + deep-link to /track/. */
+  trackingToken: string;
+  /** Short order number from the open ticket — purely for UI affordance. */
+  shortNumber: number;
+}
+
 export interface CartActions {
   addItem: (item: Omit<CartItem, 'lineId'>) => void;
   removeItem: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
   clear: () => void;
+  /** Persist the customer's details + the latest tracking token for the
+   *  current table. No-op when there is no tableSlug. */
+  rememberTableTab: (state: TableTabState) => void;
+  /** Wipe the per-table memory — called when the ticket closes or a
+   *  fresh tab is needed. No-op when there is no tableSlug. */
+  forgetTableTab: () => void;
 }
 
 interface CartContextValue extends CartState, CartActions {
   totalCents: number;
   itemCount: number;
+  /** Persisted "open tab" memory for the current table, or null when
+   *  none yet exists / pickup mode. */
+  tableTab: TableTabState | null;
   /**
    * True once we've finished reading from sessionStorage on mount. UIs that
    * branch on `items.length === 0` should defer rendering an empty state
@@ -71,6 +104,74 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 function storageKey(tenantSlug: string, locationSlug: string): string {
   return `fnb.online-cart.${tenantSlug}.${locationSlug}`;
+}
+
+/**
+ * Persistent (localStorage, *not* sessionStorage) key for the per-table
+ * tab memory. Survives tab close + browser restart so a customer can
+ * close their phone between courses and resume on the same tab.
+ */
+function tableTabKey(
+  tenantSlug: string,
+  locationSlug: string,
+  tableSlug: string,
+): string {
+  return `fnb.table-tab.${tenantSlug}.${locationSlug}.${tableSlug}`;
+}
+
+function readTableTab(
+  tenantSlug: string,
+  locationSlug: string,
+  tableSlug: string | null,
+): TableTabState | null {
+  if (!tableSlug) return null;
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(
+      tableTabKey(tenantSlug, locationSlug, tableSlug),
+    );
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<TableTabState>;
+    if (
+      parsed == null ||
+      typeof parsed !== 'object' ||
+      typeof parsed.trackingToken !== 'string' ||
+      typeof parsed.shortNumber !== 'number' ||
+      parsed.customer == null ||
+      typeof parsed.customer !== 'object' ||
+      typeof parsed.customer.customerName !== 'string' ||
+      typeof parsed.customer.customerPhone !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      customer: parsed.customer,
+      trackingToken: parsed.trackingToken,
+      shortNumber: parsed.shortNumber,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTableTab(
+  tenantSlug: string,
+  locationSlug: string,
+  tableSlug: string | null,
+  state: TableTabState | null,
+): void {
+  if (!tableSlug) return;
+  if (typeof window === 'undefined') return;
+  const key = tableTabKey(tenantSlug, locationSlug, tableSlug);
+  try {
+    if (state === null) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, JSON.stringify(state));
+    }
+  } catch {
+    // ignore quota / privacy-mode errors
+  }
 }
 
 function makeLineId(): string {
@@ -120,18 +221,20 @@ export function CartProvider({
   children: ReactNode;
 }): React.JSX.Element {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [tableTab, setTableTab] = useState<TableTabState | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
-  // Hydrate from sessionStorage after mount (avoids SSR mismatch). The
-  // `hydrated` state flips once we've read; consumers that show an "empty
-  // cart" UI should wait for this to avoid flashing on every navigation
-  // (the SPA navigation re-mounts this provider, so each page transition
-  // would otherwise show a one-frame "Your cart is empty" before the read
-  // completes).
+  // Hydrate from session/localStorage after mount (avoids SSR mismatch).
+  // The `hydrated` state flips once we've read; consumers that show an
+  // "empty cart" UI should wait for this to avoid flashing on every
+  // navigation (the SPA navigation re-mounts this provider, so each page
+  // transition would otherwise show a one-frame "Your cart is empty"
+  // before the read completes).
   useEffect(() => {
     setItems(readPersisted(tenantSlug, locationSlug));
+    setTableTab(readTableTab(tenantSlug, locationSlug, tableSlug));
     setHydrated(true);
-  }, [tenantSlug, locationSlug]);
+  }, [tenantSlug, locationSlug, tableSlug]);
 
   // Gate persistence on the `hydrated` STATE (not a ref). Using a ref here
   // races in React strict-mode dev: a synchronous `ref = true` inside the
@@ -160,6 +263,18 @@ export function CartProvider({
   }, []);
   const clear = useCallback((): void => setItems([]), []);
 
+  const rememberTableTab = useCallback(
+    (state: TableTabState): void => {
+      setTableTab(state);
+      writeTableTab(tenantSlug, locationSlug, tableSlug, state);
+    },
+    [tenantSlug, locationSlug, tableSlug],
+  );
+  const forgetTableTab = useCallback((): void => {
+    setTableTab(null);
+    writeTableTab(tenantSlug, locationSlug, tableSlug, null);
+  }, [tenantSlug, locationSlug, tableSlug]);
+
   const totalCents = useMemo(
     () =>
       items.reduce(
@@ -184,6 +299,9 @@ export function CartProvider({
       removeItem,
       setQuantity,
       clear,
+      rememberTableTab,
+      forgetTableTab,
+      tableTab,
       totalCents,
       itemCount,
       hydrated,
@@ -198,6 +316,9 @@ export function CartProvider({
       removeItem,
       setQuantity,
       clear,
+      rememberTableTab,
+      forgetTableTab,
+      tableTab,
       totalCents,
       itemCount,
       hydrated,

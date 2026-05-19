@@ -79,6 +79,8 @@ export function CheckoutForm({
     clear,
     tableSlug,
     kioskMode,
+    tableTab,
+    rememberTableTab,
   } = useCart();
   const [{ fetching: submitting }, submit] = useMutation(SubmitOnlineOrderDocument);
 
@@ -86,6 +88,13 @@ export function CheckoutForm({
     token: string;
     amountCents: number;
   } | null>(null);
+
+  // Dine-in only: when the customer already has an open tab at this
+  // table, skip the name/phone form. We persisted their info on the
+  // first submit and the server appends to the existing ticket on the
+  // next one. Pickup orders always re-collect customer info because
+  // there's no continuity from one order to the next.
+  const hasResumableTab = Boolean(tableSlug && tableTab);
 
   const form = useForm<DetailsValues>({
     resolver: zodResolver(detailsSchema),
@@ -103,10 +112,14 @@ export function CheckoutForm({
   }, [hydrated, items.length, kioskPaymentToken]);
 
   const isDineIn = Boolean(tableSlug);
-  // Both kiosk and non-kiosk flows now collect name + phone, so the
-  // Proceed/Pay button gates on the same form-valid check in either mode.
+  // The proceed/pay button gates on a valid form, OR on a resumable
+  // table tab (where the form is suppressed and we reuse the customer's
+  // remembered info).
   const canSubmit =
-    acceptingOrders && items.length > 0 && !submitting && isValid;
+    acceptingOrders &&
+    items.length > 0 &&
+    !submitting &&
+    (isValid || hasResumableTab);
 
   const submitOrder = async (customer: DetailsValues): Promise<void> => {
     if (items.length === 0) {
@@ -117,13 +130,18 @@ export function CheckoutForm({
       toast.error('This location is currently closed for online orders.');
       return;
     }
+    // Pull from the remembered tab when available (skip-form path);
+    // otherwise the values come from the live RHF form.
+    const effectiveCustomer = hasResumableTab && tableTab
+      ? tableTab.customer
+      : customer;
     const amountAtSubmit = totalCents;
     const result = await submit({
       input: {
         tenantSlug,
         locationSlug,
-        customerName: customer.customerName,
-        customerPhone: customer.customerPhone,
+        customerName: effectiveCustomer.customerName,
+        customerPhone: effectiveCustomer.customerPhone,
         customerEmail: null,
         pickupKind: OnlinePickupKind.Asap,
         notes: null,
@@ -153,6 +171,16 @@ export function CheckoutForm({
       setKioskPaymentToken({ token, amountCents: amountAtSubmit });
       return;
     }
+    // Remember the customer + token for dine-in tables so the next
+    // submit from this device skips the form and appends to the same
+    // ticket. The tracking-page clears this on close.
+    if (tableSlug && submitted?.shortNumber != null) {
+      rememberTableTab({
+        customer: effectiveCustomer,
+        trackingToken: token,
+        shortNumber: submitted.shortNumber,
+      });
+    }
     clear();
     const shortNumber = submitted?.shortNumber;
     // Preserve ?table= through confirmation + tracking so the customer's
@@ -166,6 +194,11 @@ export function CheckoutForm({
   };
 
   const onSubmit = (values: DetailsValues): Promise<void> => submitOrder(values);
+  // Skip-form path: no form values; pull from the remembered tab inside
+  // submitOrder. We still call submitOrder with empty placeholders to
+  // share the same submit code path.
+  const onResumeSubmit = (): Promise<void> =>
+    submitOrder({ customerName: '', customerPhone: '' });
 
   // Empty-cart state — friendly back-to-menu prompt.
   if (hydrated && items.length === 0 && !kioskPaymentToken) {
@@ -330,64 +363,97 @@ export function CheckoutForm({
           </div>
         </section>
 
-        {/* Customer info — required in every mode so receipts, the staff
-            inbox, and the guest CRM all have something to display. Kiosks
-            ask the customer to type it on-screen before paying. */}
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            id="checkout-form"
-            data-testid="checkout-form"
+        {/* Customer info. Two paths:
+            - Fresh order (pickup OR first dine-in submit): render the
+              name/phone form. Required so receipts, staff inbox, guest
+              CRM all have something to display.
+            - Resumable dine-in tab (customer already submitted from
+              this device for this table): skip the form, show a
+              "Adding to your tab" card. Customer info is reused from
+              the previous submit, server appends to the existing
+              ticket. */}
+        {hasResumableTab && tableTab ? (
+          <section
             className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-card-padding shadow-card-soft"
+            data-testid="checkout-resume-tab"
           >
-            <h2 className="mb-4 font-display text-headline-md font-semibold text-on-surface">
-              Your details
-            </h2>
-            <div className="flex flex-col gap-4">
-              <FormField
-                control={form.control}
-                name="customerName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={LABEL_CLASS}>Full name</FormLabel>
-                    <FormControl>
-                      <input
-                        {...field}
-                        type="text"
-                        autoComplete="name"
-                        placeholder="Jane Smith"
-                        data-testid="checkout-name"
-                        className={INPUT_CLASS}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="customerPhone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className={LABEL_CLASS}>Phone number</FormLabel>
-                    <FormControl>
-                      <input
-                        {...field}
-                        type="tel"
-                        autoComplete="tel"
-                        inputMode="tel"
-                        placeholder="+52 55 1234 5678"
-                        data-testid="checkout-phone"
-                        className={INPUT_CLASS}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-primary-container text-on-primary">
+                <span aria-hidden className="material-symbols-outlined">
+                  receipt_long
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <h2 className="font-display text-headline-md font-semibold text-on-surface">
+                  Adding to your tab
+                </h2>
+                <p className="text-body-staff text-on-surface-variant">
+                  Order #{tableTab.shortNumber} · {tableTab.customer.customerName}
+                </p>
+              </div>
             </div>
-          </form>
-        </Form>
+            <p className="mt-3 text-body-staff text-on-surface-variant">
+              These items will be added to the same order. You&apos;ll settle
+              one bill when you&apos;re done.
+            </p>
+          </section>
+        ) : (
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              id="checkout-form"
+              data-testid="checkout-form"
+              className="rounded-2xl border border-outline-variant bg-surface-container-lowest p-card-padding shadow-card-soft"
+            >
+              <h2 className="mb-4 font-display text-headline-md font-semibold text-on-surface">
+                Your details
+              </h2>
+              <div className="flex flex-col gap-4">
+                <FormField
+                  control={form.control}
+                  name="customerName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={LABEL_CLASS}>Full name</FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          type="text"
+                          autoComplete="name"
+                          placeholder="Jane Smith"
+                          data-testid="checkout-name"
+                          className={INPUT_CLASS}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="customerPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className={LABEL_CLASS}>Phone number</FormLabel>
+                      <FormControl>
+                        <input
+                          {...field}
+                          type="tel"
+                          autoComplete="tel"
+                          inputMode="tel"
+                          placeholder="+52 55 1234 5678"
+                          data-testid="checkout-phone"
+                          className={INPUT_CLASS}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </form>
+          </Form>
+        )}
 
         {!acceptingOrders ? (
           <p
@@ -405,6 +471,8 @@ export function CheckoutForm({
           submitting={submitting}
           totalCents={totalCents}
           currency={currency}
+          resumeTab={hasResumableTab}
+          onResume={onResumeSubmit}
         />
       </div>
     </>
@@ -446,6 +514,8 @@ function ProceedButton({
   submitting,
   totalCents,
   currency,
+  resumeTab,
+  onResume,
 }: {
   kioskMode: boolean;
   isDineIn: boolean;
@@ -453,42 +523,69 @@ function ProceedButton({
   submitting: boolean;
   totalCents: number;
   currency: string;
+  /** True when the form is hidden because we're appending to an open tab. */
+  resumeTab: boolean;
+  /** Direct submit handler used in resume mode (no form to submit). */
+  onResume: () => void;
 }): React.JSX.Element {
-  // All three flows submit via the same form so the name + phone fields
-  // get validated identically. The label / icon shifts to suit the mode.
+  // Three label paths: kiosk (pay now), dine-in resume tab (add to tab),
+  // first-time dine-in (place order), default (proceed to next step).
   const idleLabel = kioskMode
     ? `Pay ${formatMoney(totalCents, currency)}`
-    : isDineIn
-      ? 'Place Order'
-      : 'Proceed';
-  const idleIcon = kioskMode ? 'credit_card' : isDineIn ? 'restaurant' : 'arrow_forward';
+    : resumeTab
+      ? 'Add to my tab'
+      : isDineIn
+        ? 'Place Order'
+        : 'Proceed';
+  const idleIcon = kioskMode
+    ? 'credit_card'
+    : resumeTab
+      ? 'add'
+      : isDineIn
+        ? 'restaurant'
+        : 'arrow_forward';
   const busyLabel = kioskMode
     ? 'Starting payment…'
-    : isDineIn
-      ? 'Sending…'
-      : 'Placing order…';
+    : resumeTab
+      ? 'Adding…'
+      : isDineIn
+        ? 'Sending…'
+        : 'Placing order…';
 
+  // Resume-tab path has no form to submit, so the button calls the
+  // handler directly. The default path keeps the form-submit wiring
+  // intact so RHF can guard on validation.
+  const commonProps = {
+    disabled: !canSubmit,
+    'data-testid': 'checkout-submit',
+    className:
+      'flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60',
+  } as const;
+
+  const inner = submitting ? (
+    <>
+      <span aria-hidden className="material-symbols-outlined animate-spin text-[20px]">
+        progress_activity
+      </span>
+      {busyLabel}
+    </>
+  ) : (
+    <>
+      <span>{idleLabel}</span>
+      <span className="material-symbols-outlined">{idleIcon}</span>
+    </>
+  );
+
+  if (resumeTab) {
+    return (
+      <button type="button" onClick={onResume} {...commonProps}>
+        {inner}
+      </button>
+    );
+  }
   return (
-    <button
-      type="submit"
-      form="checkout-form"
-      disabled={!canSubmit}
-      data-testid="checkout-submit"
-      className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 font-bold text-on-primary shadow-card-soft transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      {submitting ? (
-        <>
-          <span aria-hidden className="material-symbols-outlined animate-spin text-[20px]">
-            progress_activity
-          </span>
-          {busyLabel}
-        </>
-      ) : (
-        <>
-          <span>{idleLabel}</span>
-          <span className="material-symbols-outlined">{idleIcon}</span>
-        </>
-      )}
+    <button type="submit" form="checkout-form" {...commonProps}>
+      {inner}
     </button>
   );
 }

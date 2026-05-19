@@ -149,21 +149,34 @@ export async function resolveSubmitOnlineOrder(
   // the closed-hours gate so a customer sitting at a table never sees a
   // "closed for online orders" message when they're physically in the dining
   // room — dine-in is independent of online-pickup hours.
+  //
+  // If the table already has an OPEN ticket, this submission *appends* to
+  // that ticket instead of creating a new one — the dine-in "open tab"
+  // pattern. Pickup/takeout (no tableSlug) always creates a fresh ticket.
   let tableRow: { id: string; label: string } | null = null;
+  let appendToTicketId: string | null = null;
   if (input.tableSlug) {
     const tbl = (await ctx.prisma.table.findFirst({
       where: { locationId: location.id, slug: input.tableSlug, archivedAt: null },
       select: { id: true, label: true },
     })) as { id: string; label: string } | null;
     if (!tbl) throw new NotFoundError('Table not found');
-    const occupied = await ctx.prisma.ticket.findFirst({
-      where: { tableId: tbl.id, status: 'OPEN' },
+    const existing = await ctx.prisma.ticket.findFirst({
+      where: { tableId: tbl.id, locationId: location.id, status: 'OPEN' },
       select: { id: true },
     });
-    if (occupied) {
-      throw new ConflictError(
-        'This table already has an open order. Please ask a server for help.',
-      );
+    if (existing) {
+      // Kiosk-paid orders cannot append — each kiosk payment is a distinct
+      // tender, and the staff flow assumes one captured tender per submit.
+      // For now, refuse the append on kiosk and let the customer ask staff
+      // for help (matches the original ConflictError behavior on the kiosk
+      // path).
+      if (isKioskPayment) {
+        throw new ConflictError(
+          'This table already has an open order. Please ask a server for help.',
+        );
+      }
+      appendToTicketId = existing.id;
     }
     tableRow = tbl;
   }
@@ -462,24 +475,156 @@ export async function resolveSubmitOnlineOrder(
   let shortNumber = 0;
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 3; attempt++) {
-    const sn = await nextShortNumber({
-      prisma: ctx.prisma as PrismaClient,
-      locationId: location.id,
-      businessDay,
-    });
+    // Skip allocating a fresh short number when we're appending to an
+    // existing table tab — the original ticket already owns one.
+    const sn = appendToTicketId
+      ? 0
+      : await nextShortNumber({
+          prisma: ctx.prisma as PrismaClient,
+          locationId: location.id,
+          businessDay,
+        });
     try {
       const result = await ctx.prisma.$transaction(async (tx) => {
+        // Append-to-existing-tab branch. The table had an OPEN ticket at
+        // pre-check time; re-read it inside the transaction to settle any
+        // race with a staff-side close.
+        if (appendToTicketId) {
+          const tab = (await tx.ticket.findFirst({
+            where: {
+              id: appendToTicketId,
+              tableId: tableRow?.id ?? undefined,
+              locationId: location.id,
+              status: 'OPEN',
+            },
+            select: { id: true, shortNumber: true },
+          })) as { id: string; shortNumber: number } | null;
+          if (!tab) {
+            // The tab closed (or moved) between our pre-check and the tx.
+            // Fall through to the create-new path by clearing the marker —
+            // throwing here would surface a confusing error to a customer
+            // who just placed a perfectly reasonable order. Re-throwing
+            // would also abort the retry loop unnecessarily.
+            throw new ConflictError(
+              'The open tab for this table has just closed. Please refresh and try again.',
+            );
+          }
+          for (const p of prepared) {
+            await tx.ticketItem.create({
+              data: {
+                ticketId: tab.id,
+                menuItemId: p.menuItemId,
+                // Dine-in adds always fire immediately — the kitchen is
+                // already preparing for this table.
+                status: 'FIRED',
+                firedById: systemUserId,
+                firedAt: now,
+                nameSnapshot: p.nameSnapshot,
+                unitPriceCents: p.unitPriceCents,
+                quantity: p.quantity,
+                modifiersTotalCents: p.modifiersTotalCents,
+                lineSubtotalCents: p.lineSubtotalCents,
+                notes: p.notes,
+                course: p.course,
+                modifiers: { create: p.modifiers },
+              },
+            });
+          }
+          // Recompute totals from the full set of items + non-voided
+          // discounts. Mirrors what `recomputeTicketTotalsLive` does for
+          // staff-side mutations.
+          const allItems = (await tx.ticketItem.findMany({
+            where: { ticketId: tab.id },
+            select: { id: true, status: true, lineSubtotalCents: true },
+          })) as Array<{ id: string; status: 'NEW' | 'FIRED' | 'READY' | 'SERVED' | 'VOIDED'; lineSubtotalCents: number }>;
+          const allDiscounts = (await tx.discount.findMany({
+            where: {
+              voidedAt: null,
+              OR: [
+                { ticketId: tab.id },
+                { ticketItem: { ticketId: tab.id } },
+              ],
+            },
+            select: { ticketId: true, ticketItemId: true, computedCents: true },
+          })) as Array<{
+            ticketId: string | null;
+            ticketItemId: string | null;
+            computedCents: number;
+          }>;
+          const lineDiscountByItem = new Map<string, number>();
+          let ticketDiscountCents = 0;
+          for (const d of allDiscounts) {
+            if (d.ticketItemId) {
+              lineDiscountByItem.set(
+                d.ticketItemId,
+                (lineDiscountByItem.get(d.ticketItemId) ?? 0) + d.computedCents,
+              );
+            } else if (d.ticketId) {
+              ticketDiscountCents += d.computedCents;
+            }
+          }
+          const newTotals = computeTicketTotalsCents({
+            items: allItems.map((i) => ({
+              lineSubtotalCents: i.lineSubtotalCents,
+              lineDiscountCents: lineDiscountByItem.get(i.id) ?? 0,
+              status: i.status,
+            })),
+            ticketDiscountCents,
+            taxRatePermille: 0,
+          });
+          await tx.ticket.update({
+            where: { id: tab.id },
+            data: {
+              subtotalCents: newTotals.subtotalCents,
+              discountCents: newTotals.discountCents,
+              taxCents: newTotals.taxCents,
+              totalCents: newTotals.totalCents,
+            },
+          });
+          // Create a follow-up OnlineOrderRequest tied to the same ticket
+          // so this batch has its own tracking token + audit trail. The
+          // first request's token still works because `trackOnlineOrder`
+          // resolves items by ticketId, not by request.
+          const followUp = (await tx.onlineOrderRequest.create({
+            data: {
+              ticketId: tab.id,
+              locationId: location.id,
+              customerName: input.customerName,
+              customerPhone: input.customerPhone,
+              customerEmail: input.customerEmail ?? null,
+              pickupAt,
+              pickupKind: input.pickupKind,
+              notes: input.notes ?? null,
+              confirmStatus: 'CONFIRMED',
+              confirmedAt: now,
+              confirmedById: systemUserId,
+              paymentMode: 'PAY_AT_PICKUP',
+              paymentStatus: null,
+              trackingTokenHash: tokenHash,
+              submittedFromIp: input.ipAddress ?? null,
+            },
+            select: { id: true },
+          })) as { id: string };
+          return {
+            ticketId: tab.id,
+            requestId: followUp.id,
+            shortNumber: tab.shortNumber,
+          };
+        }
+
         // Re-check table occupancy inside the transaction — between the
         // pre-check and now, a server may have opened a ticket at this
-        // table. This is the authoritative gate.
+        // table. This is the authoritative gate for the create-new path.
         if (tableRow) {
           const inTxOccupied = await tx.ticket.findFirst({
             where: { tableId: tableRow.id, status: 'OPEN' },
             select: { id: true },
           });
           if (inTxOccupied) {
+            // Race: a tab opened concurrently with our pre-check. Surface
+            // the same friendly message as the append-tab-closed case.
             throw new ConflictError(
-              'This table already has an open order. Please ask a server for help.',
+              'This table already has an open order. Please refresh and try again.',
             );
           }
         }
@@ -632,9 +777,12 @@ export async function resolveSubmitOnlineOrder(
 
   // Fire-and-forget customer notifications. Both helpers swallow any failure
   // so the submit mutation never fails because email/SMS infra is down.
-  // Kiosk-paid orders skip both — the customer is standing right there.
+  // Skipped for: kiosk-paid orders (customer is standing there) and
+  // append-to-tab dine-in submits (customer already got the link on
+  // their first order; spamming SMS for every appetizer would be rude).
   const trackingUrl = `${env.AUTH_URL}/order/${input.tenantSlug}/${input.locationSlug}/track/${token}`;
-  if (!isKioskPayment) {
+  const isAppendToTab = appendToTicketId != null;
+  if (!isKioskPayment && !isAppendToTab) {
     if (input.customerEmail) {
       void sendOrderEmailSafely(
         input.customerEmail,

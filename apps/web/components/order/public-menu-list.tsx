@@ -79,68 +79,88 @@ export function PublicMenuList({ menus, currency }: PublicMenuListProps): React.
   const noResults = visibleSections.length === 0;
 
   return (
-    <div className="flex flex-col gap-gutter" data-testid="public-menu-list">
-      {cleanMenus.length > 1 ? (
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="tablist"
-          aria-label="Menus"
-          data-testid="public-menu-tabs"
-        >
-          {cleanMenus.map((m) => {
-            const isActive = m.id === active?.id;
-            return (
-              <button
-                key={m.id ?? ''}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => setActiveId(m.id ?? '')}
-                className={[
-                  'rounded-full px-4 py-1.5 font-label-caps text-label-caps uppercase transition-colors',
-                  isActive
-                    ? 'bg-primary text-on-primary'
-                    : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high',
-                ].join(' ')}
-                data-testid={`public-menu-tab-${m.name}`}
-              >
-                {m.name}
-              </button>
-            );
-          })}
+    // Desktop+ (md): the entire menu chrome below the hero is rendered as
+    // a "sticky scroll pane". The pane sits flush below the OrderShell
+    // header stack (via the --shell-top CSS variable) and fills the
+    // remaining viewport. The page itself scrolls naturally only until
+    // the hero clears; after that the chrome is locked in place and the
+    // item grid handles its own scroll internally. This keeps the menu
+    // tabs, search box, and category sidebar permanently in view as the
+    // customer browses, which matters most on long menus.
+    //
+    // Mobile (sm): keep the natural page-scroll layout. Internal-scroll
+    // grids on small phones are awkward (no momentum, footer overlap)
+    // and the category nav already collapses to horizontal chips at the
+    // top, so the customer doesn't really lose the sidebar on scroll.
+    <div
+      className="flex flex-col gap-gutter md:sticky md:top-[var(--shell-top,64px)] md:flex md:h-[calc(100dvh-var(--shell-top,64px))] md:flex-col md:gap-stack-loose md:overflow-hidden"
+      data-testid="public-menu-list"
+    >
+      <div className="flex flex-col gap-gutter md:shrink-0">
+        {cleanMenus.length > 1 ? (
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="tablist"
+            aria-label="Menus"
+            data-testid="public-menu-tabs"
+          >
+            {cleanMenus.map((m) => {
+              const isActive = m.id === active?.id;
+              return (
+                <button
+                  key={m.id ?? ''}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveId(m.id ?? '')}
+                  className={[
+                    'rounded-full px-4 py-1.5 font-label-caps text-label-caps uppercase transition-colors',
+                    isActive
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high',
+                  ].join(' ')}
+                  data-testid={`public-menu-tab-${m.name}`}
+                >
+                  {m.name}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {active?.description ? (
+          <p className="text-body-customer text-on-surface-variant">{active.description}</p>
+        ) : null}
+
+        <div className="relative">
+          <span
+            aria-hidden
+            className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-outline"
+          >
+            search
+          </span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search the menu…"
+            aria-label="Search menu"
+            data-testid="public-menu-search"
+            className="h-14 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-12 pr-4 text-body-customer text-on-surface shadow-sm transition-all placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+          />
         </div>
-      ) : null}
-
-      {active?.description ? (
-        <p className="text-body-customer text-on-surface-variant">{active.description}</p>
-      ) : null}
-
-      <div className="relative">
-        <span
-          aria-hidden
-          className="material-symbols-outlined pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-outline"
-        >
-          search
-        </span>
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search the menu…"
-          aria-label="Search menu"
-          data-testid="public-menu-search"
-          className="h-14 w-full rounded-xl border border-outline-variant bg-surface-container-lowest pl-12 pr-4 text-body-customer text-on-surface shadow-sm transition-all placeholder:text-on-surface-variant focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
-        />
       </div>
 
-      <div className="flex flex-col gap-gutter md:flex-row md:items-start">
+      {/* Sidebar + grid row. On md+: flex-1 fills remaining height of the
+          sticky pane, sidebar stays in flow, grid has its own scroll. */}
+      <div className="flex flex-col gap-gutter md:min-h-0 md:flex-1 md:flex-row md:items-stretch">
         {sectionsWithItems.length > 1 ? (
           <aside
             aria-label="Menu sections"
             data-testid="public-menu-section-nav"
-            className="md:w-[240px] md:shrink-0"
+            className="md:w-[240px] md:shrink-0 md:overflow-y-auto"
           >
-            <div className="no-scrollbar sticky top-[88px] flex flex-row gap-1 overflow-x-auto pb-2 md:flex-col md:overflow-visible md:pb-0">
+            <div className="no-scrollbar sticky top-[88px] flex flex-row gap-1 overflow-x-auto pb-2 md:static md:flex-col md:overflow-visible md:pb-0">
               <SectionButton
                 label="All items"
                 active={activeSectionId === ALL_SECTIONS}
@@ -158,7 +178,13 @@ export function PublicMenuList({ menus, currency }: PublicMenuListProps): React.
           </aside>
         ) : null}
 
-        <div className="flex min-w-0 flex-1 flex-col gap-stack-loose">
+        {/* The grid pane: only this element scrolls inside the sticky
+            chrome on md+. `min-w-0` lets the flex child shrink properly
+            when the grid is wider than its track; `min-h-0` is the
+            paired vertical version that allows `overflow-y-auto` to
+            actually clip + scroll. Bottom padding leaves room for the
+            sticky cart footer so the last row isn't hidden behind it. */}
+        <div className="flex min-w-0 flex-1 flex-col gap-stack-loose md:min-h-0 md:overflow-y-auto md:pb-32 md:pr-1">
           {inSearchMode ? (
             <p
               className="text-body-staff text-on-surface-variant"
