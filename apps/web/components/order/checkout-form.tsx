@@ -149,6 +149,13 @@ export function CheckoutForm({
         paymentMode: kioskMode
           ? OnlineOrderPaymentMode.PayAtKiosk
           : OnlineOrderPaymentMode.PayAtPickup,
+        // Pass back the previously-issued tracking token so the server
+        // appends to our existing ticket instead of trying to create a
+        // duplicate OnlineOrderRequest (the row has @unique(ticketId)).
+        // Only set on the resume-tab path; null elsewhere.
+        existingTrackingToken: hasResumableTab && tableTab
+          ? tableTab.trackingToken
+          : null,
         items: items.map((i) => ({
           menuItemId: i.menuItemId,
           quantity: i.quantity,

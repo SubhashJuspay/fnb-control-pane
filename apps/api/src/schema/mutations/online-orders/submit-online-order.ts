@@ -16,7 +16,7 @@ import { resolveItemPrice, resolveModifierPrice } from '../../../menu/pricing.js
 import { estimateReadyAt } from '../../../online-orders/estimate.js';
 import { TokenBucket } from '../../../online-orders/rate-limit.js';
 import { ensureSystemUser } from '../../../online-orders/system-user.js';
-import { generateTrackingToken } from '../../../online-orders/tracking-token.js';
+import { generateTrackingToken, hashTrackingToken } from '../../../online-orders/tracking-token.js';
 import { computeLineSubtotalCents, computeTicketTotalsCents } from '../../../order/pricing.js';
 import { computeBusinessDay, nextShortNumber } from '../../../order/short-number.js';
 import { dispatchPaymentRequest } from '../../../pos-terminal/dispatcher.js';
@@ -70,6 +70,13 @@ export interface SubmitOnlineOrderArgs {
    * QR-at-table dine-in path.
    */
   paymentMode?: 'PAY_AT_PICKUP' | 'PAY_AT_KIOSK' | null;
+  /**
+   * Plaintext tracking token from the customer's previous submit at
+   * this dine-in table. When present and matching the ticket's existing
+   * OnlineOrderRequest, the server appends items to that ticket instead
+   * of opening a new tab. Otherwise ignored.
+   */
+  existingTrackingToken?: string | null;
 }
 
 export interface SubmitOnlineOrderResultData {
@@ -152,9 +159,18 @@ export async function resolveSubmitOnlineOrder(
   //
   // If the table already has an OPEN ticket, this submission *appends* to
   // that ticket instead of creating a new one — the dine-in "open tab"
-  // pattern. Pickup/takeout (no tableSlug) always creates a fresh ticket.
+  // pattern. Append requires the caller to pass back the tracking token
+  // they got on the first submit (stored in localStorage by the web app);
+  // the server hashes it and verifies it matches the ticket's existing
+  // OnlineOrderRequest. A customer on a different device with no token
+  // gets a friendly "already an open order" error — matches the historical
+  // behavior and avoids merging two customers' orders silently.
+  //
+  // Pickup/takeout (no tableSlug) always creates a fresh ticket and a
+  // fresh OnlineOrderRequest.
   let tableRow: { id: string; label: string } | null = null;
   let appendToTicketId: string | null = null;
+  let appendReusedToken: string | null = null;
   if (input.tableSlug) {
     const tbl = (await ctx.prisma.table.findFirst({
       where: { locationId: location.id, slug: input.tableSlug, archivedAt: null },
@@ -168,15 +184,28 @@ export async function resolveSubmitOnlineOrder(
     if (existing) {
       // Kiosk-paid orders cannot append — each kiosk payment is a distinct
       // tender, and the staff flow assumes one captured tender per submit.
-      // For now, refuse the append on kiosk and let the customer ask staff
-      // for help (matches the original ConflictError behavior on the kiosk
-      // path).
       if (isKioskPayment) {
         throw new ConflictError(
           'This table already has an open order. Please ask a server for help.',
         );
       }
+      if (!input.existingTrackingToken) {
+        throw new ConflictError(
+          'This table already has an open order. Please ask a server for help.',
+        );
+      }
+      const tokenHashForLookup = hashTrackingToken(input.existingTrackingToken);
+      const matching = await ctx.prisma.onlineOrderRequest.findUnique({
+        where: { trackingTokenHash: tokenHashForLookup },
+        select: { ticketId: true },
+      });
+      if (!matching || matching.ticketId !== existing.id) {
+        throw new ConflictError(
+          'This table already has an open order. Please ask a server for help.',
+        );
+      }
       appendToTicketId = existing.id;
+      appendReusedToken = input.existingTrackingToken;
     }
     tableRow = tbl;
   }
@@ -581,33 +610,28 @@ export async function resolveSubmitOnlineOrder(
               totalCents: newTotals.totalCents,
             },
           });
-          // Create a follow-up OnlineOrderRequest tied to the same ticket
-          // so this batch has its own tracking token + audit trail. The
-          // first request's token still works because `trackOnlineOrder`
-          // resolves items by ticketId, not by request.
-          const followUp = (await tx.onlineOrderRequest.create({
-            data: {
-              ticketId: tab.id,
-              locationId: location.id,
-              customerName: input.customerName,
-              customerPhone: input.customerPhone,
-              customerEmail: input.customerEmail ?? null,
-              pickupAt,
-              pickupKind: input.pickupKind,
-              notes: input.notes ?? null,
-              confirmStatus: 'CONFIRMED',
-              confirmedAt: now,
-              confirmedById: systemUserId,
-              paymentMode: 'PAY_AT_PICKUP',
-              paymentStatus: null,
-              trackingTokenHash: tokenHash,
-              submittedFromIp: input.ipAddress ?? null,
-            },
+          // OnlineOrderRequest has `ticketId @unique` — we can't create
+          // another row for the same ticket. The existing row's tracking
+          // token still works for /track lookups, and we already reused
+          // it via `appendReusedToken`. Look up its id so the audit /
+          // pubsub steps below have a resource to point at.
+          const existingRequest = (await tx.onlineOrderRequest.findUnique({
+            where: { ticketId: tab.id },
             select: { id: true },
-          })) as { id: string };
+          })) as { id: string } | null;
+          if (!existingRequest) {
+            // The ticket is OPEN but has no OnlineOrderRequest at all —
+            // shouldn't happen for a QR-at-table flow (every dine-in
+            // submit creates one), but guard against it so we fail fast
+            // with a clear message instead of returning a half-formed
+            // result.
+            throw new ConflictError(
+              'This table already has an order in progress. Please ask a server for help.',
+            );
+          }
           return {
             ticketId: tab.id,
-            requestId: followUp.id,
+            requestId: existingRequest.id,
             shortNumber: tab.shortNumber,
           };
         }
@@ -816,9 +840,14 @@ export async function resolveSubmitOnlineOrder(
     pickupAt,
     confirmedAt: now,
   });
+  // Appends reuse the original request's token (the unique-on-ticketId
+  // constraint stops us creating a second row), so the response echoes
+  // what the client sent us. New tickets return the freshly-minted token
+  // we just persisted.
+  const responseToken = appendReusedToken ?? token;
   return {
-    trackingToken: token,
-    trackingUrl: `/order/${input.tenantSlug}/${input.locationSlug}/track/${token}`,
+    trackingToken: responseToken,
+    trackingUrl: `/order/${input.tenantSlug}/${input.locationSlug}/track/${responseToken}`,
     shortNumber,
     estimatedReadyAt: estimated,
   };

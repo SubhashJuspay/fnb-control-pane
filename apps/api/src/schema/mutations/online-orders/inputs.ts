@@ -31,6 +31,14 @@ export const SubmitOnlineOrderInput = builder.inputType('SubmitOnlineOrderInput'
     tableSlug: t.string({ required: false }),
     /** PAY_AT_KIOSK requires a connected POS terminal to capture payment. */
     paymentMode: t.field({ type: OnlineOrderPaymentModeEnum, required: false }),
+    /**
+     * QR-at-table "open tab": when the client already has a tracking
+     * token in localStorage for this table, it passes it back here so
+     * the server appends items to the existing ticket instead of trying
+     * to create a duplicate OnlineOrderRequest (the ticketId column is
+     * @unique). Ignored on the pickup flow.
+     */
+    existingTrackingToken: t.string({ required: false }),
   }),
 });
 

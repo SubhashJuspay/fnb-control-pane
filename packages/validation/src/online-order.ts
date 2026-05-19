@@ -67,6 +67,14 @@ export const submitOnlineOrderSchema = z
      * existing customer phone order path.
      */
     paymentMode: onlineOrderPaymentModeSchema.optional().nullable(),
+    /**
+     * Plaintext tracking token from a previous submit at the same
+     * QR-at-table tab. Server hashes it to look up the existing
+     * OnlineOrderRequest and append items to its ticket. The shape is
+     * intentionally loose — the server is the only consumer and it
+     * compares against a stored hash.
+     */
+    existingTrackingToken: z.string().min(1).max(200).optional().nullable(),
   })
   .superRefine((val, ctx) => {
     if (val.pickupKind === 'SCHEDULED') {
