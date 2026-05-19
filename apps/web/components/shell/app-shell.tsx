@@ -58,7 +58,14 @@ export function AppShell({ viewer, tenants, children }: AppShellProps) {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    // h-screen (not min-h-screen) caps the shell at the viewport so the
+    // sidebar + top bar stay anchored and `<main overflow-y-auto>` is the
+    // only thing that scrolls. With min-h-screen the outer container
+    // grew to content size and the whole page scrolled together, so the
+    // sidebar and toolbar slid off-screen on long pages (online orders,
+    // ticket history, etc.). min-h-0 on main is the standard flex-column
+    // companion that lets overflow actually clip instead of growing.
+    <div className="flex h-screen w-full bg-background">
       {sidebarOpen ? <Sidebar tenants={tenants} /> : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
@@ -68,7 +75,7 @@ export function AppShell({ viewer, tenants, children }: AppShellProps) {
           onToggleSidebar={onToggleSidebar}
           sidebarOpen={sidebarOpen}
         />
-        <main className="flex-1 overflow-y-auto bg-background px-container-margin py-gutter">
+        <main className="min-h-0 flex-1 overflow-y-auto bg-background px-container-margin py-gutter">
           {children}
         </main>
       </div>
