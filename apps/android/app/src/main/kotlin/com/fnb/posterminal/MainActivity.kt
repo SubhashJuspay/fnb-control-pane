@@ -1,6 +1,7 @@
 package com.fnb.posterminal
 
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -63,6 +64,16 @@ class MainActivity : ComponentActivity() {
 
     private var paymentInFlight: Boolean = false
     private var sunmiBindWatchdog: Job? = null
+
+    /**
+     * Elapsed-realtime ms at which the last tap was approved. Taps fired
+     * within `APPROVE_COOLDOWN_MS` of this are dropped — Sunmi's NFC SDK
+     * occasionally emits a second `findRFCard` event for the same physical
+     * tap (the card is still inside the antenna field when the next
+     * payment dispatches), and without this debounce the stale tap lands
+     * on the freshly-armed intent and silently approves it.
+     */
+    @Volatile private var lastApproveAt: Long = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -133,10 +144,24 @@ class MainActivity : ComponentActivity() {
      * land here so receipts always print regardless of which path fired.
      */
     private fun doApprove() {
+        // Stale-tap guard: Sunmi's NFC SDK sometimes fires a second
+        // findRFCard for the same physical tap. If we just left a payment
+        // a moment ago and a fresh one armed, that second event would land
+        // on the new intent — the cashier sees a ticket close before the
+        // customer has even tapped. Drop taps in the cooldown window.
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastApproveAt < APPROVE_COOLDOWN_MS) {
+            Log.w(
+                TAG,
+                "doApprove ignored — ${now - lastApproveAt}ms since last approve (cooldown ${APPROVE_COOLDOWN_MS}ms)",
+            )
+            return
+        }
         // Snapshot the active payment + connection before approve() clears
         // them — the receipt needs item names, amounts, customer, and the
         // tenant/location for the header.
         val payment = viewModel.activePayment.value ?: return
+        lastApproveAt = now
         val conn = viewModel.connection.value
         viewModel.approve()
         val receipt = buildReceipt(payment, conn)
@@ -217,6 +242,13 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val TAG = "MainActivity"
         private const val SUNMI_BIND_TIMEOUT_MS = 2000L
+
+        /**
+         * Minimum gap between two consecutive NFC approves. Long enough to
+         * debounce Sunmi's accidental double-emit but short enough that a
+         * real cashier can chain payments back-to-back.
+         */
+        private const val APPROVE_COOLDOWN_MS = 2500L
     }
 }
 

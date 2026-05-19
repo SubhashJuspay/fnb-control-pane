@@ -96,11 +96,17 @@ export async function registerPosTerminalRoute(app: FastifyInstance): Promise<vo
         }
         return;
       }
-      // payment_result
+      // payment_result — log the connection identity so a stranded
+      // dev WS that fires a stale result is easy to spot in logs.
+      logger.info(
+        { key, intentId: msg.intentId, status: msg.status },
+        'pos-terminal: received payment_result',
+      );
       void applyPaymentResult({
         prisma,
         intentId: msg.intentId,
         status: msg.status,
+        fromLocationId: location.id,
       }).catch((err) => {
         logger.error({ err, intentId: msg.intentId }, 'pos-terminal: result apply failed');
       });

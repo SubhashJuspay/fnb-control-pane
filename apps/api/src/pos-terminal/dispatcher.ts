@@ -133,8 +133,15 @@ export async function applyPaymentResult(args: {
   prisma: PrismaClient;
   intentId: string;
   status: 'APPROVED' | 'DECLINED' | 'CANCELLED';
+  /**
+   * Location id of the WS connection that delivered the message. The
+   * Tender we look up has its own locationId; if they don't match the
+   * frame is from a connection that has no business settling this
+   * tender (stranded dev WS, attacker who guessed an id, etc.).
+   */
+  fromLocationId?: string;
 }): Promise<void> {
-  const { prisma, intentId, status } = args;
+  const { prisma, intentId, status, fromLocationId } = args;
   cancelExpiry(intentId);
 
   // 1. Staff-ticket path: intentId is a Tender id.
@@ -151,6 +158,13 @@ export async function applyPaymentResult(args: {
     },
   });
   if (tender) {
+    if (fromLocationId && tender.locationId !== fromLocationId) {
+      logger.warn(
+        { intentId, tenderLocation: tender.locationId, fromLocationId },
+        'pos-terminal: REJECTED payment_result from wrong location',
+      );
+      return;
+    }
     if (tender.status !== 'PENDING') {
       logger.info(
         { intentId, currentStatus: tender.status, reported: status },
@@ -158,6 +172,10 @@ export async function applyPaymentResult(args: {
       );
       return;
     }
+    logger.info(
+      { intentId, ticketId: tender.ticketId, status },
+      'pos-terminal: applying tender result',
+    );
     if (status === 'APPROVED') {
       await captureTender(prisma, tender);
     } else {
