@@ -1215,6 +1215,13 @@ model Tender {
   /** Simulated authorization code, opaque to the UI. */
   authCode        String?      @map("auth_code")
   status          TenderStatus @default(CAPTURED)
+  /**
+   * What the WS dispatcher should do when the terminal returns
+   * APPROVED for this tender. CLOSE_TICKET (default) → existing
+   * close-and-charge flow; PREPAY_TICKET → counter-service "charge
+   * before kitchen fires" flow (items go to FIRED, ticket stays OPEN).
+   */
+  intent          TenderIntent @default(CLOSE_TICKET)
   declineReason   String?      @map("decline_reason")
   /** When a cash tender lands during an open drawer session, we link it so
    *  the drawer's expected-cash calculation can incorporate sales. */
@@ -1238,6 +1245,15 @@ model Tender {
   @@index([locationId, processedAt])
   @@index([cashSessionId])
   @@map("tenders")
+}
+
+enum TenderIntent {
+  /** The tender closes the ticket on capture. Default for staff cash /
+   *  card-at-terminal flows. */
+  CLOSE_TICKET
+  /** The tender fires items to the kitchen on capture but leaves the
+   *  ticket OPEN — counter-service "pay first" flow. */
+  PREPAY_TICKET
 }
 
 enum TenderMethod {

@@ -12,6 +12,12 @@ const schema = z.object({
   ticketId: z.string().uuid(),
   /** Tip portion, in cents. 0 if the customer didn't tip. */
   tipCents: z.number().int().min(0).max(100_000_000).default(0),
+  /**
+   * CLOSE_TICKET (default) → on capture the dispatcher closes the
+   * ticket. PREPAY_TICKET → on capture the dispatcher fires items
+   * but leaves the ticket OPEN ("charge & fire" counter-service flow).
+   */
+  intent: z.enum(['CLOSE_TICKET', 'PREPAY_TICKET']).default('CLOSE_TICKET'),
 });
 
 /**
@@ -38,6 +44,13 @@ const ProcessCardPaymentAtTerminalInput = builder.inputType(
     fields: (t) => ({
       ticketId: t.field({ type: 'UUID', required: true }),
       tipCents: t.int({ required: false }),
+      /**
+       * Intent for the captured tender. Defaults to CLOSE_TICKET — the
+       * historical behaviour where the dispatcher closes the ticket.
+       * Pass PREPAY_TICKET for the counter-service "charge & fire"
+       * flow: items fire to the kitchen on capture, ticket stays OPEN.
+       */
+      intent: t.string({ required: false }),
     }),
   },
 );
@@ -65,7 +78,7 @@ ProcessCardPaymentAtTerminalResultRef.implement({
 
 export async function resolveProcessCardPaymentAtTerminal(
   ctx: RequestContext,
-  input: { ticketId: string; tipCents?: number | null },
+  input: { ticketId: string; tipCents?: number | null; intent?: string | null },
 ): Promise<ResultData> {
   if (ctx.auth.kind !== 'authenticated') throw new ForbiddenError();
   if (!STAFF_ROLES.includes(ctx.auth.role)) {
@@ -78,11 +91,12 @@ export async function resolveProcessCardPaymentAtTerminal(
   const parsed = schema.safeParse({
     ticketId: input.ticketId,
     tipCents: input.tipCents ?? 0,
+    intent: input.intent ?? 'CLOSE_TICKET',
   });
   if (!parsed.success) {
     throw new AppError('BAD_INPUT', parsed.error.issues[0]?.message ?? 'Invalid input');
   }
-  const { ticketId, tipCents } = parsed.data;
+  const { ticketId, tipCents, intent } = parsed.data;
 
   const ticket = await ctx.prisma.ticket.findFirst({
     where: { id: ticketId, locationId, status: 'OPEN' },
@@ -125,6 +139,9 @@ export async function resolveProcessCardPaymentAtTerminal(
 
   // Create the PENDING tender BEFORE dispatching so the WS callback always
   // has a row to look up — even if the terminal responds in milliseconds.
+  // `intent` is the discriminator the WS dispatcher reads on capture to
+  // decide between close-the-ticket (default) and fire-and-leave-open
+  // (counter-service "Charge & fire").
   const tender = await ctx.prisma.tender.create({
     data: {
       tenantId: ticket.location.tenantId,
@@ -134,6 +151,7 @@ export async function resolveProcessCardPaymentAtTerminal(
       amountCents,
       tipCents,
       status: 'PENDING',
+      intent,
       processedById: userId,
     },
     select: { id: true },
@@ -194,6 +212,6 @@ builder.mutationField('processCardPaymentAtTerminal', (t) =>
       'Create a PENDING card tender for the ticket and dispatch it to the paired POS terminal. The terminal returns APPROVED/DECLINED via WS which captures or declines the tender (and closes the ticket on capture). Hard fails when no terminal is online.',
     args: { input: t.arg({ type: ProcessCardPaymentAtTerminalInput, required: true }) },
     resolve: (_root, args, ctx) =>
-      resolveProcessCardPaymentAtTerminal(ctx, args.input as { ticketId: string; tipCents?: number | null }),
+      resolveProcessCardPaymentAtTerminal(ctx, args.input as { ticketId: string; tipCents?: number | null; intent?: string | null }),
   }),
 );

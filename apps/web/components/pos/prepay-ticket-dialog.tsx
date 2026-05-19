@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useMutation } from 'urql';
+import { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery } from 'urql';
 import {
   Button,
   Dialog,
@@ -17,6 +17,9 @@ import { Banknote, CreditCard, Loader2, Smartphone } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   PrepayTicketDocument,
+  ProcessCardPaymentAtTerminalDocument,
+  TenderDocument,
+  TenderStatus,
   type TenderMethod,
 } from '@/lib/graphql/generated/graphql';
 import { useLocationCurrency } from '@/lib/location-currency';
@@ -84,7 +87,10 @@ export function PrepayTicketDialog({
   onPrepaid,
 }: PrepayTicketDialogProps): React.JSX.Element {
   const currency = useLocationCurrency();
-  const [{ fetching }, prepay] = useMutation(PrepayTicketDocument);
+  const [{ fetching: prepaying }, prepay] = useMutation(PrepayTicketDocument);
+  const [{ fetching: dispatchingCard }, processCardAtTerminal] = useMutation(
+    ProcessCardPaymentAtTerminalDocument,
+  );
 
   const [tip, setTip] = useState<TipMode>({ kind: 'preset', pct: 0 });
   const [customDollars, setCustomDollars] = useState<string>('');
@@ -92,15 +98,96 @@ export function PrepayTicketDialog({
   const [cashTenderedCents, setCashTenderedCents] = useState<number | null>(null);
   const [cashCustomDollars, setCashCustomDollars] = useState<string>('');
 
+  // Card-via-terminal flow: once we have a PENDING tender id from the
+  // dispatch, we poll the tender until it settles. Mirrors the close
+  // dialog's terminal flow.
+  const [pendingTenderId, setPendingTenderId] = useState<string | null>(null);
+  const successCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [{ data: tenderData }, reexecuteTender] = useQuery({
+    query: TenderDocument,
+    variables: { id: pendingTenderId ?? '' },
+    pause: !pendingTenderId,
+    requestPolicy: 'network-only',
+  });
+  // urql can briefly serve the previous response while a new request is
+  // in flight; reject mismatched ids so a stale CAPTURED from a prior
+  // dispatch doesn't auto-close this dialog.
+  const tenderIdMatches = tenderData?.tender?.id === pendingTenderId;
+  const tenderStatus = tenderIdMatches ? tenderData?.tender?.status ?? null : null;
+  const tenderDeclineReason = tenderIdMatches
+    ? tenderData?.tender?.declineReason ?? null
+    : null;
+
   useEffect(() => {
     if (open) {
+      if (successCloseTimeoutRef.current) {
+        clearTimeout(successCloseTimeoutRef.current);
+        successCloseTimeoutRef.current = null;
+      }
       setTip({ kind: 'preset', pct: 0 });
       setCustomDollars('');
       setPaymentMethod('CARD');
       setCashTenderedCents(null);
       setCashCustomDollars('');
+      setPendingTenderId(null);
     }
   }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (successCloseTimeoutRef.current) {
+        clearTimeout(successCloseTimeoutRef.current);
+        successCloseTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Poll PENDING tenders every 1.5s — same cadence as the close dialog.
+  // Stops as soon as the tender settles (CAPTURED / DECLINED / VOIDED).
+  useEffect(() => {
+    if (!pendingTenderId) return;
+    if (
+      tenderStatus === TenderStatus.Captured ||
+      tenderStatus === TenderStatus.Declined ||
+      tenderStatus === TenderStatus.Voided
+    ) {
+      return;
+    }
+    const handle = setInterval(
+      () => reexecuteTender({ requestPolicy: 'network-only' }),
+      1500,
+    );
+    return () => clearInterval(handle);
+  }, [pendingTenderId, tenderStatus, reexecuteTender]);
+
+  // React to terminal-driven status changes. CAPTURED on the prepay
+  // intent means the dispatcher fired items + left the ticket OPEN.
+  useEffect(() => {
+    if (!pendingTenderId) return;
+    if (tenderStatus === TenderStatus.Captured) {
+      toast.success(`${ticketLabel} paid — order fired to kitchen`);
+      if (successCloseTimeoutRef.current) {
+        clearTimeout(successCloseTimeoutRef.current);
+      }
+      successCloseTimeoutRef.current = setTimeout(() => {
+        successCloseTimeoutRef.current = null;
+        setPendingTenderId(null);
+        onPrepaid();
+      }, 700);
+    } else if (
+      tenderStatus === TenderStatus.Declined ||
+      tenderStatus === TenderStatus.Voided
+    ) {
+      setPendingTenderId(null);
+      toast.error(
+        tenderDeclineReason
+          ? `Card declined — ${tenderDeclineReason}`
+          : 'Card declined — ask the customer for another tender.',
+      );
+    }
+  }, [pendingTenderId, tenderStatus, tenderDeclineReason, ticketLabel, onPrepaid]);
+
+  const isProcessingCard = pendingTenderId != null;
 
   const tipCents =
     tip.kind === 'preset' ? Math.round((totalCents * tip.pct) / 100) : tip.cents;
@@ -111,13 +198,45 @@ export function PrepayTicketDialog({
   const changeDueCents =
     cashTenderedCents != null ? Math.max(0, cashTenderedCents - grandTotalCents) : 0;
 
+  const busy = prepaying || dispatchingCard || isProcessingCard;
   const canSubmit =
-    !fetching &&
+    !busy &&
     (paymentMethod !== 'CASH' ||
       (cashTenderedCents != null && cashTenderedCents >= grandTotalCents));
 
   const onSubmit = async (): Promise<void> => {
-    if (paymentMethod === 'CASH' && (cashTenderedCents == null || cashTenderedCents < grandTotalCents)) {
+    // Card / Mobile → dispatch to the paired POS terminal (same as the
+    // close-ticket flow) with intent=PREPAY_TICKET so the dispatcher
+    // fires items on capture instead of closing the ticket. The polling
+    // effect above drives the UI from PENDING → CAPTURED / DECLINED.
+    if (paymentMethod === 'CARD' || paymentMethod === 'MOBILE') {
+      const result = await processCardAtTerminal({
+        input: { ticketId, tipCents, intent: 'PREPAY_TICKET' },
+      });
+      if (result.error) {
+        toast.error(
+          result.error.message.includes('terminal')
+            ? result.error.message
+            : `Could not start card payment — ${result.error.message}`,
+        );
+        return;
+      }
+      const tenderId = result.data?.processCardPaymentAtTerminal?.tenderId;
+      if (!tenderId) {
+        toast.error('Payment dispatch did not return a tender id.');
+        return;
+      }
+      setPendingTenderId(tenderId);
+      return;
+    }
+
+    // Cash → synchronous capture via prepayTicket (the simulator path
+    // doesn't need the WS terminal). On success the server has already
+    // fired items + stamped the tender; the ticket stays OPEN.
+    if (
+      cashTenderedCents == null ||
+      cashTenderedCents < grandTotalCents
+    ) {
       toast.error('Cash tendered must cover the grand total.');
       return;
     }
@@ -130,8 +249,7 @@ export function PrepayTicketDialog({
             method: paymentMethod as TenderMethod,
             amountCents: totalCents,
             tipCents,
-            tenderedCents:
-              paymentMethod === 'CASH' ? cashTenderedCents : null,
+            tenderedCents: cashTenderedCents,
           },
         ],
       },
@@ -330,7 +448,7 @@ export function PrepayTicketDialog({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
-            disabled={fetching}
+            disabled={busy}
           >
             Cancel
           </Button>
@@ -340,7 +458,12 @@ export function PrepayTicketDialog({
             disabled={!canSubmit}
             data-testid="prepay-submit"
           >
-            {fetching ? (
+            {isProcessingCard ? (
+              <span className="inline-flex items-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                Waiting for card tap…
+              </span>
+            ) : busy ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="size-4 animate-spin" />
                 Charging…

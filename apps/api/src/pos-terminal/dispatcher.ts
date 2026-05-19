@@ -157,6 +157,7 @@ export async function applyPaymentResult(args: {
       amountCents: true,
       tipCents: true,
       status: true,
+      intent: true,
     },
   });
   if (tender) {
@@ -175,11 +176,15 @@ export async function applyPaymentResult(args: {
       return;
     }
     logger.info(
-      { intentId, ticketId: tender.ticketId, status },
+      { intentId, ticketId: tender.ticketId, status, intent: tender.intent },
       'pos-terminal: applying tender result',
     );
     if (status === 'APPROVED') {
-      await captureTender(prisma, tender);
+      if (tender.intent === 'PREPAY_TICKET') {
+        await captureTenderForPrepay(prisma, tender);
+      } else {
+        await captureTender(prisma, tender);
+      }
     } else {
       await declineTender(
         prisma,
@@ -235,6 +240,7 @@ interface TenderRow {
   amountCents: number;
   tipCents: number;
   status: string;
+  intent: 'CLOSE_TICKET' | 'PREPAY_TICKET';
 }
 
 /** Look up the ticket's tenantId — needed for inventory deduction. */
@@ -301,6 +307,48 @@ async function captureTender(
   logger.info(
     { tenderId: tender.id, ticketId: tender.ticketId },
     'pos-terminal: staff tender captured + ticket closed',
+  );
+}
+
+/**
+ * Capture a Tender created by the cashier's "Charge & fire" flow.
+ *
+ * Same atomic shape as `captureTender`, but the ticket is *not* closed.
+ * NEW items transition to FIRED so the kitchen starts cooking, and the
+ * captured tip is stamped on the ticket. Inventory deduction is
+ * intentionally deferred to `closeTicket` so we don't double-decrement
+ * when the cashier eventually closes the (now-paid) tab.
+ */
+async function captureTenderForPrepay(
+  prisma: PrismaClient,
+  tender: TenderRow,
+): Promise<void> {
+  const now = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.tender.update({
+      where: { id: tender.id },
+      data: { status: 'CAPTURED', processedAt: now, authCode: synthAuthCode() },
+    });
+    await tx.ticketItem.updateMany({
+      where: { ticketId: tender.ticketId, status: 'NEW' },
+      data: { status: 'FIRED', firedById: tender.processedById, firedAt: now },
+    });
+    await tx.ticket.update({
+      where: { id: tender.ticketId },
+      data: { tipCents: tender.tipCents },
+    });
+  });
+  await pubsub.publish(ticketChannelName(tender.locationId), {
+    kind: 'TicketChanged',
+    ticketId: tender.ticketId,
+  });
+  // The dashboard's "right now" strip includes kitchen-queue counts;
+  // firing items moves them onto the kitchen station. Keep the strip
+  // fresh alongside the sale-pending analytics caches.
+  invalidateCachePrefix(`analytics:${tender.locationId}:`);
+  logger.info(
+    { tenderId: tender.id, ticketId: tender.ticketId },
+    'pos-terminal: staff prepay tender captured + items fired',
   );
 }
 

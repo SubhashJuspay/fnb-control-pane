@@ -1080,6 +1080,7 @@ input PrepayTicketInput {
 }
 
 input ProcessCardPaymentAtTerminalInput {
+  intent: String
   ticketId: UUID!
   tipCents: Int
 }
