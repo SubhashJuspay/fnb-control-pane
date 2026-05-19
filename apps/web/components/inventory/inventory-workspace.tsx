@@ -51,6 +51,8 @@ export function InventoryWorkspace({
         </p>
       </header>
 
+      <ErpIntegrationCallout />
+
       <nav
         className="flex flex-wrap gap-1 border-b border-outline-variant"
         aria-label="Inventory sections"
@@ -879,6 +881,47 @@ function MovementsTab(): React.JSX.Element {
           })}
         </tbody>
       </table>
+    </section>
+  );
+}
+
+/**
+ * Placeholder until we actually integrate with a third-party ERP. The
+ * current first-party inventory still works (recipe deductions, restocks,
+ * stock counts) — this is forward-looking surface for tying the books to
+ * an external ERP rather than asking restaurants to dual-enter everything.
+ */
+function ErpIntegrationCallout(): React.JSX.Element {
+  return (
+    <section
+      data-testid="inventory-erp-callout"
+      className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-card-padding sm:flex-row sm:items-center"
+    >
+      <span
+        aria-hidden
+        className="material-symbols-outlined shrink-0 text-[32px] text-primary"
+        style={{ fontVariationSettings: "'FILL' 1" }}
+      >
+        sync_alt
+      </span>
+      <div className="flex flex-1 flex-col gap-1">
+        <h2 className="font-display text-headline-sm font-semibold text-on-surface">
+          Third-party ERP integration
+        </h2>
+        <p className="text-body-staff text-on-surface-variant">
+          Connect your existing ERP to sync ingredient levels and request
+          replenishments without manual entry. Supported integrations
+          coming soon.
+        </p>
+      </div>
+      <button
+        type="button"
+        disabled
+        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-body-staff font-semibold text-on-surface-variant opacity-70"
+      >
+        <span className="material-symbols-outlined text-[18px]">link</span>
+        Request integration
+      </button>
     </section>
   );
 }

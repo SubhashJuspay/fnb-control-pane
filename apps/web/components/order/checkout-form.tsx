@@ -453,7 +453,7 @@ function ProceedButton({
   const idleLabel = kioskMode
     ? `Pay ${formatMoney(totalCents, currency)}`
     : isDineIn
-      ? 'Send to kitchen'
+      ? 'Place Order'
       : 'Proceed';
   const idleIcon = kioskMode ? 'credit_card' : isDineIn ? 'restaurant' : 'arrow_forward';
   const busyLabel = kioskMode

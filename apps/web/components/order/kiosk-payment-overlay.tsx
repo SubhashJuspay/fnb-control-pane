@@ -150,64 +150,67 @@ function PendingView({
         </span>
       </div>
 
-      {/* Hero: amount */}
-      <div className="flex flex-col items-center px-6 pt-10 pb-6">
-        <span className="font-label-caps text-label-caps uppercase tracking-[0.2em] text-on-surface-variant">
-          Total due
-        </span>
-        <div
-          className="mt-2 font-display tabular-nums leading-none text-on-background"
-          style={{ fontSize: 'clamp(56px, 11vw, 96px)', fontWeight: 800, letterSpacing: '-0.02em' }}
-        >
-          {formatMoney(amountCents, String(currency))}
-        </div>
-      </div>
-
-      {/* Tap-prompt card */}
-      <div className="mx-6 flex flex-1 flex-col items-center justify-center gap-6 rounded-3xl bg-surface px-6 py-10 shadow-card-soft">
-        <div className="relative flex size-44 items-center justify-center">
-          <span
-            aria-hidden
-            className="absolute inset-0 animate-ping rounded-full bg-primary/20"
-            style={{ animationDuration: '1.8s' }}
-          />
-          <span
-            aria-hidden
-            className="absolute inset-4 animate-ping rounded-full bg-primary/25"
-            style={{ animationDuration: '1.8s', animationDelay: '0.5s' }}
-          />
-          <span
-            aria-hidden
-            className="absolute inset-8 rounded-full bg-primary"
-            style={{ boxShadow: '0 12px 30px -8px rgba(79,70,229,0.55)' }}
-          />
-          <span
-            aria-hidden
-            className="material-symbols-outlined relative text-[56px] text-on-primary"
-            style={{ fontVariationSettings: "'FILL' 1" }}
-          >
-            contactless
+      {/* Content stack — centered vertically in the remaining space so the
+          amount, tap prompt, and cancel button stay grouped together on tall
+          kiosk screens instead of stretching apart. */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-stack-loose px-6 py-6">
+        {/* Amount */}
+        <div className="flex flex-col items-center">
+          <span className="font-label-caps text-label-caps uppercase tracking-[0.2em] text-on-surface-variant">
+            Total due
           </span>
+          <div
+            className="mt-2 font-display tabular-nums leading-none text-on-background"
+            style={{ fontSize: 'clamp(56px, 11vw, 96px)', fontWeight: 800, letterSpacing: '-0.02em' }}
+          >
+            {formatMoney(amountCents, String(currency))}
+          </div>
         </div>
-        <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="font-display text-display-md font-bold text-on-surface">
-            Tap, insert, or swipe
-          </h1>
-          <p className="max-w-sm text-body-customer text-on-surface-variant">
-            Hold your card near the terminal next to the kiosk and follow the
-            on-screen prompts.
-          </p>
-        </div>
-        <PaymentMethodRow />
-        <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-surface-container-high px-3 py-1.5 font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
-          <span className="size-2 animate-pulse rounded-full bg-primary" />
-          Waiting for terminal
-        </div>
-      </div>
 
-      {/* Bottom action — only Cancel, faint so it doesn't compete with the
-          tap prompt. The customer should be looking at the terminal, not here. */}
-      <div className="flex justify-center px-6 py-6">
+        {/* Tap-prompt card */}
+        <div className="flex w-full flex-col items-center gap-6 rounded-3xl bg-surface px-6 py-10 shadow-card-soft">
+          <div className="relative flex size-44 items-center justify-center">
+            <span
+              aria-hidden
+              className="absolute inset-0 animate-ping rounded-full bg-primary/20"
+              style={{ animationDuration: '1.8s' }}
+            />
+            <span
+              aria-hidden
+              className="absolute inset-4 animate-ping rounded-full bg-primary/25"
+              style={{ animationDuration: '1.8s', animationDelay: '0.5s' }}
+            />
+            <span
+              aria-hidden
+              className="absolute inset-8 rounded-full bg-primary"
+              style={{ boxShadow: '0 12px 30px -8px rgba(79,70,229,0.55)' }}
+            />
+            <span
+              aria-hidden
+              className="material-symbols-outlined relative text-[56px] text-on-primary"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              contactless
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <h1 className="font-display text-display-md font-bold text-on-surface">
+              Tap, insert, or swipe
+            </h1>
+            <p className="max-w-sm text-body-customer text-on-surface-variant">
+              Hold your card near the terminal next to the kiosk and follow the
+              on-screen prompts.
+            </p>
+          </div>
+          <PaymentMethodRow />
+          <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-surface-container-high px-3 py-1.5 font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
+            <span className="size-2 animate-pulse rounded-full bg-primary" />
+            Waiting for terminal
+          </div>
+        </div>
+
+        {/* Cancel — kept small + faint so it doesn't compete with the tap
+            prompt. Sits directly under the card now, no flex-stretch gap. */}
         <button
           type="button"
           onClick={onCancel}

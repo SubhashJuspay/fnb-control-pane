@@ -29,9 +29,9 @@ export default async function GuestsLayout({
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Guests</h1>
+        <h1 className="text-2xl font-semibold">Customers</h1>
         <p className="text-sm text-muted-foreground">
-          Look up regulars, link tickets, and view per-guest history at {location.name}.
+          Look up regulars, link tickets, and view per-customer history at {location.name}.
         </p>
       </header>
       <div className="flex flex-col gap-6">{children}</div>

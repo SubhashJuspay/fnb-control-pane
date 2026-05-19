@@ -77,85 +77,50 @@ export function Sidebar({ tenants }: SidebarProps) {
     {
       const isViewer = role === 'VIEWER';
       const isManagerPlus = roleAtLeast(role, 'MANAGER');
-      const insights: NavItem[] = [];
+      const dashboard: NavItem[] = [];
+      // Insights collapsed into Dashboard — dashboard is the single landing
+      // page for revenue / day-of-week / labor cost. End-of-Day and the
+      // standalone Insights tab are removed.
       if (isManagerPlus || isViewer) {
-        insights.push({
+        dashboard.push({
           href: `${base}/dashboard`,
           label: 'Dashboard',
           icon: 'dashboard',
           matches: startsWith('dashboard'),
         });
-        insights.push({
-          href: `${base}/insights`,
-          label: 'Insights',
-          icon: 'analytics',
-          matches: startsWith('insights'),
-        });
       }
       if (isManagerPlus) {
-        insights.push({
+        dashboard.push({
           href: `${base}/tickets`,
           label: 'Ticket history',
           icon: 'history',
           matches: startsWith('tickets'),
         });
-        insights.push({
-          href: `${base}/end-of-day`,
-          label: 'End of day',
-          icon: 'description',
-          matches: startsWith('end-of-day'),
-        });
-        insights.push({
+        dashboard.push({
           href: `${base}/guests`,
-          label: 'Guests',
+          label: 'Customers',
           icon: 'group',
           matches: startsWith('guests'),
         });
       }
-      if (insights.length > 0) {
-        groups.push({ label: 'Insights', items: insights });
+      if (dashboard.length > 0) {
+        groups.push({ label: 'Dashboard', items: dashboard });
       }
     }
 
-    groups.push({
-      label: 'My day',
-      items: [
-        {
-          href: `${base}/time-clock`,
-          label: 'Time clock',
-          icon: 'schedule',
-          matches: startsWith('time-clock'),
-        },
-        {
-          href: `${base}/cash-drawer`,
-          label: 'Cash drawer',
-          icon: 'point_of_sale',
-          matches: startsWith('cash-drawer'),
-        },
-        {
-          href: `${base}/my-schedule`,
-          label: 'My schedule',
-          icon: 'event_available',
-          matches: startsWith('my-schedule'),
-        },
-      ],
-    });
+    // "My day" group (Time clock, Cash drawer, My schedule) hidden for now.
 
     if (roleAtLeast(role, 'MANAGER')) {
       groups.push({
         label: 'Setup',
         items: [
+          // Catalog is store-specific — sits in Setup alongside the other
+          // per-location config rather than the tenant-wide Admin group.
           {
-            href: `${base}/schedule`,
-            label: 'Schedule',
-            icon: 'calendar_month',
-            matches: startsWith('schedule'),
-          },
-          {
-            href: `${base}/time-entries`,
-            label: 'Time entries',
-            icon: 'list_alt',
-            matches: startsWith('time-entries'),
+            href: `/${tenantSlug}/admin/catalog`,
+            label: 'Catalog',
+            icon: 'menu_book',
+            matches: (p) => p.startsWith(`/${tenantSlug}/admin/catalog`),
           },
           {
             href: `${base}/settings/tip-pool`,
@@ -197,6 +162,9 @@ export function Sidebar({ tenants }: SidebarProps) {
     groups.push({
       label: 'Admin',
       items: [
+        // Catalog moved to Setup (it's store-specific). Staff & pay and Job
+        // roles are hidden for now — pages still exist but the sidebar
+        // doesn't surface them.
         {
           href: `/${tenantSlug}/admin/members`,
           label: 'Members',
@@ -204,28 +172,10 @@ export function Sidebar({ tenants }: SidebarProps) {
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/members`),
         },
         {
-          href: `/${tenantSlug}/admin/catalog`,
-          label: 'Catalog',
-          icon: 'menu_book',
-          matches: (p) => p.startsWith(`/${tenantSlug}/admin/catalog`),
-        },
-        {
           href: `/${tenantSlug}/admin/locations`,
           label: 'Locations',
           icon: 'location_on',
           matches: (p) => p.startsWith(`/${tenantSlug}/admin/locations`),
-        },
-        {
-          href: `/${tenantSlug}/admin/staff`,
-          label: 'Staff & pay',
-          icon: 'badge',
-          matches: (p) => p.startsWith(`/${tenantSlug}/admin/staff`),
-        },
-        {
-          href: `/${tenantSlug}/admin/job-roles`,
-          label: 'Job roles',
-          icon: 'work',
-          matches: (p) => p.startsWith(`/${tenantSlug}/admin/job-roles`),
         },
         {
           href: `/${tenantSlug}/admin/audit-log`,
