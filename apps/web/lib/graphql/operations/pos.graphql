@@ -10,6 +10,11 @@ query OpenTickets {
     taxCents
     totalCents
     openedAt
+    onlineRequest {
+      id
+      paymentMode
+      paymentStatus
+    }
     items {
       id
       status
@@ -46,6 +51,11 @@ query Ticket($id: UUID!) {
       id
       name
       phone
+    }
+    onlineRequest {
+      id
+      paymentMode
+      paymentStatus
     }
     items {
       id

@@ -51,6 +51,14 @@ interface CloseTicketDialogProps {
   ticketLabel: string;
   /** Pre-tip ticket total in cents — used to drive the % buttons. */
   totalCents: number;
+  /**
+   * True when the customer already paid via the kiosk/QR flow (the
+   * terminal callback marked the OnlineOrderRequest CAPTURED and wrote
+   * a CAPTURED Tender). The dialog renders a simplified "ticket is
+   * prepaid — just close it" path instead of asking for tender details,
+   * which would create a duplicate payment.
+   */
+  isPrepaid?: boolean;
   onClosed: () => void;
 }
 
@@ -108,13 +116,13 @@ export function CloseTicketDialog({
   ticketId,
   ticketLabel,
   totalCents,
+  isPrepaid = false,
   onClosed,
 }: CloseTicketDialogProps): React.JSX.Element {
   const currency = useLocationCurrency();
-  const [, closeTicket] = useMutation(CloseTicketDocument);
+  const [{ fetching: closingPrepaid }, closeTicket] = useMutation(CloseTicketDocument);
   const [, processPayment] = useMutation(ProcessPaymentDocument);
   const [, processCardAtTerminal] = useMutation(ProcessCardPaymentAtTerminalDocument);
-  void closeTicket; // retained for legacy callers / tests; processPayment is the new path
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: { closeNote: undefined },
@@ -325,6 +333,104 @@ export function CloseTicketDialog({
   });
 
   const paymentLabel = PAYMENT_OPTIONS.find((p) => p.key === paymentMethod)?.label ?? '';
+
+  // Prepaid branch: customer already paid via kiosk. Skip tip + tender
+  // picker entirely so the cashier doesn't double-charge. closeTicket
+  // (no payment) is enough — capturePayment has already written a
+  // CAPTURED Tender server-side.
+  const closePrepaid = async (closeNote?: string | null): Promise<void> => {
+    const result = await closeTicket({
+      input: {
+        ticketId,
+        closeNote: closeNote ?? null,
+        tipCents: 0,
+      },
+    });
+    if (result.error) {
+      toast.error(result.error.message);
+      return;
+    }
+    toast.success(`${ticketLabel} closed`);
+    onClosed();
+  };
+
+  if (isPrepaid) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Close {ticketLabel}</DialogTitle>
+            <DialogDescription>
+              The customer already paid at the kiosk. Closing the ticket here
+              just clears it from the open list — no charge is taken.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={handleSubmit((values) => closePrepaid(values.closeNote))}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+              <section
+                className="flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"
+                data-testid="close-prepaid-banner"
+              >
+                <CheckCircle2 className="size-8 shrink-0 text-emerald-600" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Paid at kiosk
+                  </span>
+                  <span className="text-xl font-bold tabular-nums text-foreground">
+                    {formatMoney(totalCents, currency)}
+                  </span>
+                </div>
+              </section>
+              <section className="flex flex-col gap-1.5">
+                <Label htmlFor="close-prepaid-note" className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Close note (optional)
+                </Label>
+                <textarea
+                  id="close-prepaid-note"
+                  rows={2}
+                  {...register('closeNote')}
+                  data-testid="close-prepaid-note"
+                  placeholder="Anything to remember about this ticket?"
+                  className="min-h-[44px] rounded-md border bg-background px-3 py-2 text-sm"
+                />
+                {errors.closeNote ? (
+                  <p className="text-xs text-destructive">{errors.closeNote.message}</p>
+                ) : null}
+              </section>
+            </div>
+            <DialogFooter className="shrink-0 pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={closingPrepaid || isSubmitting}
+                data-testid="close-prepaid-cancel"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={closingPrepaid || isSubmitting}
+                data-testid="close-prepaid-submit"
+              >
+                {closingPrepaid || isSubmitting ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" />
+                    Closing…
+                  </span>
+                ) : (
+                  'Close ticket'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

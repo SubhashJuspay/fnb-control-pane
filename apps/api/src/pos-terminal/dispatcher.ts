@@ -3,6 +3,7 @@ import { invalidateCachePrefix } from '../cache.js';
 import { logger } from '../logger.js';
 import { ConflictError, NotFoundError } from '../errors.js';
 import { deductInventoryForTicket } from '../inventory/deduct-on-close.js';
+import { ensureSystemUser } from '../online-orders/system-user.js';
 import { onlineOrdersChannelName, ticketChannelName, pubsub } from '../pubsub.js';
 import {
   encode,
@@ -331,9 +332,36 @@ async function capturePayment(
   ticketId: string,
 ): Promise<void> {
   const now = new Date();
+  // The kiosk has no acting user — borrow the tenant's system user (the
+  // same one we use for OnlineOrderRequest bookkeeping) to satisfy the
+  // Tender.processedById foreign key.
+  const ticketRow = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      totalCents: true,
+      location: {
+        select: {
+          tenantId: true,
+          tenant: { select: { slug: true } },
+        },
+      },
+    },
+  });
+  if (!ticketRow) {
+    throw new NotFoundError('Ticket not found for kiosk capture');
+  }
+  const tenantId = ticketRow.location.tenantId;
+  const systemUserId = await ensureSystemUser(
+    prisma,
+    tenantId,
+    ticketRow.location.tenant.slug,
+  );
+
   // Mirror what `confirmOnlineOrder` does for staff-driven confirmation:
-  // flip items to FIRED, mark the request CONFIRMED + CAPTURED. The kiosk
-  // path has no acting user, so confirmedById/firedById stay null.
+  // flip items to FIRED, mark the request CONFIRMED + CAPTURED. We also
+  // write a CAPTURED Tender so the staff close-ticket dialog can detect
+  // "already paid" and skip the payment picker, and analytics see the
+  // sale in the same shape as a cashier-rung tender.
   await prisma.$transaction(async (tx) => {
     await tx.ticketItem.updateMany({
       where: { ticketId, status: 'NEW' },
@@ -345,6 +373,20 @@ async function capturePayment(
         paymentStatus: 'CAPTURED',
         confirmStatus: 'CONFIRMED',
         confirmedAt: now,
+      },
+    });
+    await tx.tender.create({
+      data: {
+        tenantId,
+        locationId,
+        ticketId,
+        method: 'CARD',
+        amountCents: ticketRow.totalCents,
+        tipCents: 0,
+        status: 'CAPTURED',
+        processedById: systemUserId,
+        processedAt: now,
+        authCode: synthAuthCode(),
       },
     });
   });

@@ -112,6 +112,14 @@ export function OpenTicketsSidebar({
               const isDineIn = t.orderType === OrderType.DineIn;
               const isTakeout = t.orderType === OrderType.Takeout;
               const hasLabel = Boolean(t.customerLabel);
+              // Kiosk-paid orders surface a "Paid" pill so the cashier
+              // can spot them in the queue without opening the ticket
+              // — same signal as the active-panel header. Detection is
+              // on the OnlineOrderRequest set CAPTURED by the terminal
+              // callback when the customer swiped.
+              const isPrepaid =
+                t.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
+                t.onlineRequest?.paymentStatus === 'CAPTURED';
               return (
                 <li key={t.id ?? ''}>
                   <button
@@ -163,7 +171,7 @@ export function OpenTicketsSidebar({
                         {elapsedMinutes(t.openedAt) || formatOpenedAt(t.openedAt)}
                       </span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span
                         className={[
                           'rounded-full px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider',
@@ -176,6 +184,14 @@ export function OpenTicketsSidebar({
                       >
                         {t.orderType ? ORDER_TYPE_LABEL[t.orderType] : '—'}
                       </span>
+                      {isPrepaid ? (
+                        <span
+                          data-testid="open-ticket-prepaid-badge"
+                          className="rounded-full bg-emerald-500/15 px-2 py-0.5 font-status-pill text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300"
+                        >
+                          Paid
+                        </span>
+                      ) : null}
                     </div>
                   </button>
                 </li>

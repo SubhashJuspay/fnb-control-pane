@@ -285,11 +285,26 @@ export function ActiveTicketPanel({
     <div className="flex h-full flex-col bg-surface-container-lowest">
       <header className="flex flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest p-6">
         <div className="flex items-start justify-between gap-2">
-          <h2 className="flex items-center gap-2 font-display text-headline-md font-bold text-on-surface">
+          <h2 className="flex flex-wrap items-center gap-2 font-display text-headline-md font-bold text-on-surface">
             <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
               Ticket{' '}
             </span>
             <span>{ticketLabel}</span>
+            {/* Prepaid badge. Most kiosk orders carry an OnlineOrderRequest
+                with paymentMode=PAY_AT_KIOSK + paymentStatus=CAPTURED — the
+                customer already swiped at the terminal. Surfacing it here
+                means the cashier knows at a glance not to ask for cash or
+                run another card when serving the food + closing the tab. */}
+            {ticket.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
+            ticket.onlineRequest?.paymentStatus === 'CAPTURED' ? (
+              <span
+                data-testid="ticket-prepaid-badge"
+                className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-status-pill text-status-pill uppercase tracking-wider text-emerald-700 dark:text-emerald-300"
+              >
+                <span aria-hidden>●</span>
+                Paid at kiosk
+              </span>
+            ) : null}
             {anyPending ? (
               <span
                 role="status"
@@ -589,6 +604,15 @@ export function ActiveTicketPanel({
         ticketId={ticketId}
         ticketLabel={ticketLabel}
         totalCents={ticket.totalCents ?? 0}
+        // Kiosk-paid orders carry their charge through the OnlineOrderRequest
+        // (set to PAY_AT_KIOSK + CAPTURED by the terminal callback). When the
+        // ticket reaches this panel already paid, the dialog shows a
+        // simplified "prepaid — just close" UI instead of asking the cashier
+        // to pick a payment method (which would create a duplicate tender).
+        isPrepaid={
+          ticket.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
+          ticket.onlineRequest?.paymentStatus === 'CAPTURED'
+        }
         onClosed={() => {
           setCloseOpen(false);
           refresh();
