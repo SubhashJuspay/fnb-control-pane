@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { writeAudit } from '../audit.js';
+import { invalidateCachePrefix } from '../cache.js';
 import type { RequestContext } from '../context.js';
 import {
   AppError,
@@ -394,6 +395,7 @@ builder.mutationField('processPayment', (t) =>
           methods: parsed.data.tenders.map((x) => x.method),
         },
       });
+      invalidateCachePrefix(`analytics:${locationId}:`);
       return out.closed;
     },
   }),

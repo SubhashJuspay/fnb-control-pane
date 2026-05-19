@@ -27,6 +27,7 @@ import com.fnb.posterminal.state.TerminalViewModel
 import com.fnb.posterminal.ui.IdleScreen
 import com.fnb.posterminal.ui.PaymentScreen
 import com.fnb.posterminal.ui.PosTerminalTheme
+import com.fnb.posterminal.ui.ProcessingScreen
 import com.fnb.posterminal.ui.ResultScreen
 import com.fnb.posterminal.ui.SettingsScreen
 import com.fnb.posterminal.ws.ConnectionState
@@ -296,10 +297,17 @@ private fun Root(
     val settings by viewModel.settings.collectAsState()
     val connection by viewModel.connection.collectAsState()
     val activePayment by viewModel.activePayment.collectAsState()
+    val processing by viewModel.processing.collectAsState()
     val lastResult by viewModel.lastResult.collectAsState()
 
     var editingSettings by remember { mutableStateOf(false) }
 
+    // Order matters: a fresh `activePayment` supersedes a leftover
+    // processing/result from the previous transaction. processing comes
+    // ahead of lastResult because they're set together (lastResult is
+    // staged behind a delay inside the viewmodel) but the active payment
+    // outranks both — if a new request arrives mid-processing we drop
+    // straight back to the payment screen.
     when {
         !settings.isComplete() || editingSettings -> SettingsScreen(
             initial = settings,
@@ -317,6 +325,7 @@ private fun Root(
             onDecline = { viewModel.decline() },
             onCancel = { viewModel.cancel() },
         )
+        processing != null -> ProcessingScreen(state = processing!!)
         lastResult != null -> ResultScreen(
             result = lastResult!!,
             printerAvailable = hasPrinter(),

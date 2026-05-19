@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { GraphqlProvider } from '@/lib/graphql/provider';
 import { loadAppShellData } from '@/lib/viewer';
 import { LocationCurrencyProvider } from '@/lib/location-currency';
+import { LocationTimezoneProvider } from '@/lib/location-timezone';
 
 /**
  * Location-scoped layout. Validates that the viewer can see this location
@@ -28,7 +29,12 @@ export default async function LocationLayout({
   return (
     <GraphqlProvider scope={{ tenantSlug, locationId: location.id }}>
       <LocationCurrencyProvider currency={location.currency}>
-        {children}
+        <LocationTimezoneProvider
+          timezone={location.timezone}
+          businessDayCutoff={location.businessDayCutoff}
+        >
+          {children}
+        </LocationTimezoneProvider>
       </LocationCurrencyProvider>
     </GraphqlProvider>
   );

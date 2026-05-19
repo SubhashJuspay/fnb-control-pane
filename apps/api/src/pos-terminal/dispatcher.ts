@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@repo/db';
+import { invalidateCachePrefix } from '../cache.js';
 import { logger } from '../logger.js';
 import { ConflictError, NotFoundError } from '../errors.js';
 import { deductInventoryForTicket } from '../inventory/deduct-on-close.js';
@@ -293,6 +294,9 @@ async function captureTender(
     kind: 'TicketChanged',
     ticketId: tender.ticketId,
   });
+  // Same reasoning as the cash close path — drop analytics cache so the
+  // dashboard reflects the close immediately.
+  invalidateCachePrefix(`analytics:${tender.locationId}:`);
   logger.info(
     { tenderId: tender.id, ticketId: tender.ticketId },
     'pos-terminal: staff tender captured + ticket closed',

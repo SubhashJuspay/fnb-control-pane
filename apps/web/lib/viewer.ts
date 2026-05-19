@@ -21,6 +21,7 @@ const VIEWER_QUERY = /* GraphQL */ `
             name
             currency
             timezone
+            businessDayCutoff
           }
         }
         location {
@@ -41,6 +42,13 @@ export interface AppShellLocation {
   currency: string;
   /** IANA timezone, e.g. 'America/Los_Angeles'. Defaults to UTC if upstream returned null. */
   timezone: string;
+  /**
+   * HH:MM string; the local time at which one business day rolls over to
+   * the next. Used by the dashboard so "today" tracks the location's
+   * business day rather than the viewer's calendar day. Defaults to
+   * '04:00' to match the server default.
+   */
+  businessDayCutoff: string;
 }
 
 export interface AppShellTenant {
@@ -78,6 +86,7 @@ interface RawMembership {
       name: string;
       currency: string | null;
       timezone: string | null;
+      businessDayCutoff: string | null;
     }>;
   };
   location: { id: string; slug: string; name: string } | null;
@@ -157,6 +166,7 @@ export const loadAppShellData = cache(async (): Promise<AppShellData | null> => 
           name: loc.name,
           currency: loc.currency ?? 'USD',
           timezone: loc.timezone ?? 'UTC',
+          businessDayCutoff: loc.businessDayCutoff ?? '04:00',
         });
         seen.add(loc.id);
       }

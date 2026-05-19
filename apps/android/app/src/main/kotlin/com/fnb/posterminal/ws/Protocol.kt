@@ -34,6 +34,14 @@ sealed interface ServerMessage {
     @kotlinx.serialization.SerialName("payment_request")
     data class PaymentRequest(
         val intentId: String,
+        /**
+         * "kiosk_order" — customer ordered through the kiosk web app and is
+         * paying now; on approve, items fire to the kitchen.
+         * "staff_ticket" — cashier rang up a ticket at the POS and the
+         * kitchen already has it; the customer is paying at the counter.
+         * Drives the messaging on the result screen.
+         */
+        val kind: String? = null,
         val amountCents: Long,
         val currency: String,
         val shortNumber: Int,

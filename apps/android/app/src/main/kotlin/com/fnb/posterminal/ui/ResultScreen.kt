@@ -57,10 +57,20 @@ fun ResultScreen(
     onReprint: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // staff_ticket = cashier rang up the order and the kitchen already
+    // has it; the customer is just paying at the counter. kiosk_order =
+    // customer placed the order on the kiosk and items fire to the
+    // kitchen only after capture. Old/missing kind = treat as kiosk
+    // (older server build).
+    val isStaffTicket = result.kind == "staff_ticket"
     val visuals = when (result) {
         is LastResult.Approved -> Visuals(
             headline = "Payment approved",
-            subline = "Charge authorised — sending to kitchen",
+            subline = if (isStaffTicket) {
+                "Receipt printed · thank you"
+            } else {
+                "Charge authorised — sending to kitchen"
+            },
             icon = Icons.Outlined.Check,
             tint = SuccessGreen,
         )

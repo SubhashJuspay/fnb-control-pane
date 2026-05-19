@@ -10,12 +10,23 @@ import { ConfirmationCard } from '@/components/order/confirmation-card';
 
 interface PageProps {
   params: Promise<{ tenantSlug: string; locationSlug: string; token: string }>;
-  searchParams: Promise<{ n?: string }>;
+  searchParams: Promise<{ n?: string; table?: string | string[] }>;
+}
+
+function normalizeTableSlug(raw: string | string[] | undefined): string | null {
+  if (!raw) return null;
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  if (!first) return null;
+  const cleaned = first
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 export default async function ConfirmationPage({ params, searchParams }: PageProps) {
   const { tenantSlug, locationSlug, token } = await params;
-  const { n } = await searchParams;
+  const { n, table } = await searchParams;
   const result = await serverFetch<PublicLocationBySlugQuery>({
     query: print(PublicLocationBySlugDocument),
     variables: { tenantSlug, locationSlug, at: null },
@@ -23,6 +34,7 @@ export default async function ConfirmationPage({ params, searchParams }: PagePro
   const location = result.data?.publicLocationBySlug;
   if (!location) notFound();
   const shortNumber = n != null && /^\d+$/.test(n) ? Number.parseInt(n, 10) : null;
+  const tableSlug = normalizeTableSlug(table);
   return (
     <OrderShell
       tenantSlug={tenantSlug}
@@ -37,6 +49,7 @@ export default async function ConfirmationPage({ params, searchParams }: PagePro
         locationSlug={locationSlug}
         token={token}
         shortNumber={shortNumber}
+        tableSlug={tableSlug}
       />
     </OrderShell>
   );

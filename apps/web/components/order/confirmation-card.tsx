@@ -9,6 +9,7 @@ export interface ConfirmationCardProps {
   locationSlug: string;
   token: string;
   shortNumber?: number | null;
+  tableSlug?: string | null;
 }
 
 export function ConfirmationCard({
@@ -16,8 +17,11 @@ export function ConfirmationCard({
   locationSlug,
   token,
   shortNumber = null,
+  tableSlug = null,
 }: ConfirmationCardProps): React.JSX.Element {
-  const trackingPath = `/order/${tenantSlug}/${locationSlug}/track/${token}`;
+  const tableQuery = tableSlug ? `?table=${encodeURIComponent(tableSlug)}` : '';
+  const trackingPath = `/order/${tenantSlug}/${locationSlug}/track/${token}${tableQuery}`;
+  const menuPath = `/order/${tenantSlug}/${locationSlug}${tableQuery}`;
   const [trackingUrl, setTrackingUrl] = useState<string>(trackingPath);
 
   if (typeof window !== 'undefined') {
@@ -163,7 +167,7 @@ export function ConfirmationCard({
 
       <div className="mt-12 text-center">
         <Link
-          href={`/order/${tenantSlug}/${locationSlug}`}
+          href={menuPath}
           className="inline-flex items-center gap-2 font-bold text-primary hover:underline"
         >
           <span className="material-symbols-outlined text-[18px]">arrow_back</span>

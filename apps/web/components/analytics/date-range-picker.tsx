@@ -89,27 +89,85 @@ function noonUtc(year: number, monthIdx: number, day: number): Date {
   return new Date(Date.UTC(year, monthIdx, day, 12));
 }
 
-function todayUtcParts(): { y: number; m: number; d: number } {
-  const now = new Date();
-  return { y: now.getFullYear(), m: now.getMonth(), d: now.getDate() };
+export interface LocationClockOpt {
+  timezone: string;
+  businessDayCutoff: string;
 }
 
-export function defaultDateRange(): DateRange {
-  const t = todayUtcParts();
+/**
+ * Resolve "today's business day" for the location, returning the date
+ * components the analytics API expects (UTC noon anchor encoded by
+ * `noonUtc`).
+ *
+ * Two corrections vs the browser clock:
+ *
+ *   1. Use the location's IANA timezone, not the browser's — a viewer
+ *      anywhere on earth should see the same dashboard.
+ *   2. Apply the location's `businessDayCutoff` (e.g. 04:00 local). Local
+ *      times *before* the cutoff still belong to the previous business
+ *      day. Without this, tickets the cashier closed at 02:00 local
+ *      drift into yesterday and the "Today" dashboard reads zero.
+ *
+ * Falls back to plain browser-local components when no clock is passed,
+ * so non-dashboard callers (the analytics report pages) work unchanged.
+ */
+function todayBusinessDayParts(
+  clock?: LocationClockOpt,
+): { y: number; m: number; d: number } {
+  const now = new Date();
+  if (!clock) {
+    return { y: now.getFullYear(), m: now.getMonth(), d: now.getDate() };
+  }
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: clock.timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (type: string): number =>
+    Number(parts.find((p) => p.type === type)?.value ?? 0);
+  let y = get('year');
+  let m = get('month');
+  let d = get('day');
+  const hh = get('hour');
+  const mm = get('minute');
+
+  const [cutH, cutM] = clock.businessDayCutoff
+    .split(':')
+    .map((p) => Number.parseInt(p, 10));
+  const cutoffMinutes = (cutH ?? 0) * 60 + (cutM ?? 0);
+  const nowMinutes = hh * 60 + mm;
+  if (nowMinutes < cutoffMinutes) {
+    // Still before the cutoff → roll back one calendar day.
+    const prev = new Date(Date.UTC(y, m - 1, d));
+    prev.setUTCDate(prev.getUTCDate() - 1);
+    y = prev.getUTCFullYear();
+    m = prev.getUTCMonth() + 1;
+    d = prev.getUTCDate();
+  }
+  return { y, m: m - 1, d };
+}
+
+export function defaultDateRange(clock?: LocationClockOpt): DateRange {
+  const t = todayBusinessDayParts(clock);
   const to = noonUtc(t.y, t.m, t.d);
   const from = new Date(to);
   from.setUTCDate(from.getUTCDate() - 6); // last 7 calendar days inclusive
   return { from, to };
 }
 
-export function todayRange(): DateRange {
-  const t = todayUtcParts();
+export function todayRange(clock?: LocationClockOpt): DateRange {
+  const t = todayBusinessDayParts(clock);
   const day = noonUtc(t.y, t.m, t.d);
   return { from: day, to: day };
 }
 
-export function lastNDaysRange(n: number): DateRange {
-  const t = todayUtcParts();
+export function lastNDaysRange(n: number, clock?: LocationClockOpt): DateRange {
+  const t = todayBusinessDayParts(clock);
   const to = noonUtc(t.y, t.m, t.d);
   const from = new Date(to);
   from.setUTCDate(from.getUTCDate() - (n - 1));

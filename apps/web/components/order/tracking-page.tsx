@@ -11,6 +11,7 @@ export interface TrackingPageProps {
   currency: string;
   tenantSlug: string;
   locationSlug: string;
+  tableSlug?: string | null;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -60,7 +61,14 @@ export function TrackingPage({
   currency,
   tenantSlug,
   locationSlug,
+  tableSlug = null,
 }: TrackingPageProps): React.JSX.Element {
+  // Preserve the dine-in table the customer originally scanned. Without
+  // this, "Back to menu" drops them onto the generic location landing
+  // page and the next order would not be tied to their table.
+  const menuHref = tableSlug
+    ? `/order/${tenantSlug}/${locationSlug}?table=${encodeURIComponent(tableSlug)}`
+    : `/order/${tenantSlug}/${locationSlug}`;
   const [{ data, fetching, error }, refetch] = useQuery({
     query: TrackOnlineOrderDocument,
     variables: { token },
@@ -319,7 +327,7 @@ export function TrackingPage({
             <p className="max-w-sm text-center text-body-staff text-on-surface-variant">
               Need help with your order?{' '}
               <Link
-                href={`/order/${tenantSlug}/${locationSlug}`}
+                href={menuHref}
                 className="font-bold text-primary underline decoration-2 underline-offset-4 hover:text-on-primary-fixed-variant"
               >
                 Back to menu

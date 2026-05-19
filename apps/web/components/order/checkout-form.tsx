@@ -155,7 +155,13 @@ export function CheckoutForm({
     }
     clear();
     const shortNumber = submitted?.shortNumber;
-    const search = shortNumber != null ? `?n=${shortNumber}` : '';
+    // Preserve ?table= through confirmation + tracking so the customer's
+    // "Back to menu" link returns them to the same table-scanned menu
+    // they came from instead of the generic location landing page.
+    const params = new URLSearchParams();
+    if (shortNumber != null) params.set('n', String(shortNumber));
+    if (tableSlug) params.set('table', tableSlug);
+    const search = params.toString() ? `?${params.toString()}` : '';
     router.push(`/order/${tenantSlug}/${locationSlug}/confirmation/${token}${search}`);
   };
 

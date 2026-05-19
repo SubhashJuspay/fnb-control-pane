@@ -1,6 +1,7 @@
 import { closeTicketSchema } from '@repo/validation/ticket';
 import { z } from 'zod';
 import { writeAudit } from '../../../audit.js';
+import { invalidateCachePrefix } from '../../../cache.js';
 import type { RequestContext } from '../../../context.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../../errors.js';
 import { completeReservationAfterClose } from '../../../floor/post-close.js';
@@ -245,6 +246,10 @@ export async function resolveCloseTicket(
     kind: 'TicketChanged',
     ticketId: updated.id,
   });
+  // Drop the analytics TTL cache for this location so the dashboard's
+  // sales summary, hourly mix, etc. reflect the close immediately rather
+  // than waiting up to ANALYTICS_TTL_MS for the entries to expire.
+  invalidateCachePrefix(`analytics:${locationId}:`);
   return updated;
 }
 

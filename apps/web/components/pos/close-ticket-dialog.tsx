@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from 'urql';
@@ -136,6 +136,15 @@ export function CloseTicketDialog({
    */
   const [pendingTenderId, setPendingTenderId] = useState<string | null>(null);
 
+  /**
+   * Handle for the "close dialog after success" timeout. The dialog stays
+   * mounted across open/close cycles, so a setTimeout scheduled while
+   * confirming ticket #1 could fire AFTER the cashier has already opened
+   * the dialog for ticket #2 — closing ticket #2's dialog prematurely.
+   * Tracking the handle in a ref lets us clear it on reset.
+   */
+  const successCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [{ data: tenderData }, reexecuteTender] = useQuery({
     query: TenderDocument,
     variables: { id: pendingTenderId ?? '' },
@@ -157,6 +166,14 @@ export function CloseTicketDialog({
 
   useEffect(() => {
     if (open) {
+      // Cancel any "auto-close after success" timeout from a previous
+      // transaction. Without this, ticket #1's 700ms close-timer can
+      // fire after the cashier has opened the dialog for ticket #2 and
+      // close the new dialog before the customer has even tapped.
+      if (successCloseTimeoutRef.current) {
+        clearTimeout(successCloseTimeoutRef.current);
+        successCloseTimeoutRef.current = null;
+      }
       reset({ closeNote: undefined });
       setTip({ kind: 'preset', pct: 0 });
       setCustomDollars('');
@@ -167,6 +184,16 @@ export function CloseTicketDialog({
       setPendingTenderId(null);
     }
   }, [open, reset]);
+
+  // Unmount cleanup — kill any in-flight close timer.
+  useEffect(() => {
+    return () => {
+      if (successCloseTimeoutRef.current) {
+        clearTimeout(successCloseTimeoutRef.current);
+        successCloseTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Poll the pending tender every 1.5s until it settles. The dispatcher's
   // 60s auto-expire keeps this from hanging forever even if the terminal
@@ -190,7 +217,13 @@ export function CloseTicketDialog({
     if (tenderStatus === TenderStatus.Captured) {
       setPhase('confirmed');
       toast.success(`Payment received — ${ticketLabel} closed`);
-      setTimeout(() => {
+      // Track the handle so the reset effect can cancel it if the
+      // cashier reopens the dialog before this fires.
+      if (successCloseTimeoutRef.current) {
+        clearTimeout(successCloseTimeoutRef.current);
+      }
+      successCloseTimeoutRef.current = setTimeout(() => {
+        successCloseTimeoutRef.current = null;
         setPendingTenderId(null);
         onClosed();
       }, 700);
@@ -282,7 +315,13 @@ export function CloseTicketDialog({
     }
     setPhase('confirmed');
     toast.success(`Payment received — ${ticketLabel} closed`);
-    setTimeout(() => onClosed(), 700);
+    if (successCloseTimeoutRef.current) {
+      clearTimeout(successCloseTimeoutRef.current);
+    }
+    successCloseTimeoutRef.current = setTimeout(() => {
+      successCloseTimeoutRef.current = null;
+      onClosed();
+    }, 700);
   });
 
   const paymentLabel = PAYMENT_OPTIONS.find((p) => p.key === paymentMethod)?.label ?? '';

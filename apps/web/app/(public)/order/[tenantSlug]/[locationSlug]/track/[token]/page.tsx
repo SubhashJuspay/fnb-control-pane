@@ -10,10 +10,24 @@ import { TrackingPage } from '@/components/order/tracking-page';
 
 interface PageProps {
   params: Promise<{ tenantSlug: string; locationSlug: string; token: string }>;
+  searchParams: Promise<{ table?: string | string[] }>;
 }
 
-export default async function TrackPage({ params }: PageProps) {
+function normalizeTableSlug(raw: string | string[] | undefined): string | null {
+  if (!raw) return null;
+  const first = Array.isArray(raw) ? raw[0] : raw;
+  if (!first) return null;
+  const cleaned = first
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+export default async function TrackPage({ params, searchParams }: PageProps) {
   const { tenantSlug, locationSlug, token } = await params;
+  const { table } = await searchParams;
+  const tableSlug = normalizeTableSlug(table);
   const result = await serverFetch<PublicLocationBySlugQuery>({
     query: print(PublicLocationBySlugDocument),
     variables: { tenantSlug, locationSlug, at: null },
@@ -35,6 +49,7 @@ export default async function TrackPage({ params }: PageProps) {
         currency={currency}
         tenantSlug={tenantSlug}
         locationSlug={locationSlug}
+        tableSlug={tableSlug}
       />
     </OrderShell>
   );
