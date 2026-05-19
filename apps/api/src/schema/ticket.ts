@@ -380,6 +380,10 @@ export const TicketRef = builder.prismaObject('Ticket', {
       authScopes: { staff: true },
       nullable: true,
     }),
+    tenders: t.relation('tenders', {
+      authScopes: { staff: true },
+      query: { orderBy: { processedAt: 'asc' } },
+    }),
     isLive: t.field({
       type: 'Boolean',
       authScopes: { staff: true },

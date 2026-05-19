@@ -6,6 +6,7 @@ import './close-ticket.js';
 import './reopen-ticket.js';
 import './refund-ticket.js';
 import './process-card-payment-at-terminal.js';
+import './prepay-ticket.js';
 import './void-ticket.js';
 import './add-ticket-item.js';
 import './update-ticket-item.js';

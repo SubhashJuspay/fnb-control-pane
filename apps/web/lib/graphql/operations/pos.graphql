@@ -65,6 +65,13 @@ query Ticket($id: UUID!) {
       paymentMode
       paymentStatus
     }
+    tenders {
+      id
+      status
+      method
+      amountCents
+      tipCents
+    }
     items {
       id
       status
@@ -250,6 +257,26 @@ mutation CloseTicket($input: CloseTicketInput!) {
     status
     totalCents
     closeNote
+  }
+}
+
+mutation PrepayTicket($input: PrepayTicketInput!) {
+  prepayTicket(input: $input) {
+    id
+    status
+    totalCents
+    tipCents
+    tenders {
+      id
+      status
+      method
+      amountCents
+      tipCents
+    }
+    items {
+      id
+      status
+    }
   }
 }
 

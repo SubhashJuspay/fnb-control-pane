@@ -334,16 +334,16 @@ export function CloseTicketDialog({
 
   const paymentLabel = PAYMENT_OPTIONS.find((p) => p.key === paymentMethod)?.label ?? '';
 
-  // Prepaid branch: customer already paid via kiosk. Skip tip + tender
-  // picker entirely so the cashier doesn't double-charge. closeTicket
-  // (no payment) is enough — capturePayment has already written a
-  // CAPTURED Tender server-side.
+  // Prepaid branch: customer already paid via kiosk or counter prepay.
+  // Skip tip + tender picker entirely so the cashier doesn't double-
+  // charge. The captured tender + the tip already stamped on the ticket
+  // (by capturePayment / prepayTicket) are preserved — closeTicket
+  // falls back to the existing tip when the input omits it.
   const closePrepaid = async (closeNote?: string | null): Promise<void> => {
     const result = await closeTicket({
       input: {
         ticketId,
         closeNote: closeNote ?? null,
-        tipCents: 0,
       },
     });
     if (result.error) {

@@ -810,6 +810,10 @@ type Mutation {
   openTicket(input: OpenTicketInput!): Ticket
   openTicketAtTable(input: OpenTicketAtTableInput!): Ticket
   """
+  Capture payment for an OPEN ticket and fire its NEW items to the kitchen without closing the ticket. Used at counter-service spots where the cashier charges before the food is made. The ticket stays OPEN; close it later via closeTicket once the order is served.
+  """
+  prepayTicket(input: PrepayTicketInput!): Ticket
+  """
   Create a PENDING card tender for the ticket and dispatch it to the paired POS terminal. The terminal returns APPROVED/DECLINED via WS which captures or declines the tender (and closes the ticket on capture). Hard fails when no terminal is online.
   """
   processCardPaymentAtTerminal(input: ProcessCardPaymentAtTerminalInput!): ProcessCardPaymentAtTerminalResult
@@ -1060,6 +1064,19 @@ type PageInfo {
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
   startCursor: String
+}
+
+input PrepayTenderInput {
+  amountCents: Int!
+  method: TenderMethod!
+  tenderedCents: Int
+  tipCents: Int
+}
+
+input PrepayTicketInput {
+  closeNote: String
+  tenders: [PrepayTenderInput!]!
+  ticketId: UUID!
 }
 
 input ProcessCardPaymentAtTerminalInput {
@@ -1934,6 +1951,7 @@ type Ticket {
   subtotalCents: Int
   table: Table
   taxCents: Int
+  tenders: [Tender!]!
   tipCents: Int
   totalCents: Int
   voidReason: String

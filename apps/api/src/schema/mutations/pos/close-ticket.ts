@@ -151,7 +151,17 @@ export async function resolveCloseTicket(
   );
 
   const totals = computeCloseTicketTotals({ items: itemsWithRate, discounts });
-  const tipCents = Math.max(0, input.tipCents ?? 0);
+  // Prefer the caller-supplied tip, but fall back to whatever's already
+  // stamped on the ticket. The prepay flow captures a tip up front and
+  // writes it to `ticket.tipCents`; if the close caller didn't pass one
+  // explicitly we shouldn't zero it out on close.
+  const existingTipCents = await ctx.prisma.ticket
+    .findUnique({ where: { id: ticket.id }, select: { tipCents: true } })
+    .then((row) => row?.tipCents ?? 0);
+  const tipCents = Math.max(
+    0,
+    input.tipCents != null ? input.tipCents : existingTipCents,
+  );
   // Loyalty: 1 point per whole dollar of net sales (subtotal − discount).
   // Tax + tip are excluded so the rate matches what most operators expect.
   const netCents = Math.max(0, totals.subtotalCents - totals.discountCents);

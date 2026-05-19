@@ -30,6 +30,7 @@ import { CloseTicketDialog } from './close-ticket-dialog';
 import { DiscountDialog } from './discount-dialog';
 import { LineRow } from './line-row';
 import { ModifierPicker } from './modifier-picker';
+import { PrepayTicketDialog } from './prepay-ticket-dialog';
 import { TotalsBlock } from './totals-block';
 import { VoidLineDialog } from './void-line-dialog';
 import { VoidTicketDialog } from './void-ticket-dialog';
@@ -119,6 +120,7 @@ export function ActiveTicketPanel({
     | null
   >(null);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [prepayOpen, setPrepayOpen] = useState(false);
   const [voidTicketOpen, setVoidTicketOpen] = useState(false);
   const [guestPickerOpen, setGuestPickerOpen] = useState(false);
 
@@ -159,6 +161,18 @@ export function ActiveTicketPanel({
   const hasNew = items.some((i) => i.status === TicketItemStatus.New);
   const readyItems = items.filter((i) => i.status === TicketItemStatus.Ready);
   const ticketLabel = `#${ticket.shortNumber ?? '—'}`;
+  // Two paths to "already paid":
+  //   - kiosk QR flow: the OnlineOrderRequest carries PAY_AT_KIOSK +
+  //     CAPTURED after the terminal callback fires.
+  //   - cashier prepay (counter-service): the new prepayTicket
+  //     mutation writes a CAPTURED Tender directly to the ticket.
+  // Both paths get the same prepaid UI treatment.
+  const hasCapturedTender =
+    ticket.tenders?.some((t) => t?.status === 'CAPTURED') ?? false;
+  const isPrepaid =
+    hasCapturedTender ||
+    (ticket.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
+      ticket.onlineRequest?.paymentStatus === 'CAPTURED');
   // Build the "why can't I close?" hint when the close button is disabled,
   // so the cashier sees the gating reason inline instead of having to hover
   // the disabled button to read a browser tooltip.
@@ -301,19 +315,20 @@ export function ActiveTicketPanel({
                 Table {ticket.table.label}
               </span>
             ) : null}
-            {/* Prepaid badge. Most kiosk orders carry an OnlineOrderRequest
-                with paymentMode=PAY_AT_KIOSK + paymentStatus=CAPTURED — the
-                customer already swiped at the terminal. Surfacing it here
-                means the cashier knows at a glance not to ask for cash or
-                run another card when serving the food + closing the tab. */}
-            {ticket.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
-            ticket.onlineRequest?.paymentStatus === 'CAPTURED' ? (
+            {/* Prepaid badge. Two paths land here — kiosk QR flow
+                (paymentMode=PAY_AT_KIOSK on the OnlineOrderRequest) and
+                cashier prepay (a CAPTURED Tender written by the new
+                prepayTicket mutation). Either way the staff shouldn't
+                be asked for another payment on close. */}
+            {isPrepaid ? (
               <span
                 data-testid="ticket-prepaid-badge"
                 className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 font-status-pill text-status-pill uppercase tracking-wider text-emerald-700 dark:text-emerald-300"
               >
                 <span aria-hidden>●</span>
-                Paid at kiosk
+                {ticket.onlineRequest?.paymentMode === 'PAY_AT_KIOSK'
+                  ? 'Paid at kiosk'
+                  : 'Paid'}
               </span>
             ) : null}
             {anyPending ? (
@@ -482,6 +497,23 @@ export function ActiveTicketPanel({
       <div className="flex flex-wrap items-center gap-2 border-t border-outline-variant bg-surface-container-low p-card-padding">
         {isOpen ? (
           <>
+            {/* Counter-service "pay first" entry point. Only useful
+                while the ticket still has items to charge for and
+                hasn't already been paid (kiosk path or earlier prepay).
+                Clicking opens the prepay dialog; on success the server
+                captures payment and auto-fires the order, so we don't
+                also need the "Fire all" button — they're the same
+                action with payment attached. */}
+            {!isPrepaid && items.length > 0 ? (
+              <Button
+                type="button"
+                onClick={() => setPrepayOpen(true)}
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                data-testid="charge-and-fire"
+              >
+                Charge &amp; fire
+              </Button>
+            ) : null}
             {hasNew ? (
               <Button
                 type="button"
@@ -609,21 +641,29 @@ export function ActiveTicketPanel({
         />
       ) : null}
 
+      <PrepayTicketDialog
+        open={prepayOpen}
+        onOpenChange={setPrepayOpen}
+        ticketId={ticketId}
+        ticketLabel={ticketLabel}
+        totalCents={ticket.totalCents ?? 0}
+        onPrepaid={() => {
+          setPrepayOpen(false);
+          refresh();
+        }}
+      />
       <CloseTicketDialog
         open={closeOpen}
         onOpenChange={setCloseOpen}
         ticketId={ticketId}
         ticketLabel={ticketLabel}
         totalCents={ticket.totalCents ?? 0}
-        // Kiosk-paid orders carry their charge through the OnlineOrderRequest
-        // (set to PAY_AT_KIOSK + CAPTURED by the terminal callback). When the
-        // ticket reaches this panel already paid, the dialog shows a
-        // simplified "prepaid — just close" UI instead of asking the cashier
-        // to pick a payment method (which would create a duplicate tender).
-        isPrepaid={
-          ticket.onlineRequest?.paymentMode === 'PAY_AT_KIOSK' &&
-          ticket.onlineRequest?.paymentStatus === 'CAPTURED'
-        }
+        // Paid tickets — kiosk QR flow OR cashier prepay (counter
+        // service) — render the simplified "already paid — just close"
+        // path instead of asking the cashier to pick a payment method,
+        // which would create a duplicate tender. See `isPrepaid`
+        // derivation at the top of this component.
+        isPrepaid={isPrepaid}
         onClosed={() => {
           setCloseOpen(false);
           refresh();
