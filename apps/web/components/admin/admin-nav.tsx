@@ -14,6 +14,10 @@ interface NavTab {
   matches: (path: string, slug: string) => boolean;
 }
 
+// Tabs visible on the tenant-admin page. Mirrors the Admin group in the
+// sidebar — Staff / Job roles tabs are hidden (the routes still exist but
+// aren't surfaced anywhere). Catalog moved to the per-location Setup group
+// since the user thinks of it as store config.
 const TABS: NavTab[] = [
   {
     href: (slug) => `/${slug}/admin/members`,
@@ -21,24 +25,9 @@ const TABS: NavTab[] = [
     matches: (path, slug) => path.startsWith(`/${slug}/admin/members`),
   },
   {
-    href: (slug) => `/${slug}/admin/staff`,
-    label: 'Staff',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/staff`),
-  },
-  {
-    href: (slug) => `/${slug}/admin/job-roles`,
-    label: 'Job roles',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/job-roles`),
-  },
-  {
     href: (slug) => `/${slug}/admin/locations`,
     label: 'Locations',
     matches: (path, slug) => path.startsWith(`/${slug}/admin/locations`),
-  },
-  {
-    href: (slug) => `/${slug}/admin/catalog`,
-    label: 'Catalog',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/catalog`),
   },
   {
     href: (slug) => `/${slug}/admin/audit-log`,

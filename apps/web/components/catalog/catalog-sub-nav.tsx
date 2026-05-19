@@ -6,52 +6,46 @@ import { cn } from '@repo/ui';
 
 interface CatalogSubNavProps {
   tenantSlug: string;
+  /**
+   * Base URL the sub-tabs link under. Catalog can be reached two ways:
+   *   - `/[tenant]/admin/catalog/*` (tenant-admin entry)
+   *   - `/[tenant]/[loc]/catalog/*` (per-store Setup entry)
+   * Pass the appropriate base so the active-tab match logic uses the
+   * route the user actually came in through.
+   */
+  basePath: string;
 }
 
 interface Tab {
-  href: (slug: string) => string;
+  slug: 'items' | 'modifiers' | 'categories' | 'taxes';
   label: string;
-  matches: (path: string, slug: string) => boolean;
 }
 
 const TABS: Tab[] = [
-  {
-    href: (slug) => `/${slug}/admin/catalog/items`,
-    label: 'Items',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/catalog/items`),
-  },
-  {
-    href: (slug) => `/${slug}/admin/catalog/modifiers`,
-    label: 'Modifiers',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/catalog/modifiers`),
-  },
-  {
-    href: (slug) => `/${slug}/admin/catalog/categories`,
-    label: 'Categories',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/catalog/categories`),
-  },
-  {
-    href: (slug) => `/${slug}/admin/catalog/taxes`,
-    label: 'Taxes',
-    matches: (path, slug) => path.startsWith(`/${slug}/admin/catalog/taxes`),
-  },
+  { slug: 'items', label: 'Items' },
+  { slug: 'modifiers', label: 'Modifiers' },
+  { slug: 'categories', label: 'Categories' },
+  { slug: 'taxes', label: 'Taxes' },
 ];
 
 /**
- * Sub-tab strip for the catalog admin section. Mirrors the visual style of
- * AdminNav but lives one level deeper.
+ * Sub-tab strip for the catalog section. Lives under either the admin or
+ * the per-location route — see [basePath].
  */
-export function CatalogSubNav({ tenantSlug }: CatalogSubNavProps): React.JSX.Element {
+export function CatalogSubNav({
+  basePath,
+}: CatalogSubNavProps): React.JSX.Element {
   const pathname = usePathname() ?? '';
   return (
     <nav aria-label="Catalog sections" className="border-b">
       <ul className="flex gap-2 -mb-px">
         {TABS.map((tab) => {
-          const active = tab.matches(pathname, tenantSlug);
+          const href = `${basePath}/${tab.slug}`;
+          const active = pathname.startsWith(href);
           return (
             <li key={tab.label}>
               <Link
-                href={tab.href(tenantSlug)}
+                href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'inline-flex h-9 items-center px-3 text-sm font-medium border-b-2 transition-colors',

@@ -114,13 +114,15 @@ export function Sidebar({ tenants }: SidebarProps) {
       groups.push({
         label: 'Setup',
         items: [
-          // Catalog is store-specific — sits in Setup alongside the other
-          // per-location config rather than the tenant-wide Admin group.
+          // Catalog is mounted inside the per-location route so opening it
+          // from Setup doesn't yank the sidebar into the tenant-admin
+          // context. The underlying data is still tenant-scoped (shared
+          // across locations); only the URL shape changes.
           {
-            href: `/${tenantSlug}/admin/catalog`,
+            href: `${base}/catalog/items`,
             label: 'Catalog',
             icon: 'menu_book',
-            matches: (p) => p.startsWith(`/${tenantSlug}/admin/catalog`),
+            matches: startsWith('catalog'),
           },
           {
             href: `${base}/settings/tip-pool`,

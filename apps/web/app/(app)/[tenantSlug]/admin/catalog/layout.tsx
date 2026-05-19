@@ -25,7 +25,10 @@ export default async function CatalogLayout({
   }
   return (
     <div className="flex flex-col gap-4">
-      <CatalogSubNav tenantSlug={tenantSlug} />
+      <CatalogSubNav
+        tenantSlug={tenantSlug}
+        basePath={`/${tenantSlug}/admin/catalog`}
+      />
       <div className="flex flex-col gap-6">{children}</div>
     </div>
   );
