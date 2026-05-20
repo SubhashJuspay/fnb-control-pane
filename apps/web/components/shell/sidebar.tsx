@@ -194,8 +194,13 @@ export function Sidebar({ tenants }: SidebarProps) {
     // mode. Uses --m3-on-secondary-fixed (#131b2e) which is the same value in
     // both palettes, matching the "persistent Navy sidebar" guidance from the
     // design ref.
+    // Visible whenever the AppShell toggles us in. On lg+ we sit in the
+    // shell's flex row and push content right; below lg (iPad portrait,
+    // phones) we float as a fixed overlay so the dashboard and POS
+    // panels don't get squeezed when the cashier opens the sidebar to
+    // navigate. The backdrop on those small screens lives in app-shell.
     <aside
-      className="hidden w-60 shrink-0 flex-col lg:flex"
+      className="fixed inset-y-0 left-0 z-50 flex w-60 shrink-0 flex-col lg:static lg:z-auto"
       style={{ backgroundColor: '#131b2e', color: '#e4e1ee' }}
     >
       <div

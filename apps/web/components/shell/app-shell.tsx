@@ -66,7 +66,20 @@ export function AppShell({ viewer, tenants, children }: AppShellProps) {
     // ticket history, etc.). min-h-0 on main is the standard flex-column
     // companion that lets overflow actually clip instead of growing.
     <div className="flex h-screen w-full bg-background">
-      {sidebarOpen ? <Sidebar tenants={tenants} /> : null}
+      {sidebarOpen ? (
+        <>
+          {/* Tap-anywhere-to-close backdrop, only on screens where the
+              sidebar floats over content (below lg). At lg+ the sidebar
+              sits in the flex row, so a backdrop would be wrong. */}
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            onClick={onToggleSidebar}
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          />
+          <Sidebar tenants={tenants} />
+        </>
+      ) : null}
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar
           viewer={viewer}

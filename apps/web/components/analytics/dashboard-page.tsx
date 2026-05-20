@@ -248,7 +248,7 @@ export function DashboardPage(): React.JSX.Element {
         <h2 className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
           Right now
         </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Link href={`${base}/pos`} className="contents">
             <LiveTile
               label="Open tickets"
@@ -317,7 +317,7 @@ export function DashboardPage(): React.JSX.Element {
         <h2 className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
           Today vs same weekday last week
         </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
           <KpiCard
             label="Net sales today"
             value={formatMoney(today?.netSalesCents ?? 0, currency)}

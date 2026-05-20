@@ -48,6 +48,15 @@ interface ActiveTicketPanelProps {
    * doesn't surface a Forbidden toast for every staff click.
    */
   canManagerActions: boolean;
+  /**
+   * When provided, renders a back button in the header that's only
+   * visible below lg. On iPad / phones the panel takes the full right
+   * pane (the menu grid is hidden), so the cashier needs a way to get
+   * back to the menu — clicking back clears the active ticket id and
+   * the workspace flips back to browse mode. Above lg the panel sits
+   * next to the menu grid, so the button stays hidden there.
+   */
+  onClose?: () => void;
 }
 
 const ORDER_TYPE_LABEL: Record<OrderType, string> = {
@@ -78,6 +87,7 @@ export function ActiveTicketPanel({
   ticketId,
   onTicketClosed,
   canManagerActions,
+  onClose,
 }: ActiveTicketPanelProps): React.JSX.Element {
   const [{ data, fetching, error }, refetch] = useQuery({
     query: TicketDocument,
@@ -300,6 +310,22 @@ export function ActiveTicketPanel({
       <header className="flex flex-col gap-3 border-b border-outline-variant bg-surface-container-lowest p-6">
         <div className="flex items-start justify-between gap-2">
           <h2 className="flex flex-wrap items-center gap-2 font-display text-headline-md font-bold text-on-surface">
+            {/* Back-to-menu button — only meaningful below lg, where
+                this panel hides the menu grid. Above lg the menu sits
+                next to us so the button is dead weight. */}
+            {onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Back to menu"
+                data-testid="ticket-back-to-menu"
+                className="-ml-1 inline-flex size-8 items-center justify-center rounded-md text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface lg:hidden"
+              >
+                <span aria-hidden className="material-symbols-outlined text-[20px]">
+                  arrow_back
+                </span>
+              </button>
+            ) : null}
             <span className="font-label-caps text-label-caps uppercase tracking-wider text-on-surface-variant">
               Ticket{' '}
             </span>
