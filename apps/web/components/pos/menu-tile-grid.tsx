@@ -27,6 +27,13 @@ interface MenuTileGridProps {
    * is unchanged.
    */
   onItemAdded?: () => void;
+  /**
+   * Renders tiles as a single-column list below lg (still a normal
+   * multi-column grid at lg+). Used by the POS workspace when a ticket
+   * is selected on tablet — the menu shares the pane with the active-
+   * ticket panel, so each column has to be narrow enough to read.
+   */
+  compact?: boolean;
 }
 
 const PAGE_SIZE = 250;
@@ -72,6 +79,7 @@ function isUsableImageUrl(url: string | null | undefined): url is string {
 export function MenuTileGrid({
   activeTicketId,
   onItemAdded,
+  compact = false,
 }: MenuTileGridProps): React.JSX.Element {
   const currency = useLocationCurrency();
   const [{ data, fetching, error }] = useQuery({
@@ -319,7 +327,18 @@ export function MenuTileGrid({
                     {section.name}
                   </h3>
                 ) : null}
-                <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+                <div
+                  className={[
+                    'grid gap-3',
+                    // Compact (ticket selected on tablet): single column
+                    // below lg, then expand at lg+ where the pane is wide
+                    // again. Default: 2-col grid below lg, scaling up at
+                    // lg / xl as before.
+                    compact
+                      ? 'grid-cols-1 lg:grid-cols-3 xl:grid-cols-4'
+                      : 'grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+                  ].join(' ')}
+                >
                   {section.items.map((item) => (
                     <Tile
                       key={item.id ?? ''}
@@ -331,6 +350,7 @@ export function MenuTileGrid({
                         item.category?.id ? (colorByCategory.get(item.category.id) ?? 0) : 9
                       }
                       onTap={() => void onTileTap(item)}
+                      compact={compact}
                     />
                   ))}
                 </div>
@@ -384,6 +404,11 @@ interface TileProps {
   pending?: boolean;
   paletteIndex: number;
   onTap: () => void;
+  /** Renders the row-style compact tile below lg (used by the POS
+   *  workspace when a ticket is selected on tablet — the menu shares
+   *  the pane with the active-ticket panel and tall image tiles don't
+   *  fit). At lg+ the regular image tile renders regardless. */
+  compact?: boolean;
 }
 
 function Tile({
@@ -393,9 +418,25 @@ function Tile({
   pending = false,
   paletteIndex,
   onTap,
+  compact = false,
 }: TileProps): React.JSX.Element {
   const gradient = gradientAt(paletteIndex);
   const hasImage = isUsableImageUrl(item.imageUrl);
+  // Wrapper classes are the same for both layouts; the inner layout
+  // diverges so the compact row hides the image / shows a swatch.
+  const wrapperClass = [
+    'group relative overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm transition-all',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+    disabled
+      ? 'cursor-not-allowed opacity-60'
+      : 'cursor-pointer hover:shadow-md active:scale-[0.97]',
+    pending ? 'ring-2 ring-primary' : '',
+    // Image-tile layout at lg+ always; compact row only below lg when
+    // the prop is set. Two different display modes via responsive
+    // utilities so the SAME DOM serves both layouts.
+    compact ? 'flex flex-row items-center lg:flex-col lg:items-stretch' : 'flex flex-col',
+  ].join(' ');
+
   return (
     <button
       type="button"
@@ -405,14 +446,7 @@ function Tile({
       data-pending={pending ? 'true' : undefined}
       aria-label={item.name ?? undefined}
       aria-busy={pending}
-      className={[
-        'group relative flex flex-col overflow-hidden rounded-xl bg-surface-container-lowest text-left shadow-sm transition-all',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
-        disabled
-          ? 'cursor-not-allowed opacity-60'
-          : 'cursor-pointer hover:shadow-md active:scale-[0.97]',
-        pending ? 'ring-2 ring-primary' : '',
-      ].join(' ')}
+      className={wrapperClass}
     >
       {pending ? (
         <span
@@ -425,7 +459,18 @@ function Tile({
           </span>
         </span>
       ) : null}
-      <div className="relative h-32 overflow-hidden">
+      {/* Image area — full hero on the regular tile, narrow leading
+          swatch on the compact row. Hidden completely below lg in
+          compact mode if there's no image (the colour swatch handles
+          it). */}
+      <div
+        className={[
+          'relative overflow-hidden',
+          compact
+            ? 'h-16 w-16 shrink-0 rounded-l-xl lg:h-32 lg:w-auto lg:rounded-none'
+            : 'h-32',
+        ].join(' ')}
+      >
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -439,18 +484,38 @@ function Tile({
             aria-hidden
             className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${gradient}`}
           >
-            <span className="material-symbols-outlined text-[36px] text-white/95">
+            <span
+              className={[
+                'material-symbols-outlined text-white/95',
+                compact ? 'text-[20px] lg:text-[36px]' : 'text-[36px]',
+              ].join(' ')}
+            >
               restaurant
             </span>
           </span>
         )}
-        <span className="absolute right-2 top-2 rounded bg-white/90 px-2 py-1 font-status-pill text-[10px] font-bold text-primary shadow-sm backdrop-blur">
+        {/* Price badge floats over the image on the standard tile, but
+            in the compact row it lives in the text column to keep the
+            row layout tidy. Hide the badge below lg when compact. */}
+        <span
+          className={[
+            'absolute right-2 top-2 rounded bg-white/90 px-2 py-1 font-status-pill text-[10px] font-bold text-primary shadow-sm backdrop-blur',
+            compact ? 'hidden lg:inline-block' : '',
+          ].join(' ')}
+        >
           {formatMoney(item.basePriceCents ?? 0, currency)}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-1 p-3">
+      <div
+        className={[
+          'flex flex-col gap-1',
+          compact ? 'min-w-0 flex-1 p-2 lg:p-3' : 'flex-1 p-3',
+        ].join(' ')}
+      >
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-body-staff font-bold text-on-surface">{item.name}</h3>
+          <h3 className="truncate text-body-staff font-bold text-on-surface">
+            {item.name}
+          </h3>
           {(item.modifierGroups?.length ?? 0) > 0 ? (
             <span
               aria-hidden
@@ -459,6 +524,13 @@ function Tile({
             />
           ) : null}
         </div>
+        {/* Compact row shows the price inline; standard tile keeps it
+            on the image badge above (hidden in this column below lg). */}
+        {compact ? (
+          <p className="text-[11px] font-bold tabular-nums text-primary lg:hidden">
+            {formatMoney(item.basePriceCents ?? 0, currency)}
+          </p>
+        ) : null}
         {item.shortDescription ? (
           <p className="line-clamp-1 text-[10px] text-on-surface-variant">
             {item.shortDescription}

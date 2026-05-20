@@ -91,24 +91,33 @@ export function PosWorkspace({
           refetchOpenTickets({ requestPolicy: 'network-only' });
         }}
       />
-      {/* Two layouts on top of the same DOM:
-            - lg+ (desktop): menu grid + active-ticket side rail, both
-              visible side by side as before.
-            - below lg (iPad portrait, phones): the active ticket panel
-              and the menu grid swap into the right pane. Without a
-              ticket selected the menu grid takes the space; selecting
-              a ticket hides the menu grid and lets the panel fill the
-              remaining width. Cashier returns to the menu by clearing
-              the active ticket (back button on the panel header). */}
+      {/* Layout strategy (both panels always visible when a ticket is
+          open — the cashier needs the menu to keep adding lines):
+            - lg+ (desktop): menu grid (flex-1) + 360px active-ticket
+              side rail. Tile grid renders 3-4 columns.
+            - below lg (iPad portrait, phones), no ticket selected:
+              menu grid takes the whole right pane (flex-1, 2-col grid)
+              and the side rail is hidden.
+            - below lg, ticket selected: menu narrows to a compact
+              single-column list (~260px) and the active-ticket panel
+              fills the remaining width. The cashier can still tap
+              tiles to add lines while reviewing/closing the ticket. */}
       <main className="flex flex-1 flex-row overflow-hidden">
         <div
           className={[
-            'flex-col overflow-hidden',
-            activeTicketId ? 'hidden lg:flex lg:flex-1' : 'flex flex-1',
+            'flex flex-col overflow-hidden',
+            activeTicketId
+              ? 'w-[260px] shrink-0 lg:w-auto lg:flex-1'
+              : 'flex-1',
           ].join(' ')}
         >
           <MenuTileGrid
             activeTicketId={activeTicketId}
+            // When a ticket is selected the menu shares the pane with
+            // the active-ticket panel — render tiles as a single-column
+            // list below lg so they still fit. At lg+ the menu has
+            // room for the normal multi-col grid.
+            compact={Boolean(activeTicketId)}
             onItemAdded={() => {
               // urql's default cache does not refetch the parent Ticket
               // query when AddTicketItem returns a brand-new TicketItem
@@ -126,8 +135,8 @@ export function PosWorkspace({
           className={[
             'flex-col border-l border-outline-variant bg-surface-container-lowest shadow-2xl',
             // Width: 360px side rail at lg+. Below lg, flex-1 when a
-            // ticket is selected (replaces the menu grid); hidden when
-            // none selected (menu grid takes the whole pane).
+            // ticket is selected (the menu next door is narrowed to
+            // 260px), hidden when no ticket is selected.
             activeTicketId
               ? 'flex flex-1 lg:w-[360px] lg:flex-none'
               : 'hidden lg:flex lg:w-[360px]',
@@ -138,10 +147,6 @@ export function PosWorkspace({
               ticketId={activeTicketId}
               canManagerActions={canManagerActions}
               onTicketClosed={() => refetchOpenTickets({ requestPolicy: 'network-only' })}
-              // Below lg the panel is the whole right pane; the cashier
-              // needs a way to get back to the menu (which is hidden).
-              // Above lg the menu's right there, so no back button.
-              onClose={() => setActiveTicket(null)}
             />
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
